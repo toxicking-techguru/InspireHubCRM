@@ -26,7 +26,8 @@ import {
   FileText,
   Loader2,
   MoreVertical,
-  Paperclip
+  Paperclip,
+  Zap
 } from 'lucide-react';
 import { 
   Select, 
@@ -118,14 +119,15 @@ export default function LeadDetailPage() {
 
   const handleAddActivity = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!remark.trim() || !firestore || !id || !user) return;
+    if (!remark.trim() || !firestore || !id || !user || !lead) return;
     setSubmitting(true);
 
     try {
-      const activityData: Partial<LeadActivity> = {
+      const activityData: any = {
         leadId: id as string,
         agentId: user.id,
         agentName: user.name,
+        clientName: lead.clientName, // Store clientName for cross-reference in activities page
         type,
         scheduledAt,
         remark,
