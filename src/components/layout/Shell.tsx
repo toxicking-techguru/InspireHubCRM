@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -72,6 +73,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  // Role Guarding - ensure users stay in their lanes
+  useEffect(() => {
+    if (!initializing && user) {
+      if (pathname.startsWith('/admin') && !isAdmin) router.push('/dashboard');
+      if (pathname.startsWith('/manager') && !isManager) router.push('/dashboard');
+    }
+  }, [pathname, user, initializing, isAdmin, isManager, router]);
+
   // Role-based Navigation
   const agentNav = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
@@ -86,12 +95,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const managerNav = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/manager/dashboard', sub: 'Team overview' },
     { label: 'My team', icon: Users, href: '/manager/team', sub: 'Agent list & profiles' },
-    { label: 'All leads', icon: Users, href: '/leads', sub: 'Team leads with filters' },
+    { label: 'All leads', icon: Users, href: '/manager/leads', sub: 'Team leads with filters' },
     { label: 'Idle leads', icon: AlertTriangle, href: '/manager/idle', sub: 'Leads needing action' },
     { label: 'Reports', icon: BarChart3, href: '/manager/reports', sub: 'Conversion & revenue' },
     { label: 'Targets', icon: Target, href: '/targets', sub: 'Set & review targets' },
     { label: 'Upgrade queue', icon: ArrowUpCircle, href: '/manager/upgrade', sub: 'Tier upgrade candidates' },
-    { label: 'Notifications', icon: Bell, href: '/manager/notifications', sub: 'Team alerts' },
   ];
 
   const adminNav = [
@@ -106,7 +114,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     ? {
         active: "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-l-2 border-cyan-600",
         hover: "hover:bg-slate-50 dark:hover:bg-slate-800/50",
-        icon: isManager ? "text-cyan-600" : "text-indigo-600"
+        icon: "text-cyan-600"
       }
     : {
         active: "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-l-2 border-indigo-600",
@@ -118,7 +126,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 bg-primary rounded-xl mb-4 flex items-center justify-center text-white">
+          <div className={cn("w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white shadow-lg", isManager ? "bg-cyan-600" : "bg-primary")}>
              <Zap size={24} />
           </div>
           <p className="text-xs font-medium text-slate-400">Initializing NexusCRM...</p>
@@ -138,10 +146,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       )}>
         <div className="h-12 border-b flex items-center px-3 justify-between overflow-hidden bg-sidebar shrink-0">
           <div className="flex items-center gap-2">
-            <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0", isManager ? "bg-cyan-600" : "bg-primary")}>
+            <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0 shadow-sm", isManager ? "bg-cyan-600" : "bg-primary")}>
               <Zap size={14} className="text-white" />
             </div>
-            {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate">NexusCRM</span>}
+            {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate tracking-tight">NexusCRM</span>}
           </div>
           {!isCollapsed && (
             <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="h-7 w-7">
@@ -165,7 +173,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                           isActive ? themeClasses.active : cn("text-sidebar-foreground", themeClasses.hover)
                         )}
                       >
-                        <item.icon size={14} className={cn("shrink-0", isActive ? "" : "")} />
+                        <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
                         {!isCollapsed && (
                           <div className="flex flex-col min-w-0">
                             <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
