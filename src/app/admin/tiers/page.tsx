@@ -1,7 +1,6 @@
-
 "use client"
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore } from '@/firebase';
@@ -13,13 +12,21 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings, Shield, Edit2, Save, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function AdminTiersPage() {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role !== 'Admin') {
+      router.push('/dashboard');
+    }
+  }, [user, isAuthenticated, router]);
 
   const tiersQuery = useMemo(() => firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null, [firestore]);
   const { data: tiers, loading } = useCollection<Tier>(tiersQuery as any);
@@ -50,7 +57,7 @@ export default function AdminTiersPage() {
     }
   };
 
-  if (user?.role !== 'Admin') return <Shell>Access Denied</Shell>;
+  if (!user || user?.role !== 'Admin') return null;
 
   return (
     <Shell>

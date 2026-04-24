@@ -14,7 +14,6 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Menu,
   Plus,
   Zap,
   Clock
@@ -65,26 +64,44 @@ export function Shell({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  // Define Navigation based on Role
   const navItems = [
-    { label: 'Dashboard', desc: 'Overview & today tasks', icon: LayoutDashboard, href: '/dashboard', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Dashboard', desc: 'Overview & tasks', icon: LayoutDashboard, href: '/dashboard', roles: ['Agent', 'Manager', 'Admin'] },
     { label: 'My leads', desc: 'Full lead list', icon: Users, href: '/leads', roles: ['Agent', 'Manager', 'Admin'] },
     { label: 'Add lead', desc: 'New lead form', icon: Plus, href: '/leads/new', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Activities', desc: 'All my activities', icon: Clock, href: '/activities', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Products', desc: 'Assigned products & resources', icon: Package, href: '/products', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Wallet', desc: 'Earnings & withdrawals', icon: Wallet, href: '/wallet', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Targets', desc: 'Monthly targets & history', icon: Target, href: '/targets', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Activities', desc: 'My interactions', icon: Clock, href: '/activities', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Products', desc: 'Tier catalog', icon: Package, href: '/products', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Wallet', desc: 'My earnings', icon: Wallet, href: '/wallet', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Targets', desc: 'Performance', icon: Target, href: '/targets', roles: ['Agent', 'Manager', 'Admin'] },
   ].filter(item => user && item.roles.includes(user.role));
 
   const adminItems = [
+    { label: 'Team', icon: Users, href: '/admin/users', roles: ['Manager', 'Admin'] },
     { label: 'Admin Tiers', icon: Settings, href: '/admin/tiers', roles: ['Admin'] },
-    { label: 'Admin Users', icon: Zap, href: '/admin/users', roles: ['Admin', 'Manager'] },
   ].filter(item => user && item.roles.includes(user.role));
+
+  // Role Guard for specific paths
+  useEffect(() => {
+    if (!user || initializing) return;
+
+    const isAdminPath = pathname.startsWith('/admin');
+    if (isAdminPath) {
+      if (pathname.includes('/admin/tiers') && user.role !== 'Admin') {
+        router.push('/dashboard');
+      }
+      if (pathname.includes('/admin/users') && !['Admin', 'Manager'].includes(user.role)) {
+        router.push('/dashboard');
+      }
+    }
+  }, [pathname, user, initializing, router]);
 
   if (initializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 bg-primary rounded-xl mb-4"></div>
+          <div className="w-12 h-12 bg-primary rounded-xl mb-4 flex items-center justify-center text-white">
+             <Zap size={24} />
+          </div>
           <p className="text-xs font-medium text-slate-400">Initializing NexusCRM...</p>
         </div>
       </div>
@@ -107,7 +124,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <div className="w-6 h-6 bg-primary rounded flex items-center justify-center shrink-0">
               <Zap size={14} className="text-white" />
             </div>
-            {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate">NexusCRM</span>}
+            {!isCollapsed && <span className="text-[13px] font-bold text-sidebar-foreground truncate">NexusCRM</span>}
           </div>
           {!isCollapsed && (
             <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="h-7 w-7">
@@ -137,9 +154,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
                         {!isCollapsed && (
                           <div className="flex-1 flex items-center justify-between overflow-hidden">
                             <span className="text-[13px] font-medium truncate">{item.label}</span>
-                            <span className="text-[10px] text-muted-foreground truncate ml-2 hidden lg:block opacity-60 font-normal">
-                              {item.desc}
-                            </span>
                           </div>
                         )}
                       </Link>
@@ -152,8 +166,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
             {adminItems.length > 0 && (
               <>
-                <div className="mt-16 mb-1 px-3">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Administration</span>
+                <div className="mt-4 mb-1 px-3">
+                  {!isCollapsed && <span className="text-[10px] uppercase font-bold text-slate-400">Administration</span>}
                 </div>
                 <div className="space-y-0.5">
                   {adminItems.map((item) => {

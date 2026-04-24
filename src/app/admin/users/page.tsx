@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -22,13 +22,21 @@ import {
 import { TierBadge } from '@/components/ui/tier-badge';
 import { seedDatabase } from '@/lib/seed-db';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function AdminUsersPage() {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [seeding, setSeeding] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && !['Admin', 'Manager'].includes(user?.role || '')) {
+      router.push('/dashboard');
+    }
+  }, [user, isAuthenticated, router]);
 
   const agentsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'agents'), orderBy('name')) : null
@@ -53,6 +61,8 @@ export default function AdminUsersPage() {
       setSeeding(false);
     }
   };
+
+  if (!user || !['Admin', 'Manager'].includes(user.role)) return null;
 
   return (
     <Shell>
