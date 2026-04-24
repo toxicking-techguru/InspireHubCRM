@@ -1,22 +1,22 @@
 "use client"
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { Product, Tier } from '@/types/crm';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Button } from '@/components/ui/button';
-import { TierBadge } from '@/components/ui/tier-badge';
+import { Badge } from '@/components/ui/badge';
 import { 
   FileText, 
   Video, 
   HelpCircle, 
   Download,
-  ExternalLink,
   Lock,
-  Loader2
+  Loader2,
+  FileCode
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ProductsPage() {
@@ -35,7 +35,8 @@ export default function ProductsPage() {
   
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
 
-  const userTierRank = tiers?.find(t => t.id === user?.tierId)?.rankLevel || 1;
+  const userTier = tiers?.find(t => t.id === user?.tierId);
+  const userTierRank = userTier?.rankLevel || 0;
 
   if (productsLoading) {
     return (
@@ -50,97 +51,132 @@ export default function ProductsPage() {
 
   return (
     <Shell>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
-          <h1 className="text-xl font-bold">Product Catalog</h1>
-          <p className="text-sm text-muted-foreground">Access approved sales materials and technical documentation.</p>
+          <h1 className="text-lg font-bold">Product Catalog</h1>
+          <p className="text-[13px] text-muted-foreground">Approved sales materials and technical documentation based on your tier.</p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
           {products?.map((product) => {
             const productTier = tiers?.find(t => t.id === product.tierRequired);
-            const productTierRank = productTier?.rankLevel || 1;
+            const productTierRank = productTier?.rankLevel || 0;
             const isLocked = productTierRank > userTierRank;
+            
+            // Mocking commission based on tier if not product-specific
+            const commission = productTier?.commissionPct || 0;
 
             return (
-              <div key={product.id} className={`bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col ${isLocked ? 'opacity-75 grayscale' : ''}`}>
-                <div className="p-4 border-b bg-slate-50/50 dark:bg-slate-900/50">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-bold truncate">{product.name}</h3>
-                    <TierBadge tierId={product.tierRequired} />
+              <div 
+                key={product.id} 
+                className={cn(
+                  "bg-card border-[0.5px] rounded-lg shadow-sm flex flex-col relative group transition-all",
+                  isLocked && "opacity-75"
+                )}
+              >
+                {/* Locked Overlay */}
+                {isLocked && (
+                  <div className="absolute inset-0 z-10 bg-slate-100/40 dark:bg-slate-900/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-4 text-center rounded-lg">
+                    <div className="bg-white dark:bg-slate-800 p-2 rounded-full shadow-md mb-2">
+                      <Lock size={18} className="text-slate-400" />
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Locked Content</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Available at {productTier?.name || 'Higher'} Tier</p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 h-8">
+                )}
+
+                <div className="p-[14px] flex-1 flex flex-col">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <h3 className="text-[14px] font-medium leading-tight text-slate-900 dark:text-slate-100">{product.name}</h3>
+                    <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-[10px] px-1.5 h-4 border-none shrink-0 font-bold">
+                      {commission}% Commission
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-[12px] text-slate-500 line-clamp-2 min-h-[32px] mb-4">
                     {product.description}
                   </p>
-                </div>
 
-                <div className="flex-1 p-4">
-                  {isLocked ? (
-                    <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-                      <Lock size={24} className="text-slate-300 mb-2" />
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Locked</p>
-                      <p className="text-[10px] text-slate-400 mt-1">Upgrade to {productTier?.name || 'Higher Tier'} to access.</p>
-                    </div>
-                  ) : (
+                  <div className={cn("flex-1", isLocked && "pointer-events-none")}>
                     <Tabs defaultValue="script" className="w-full">
-                      <TabsList className="w-full grid grid-cols-4 h-8 bg-slate-100/50">
-                        <TabsTrigger value="script" className="text-[10px]">Script</TabsTrigger>
-                        <TabsTrigger value="docs" className="text-[10px]">Docs</TabsTrigger>
-                        <TabsTrigger value="video" className="text-[10px]">Video</TabsTrigger>
-                        <TabsTrigger value="faq" className="text-[10px]">FAQ</TabsTrigger>
+                      <TabsList className="w-full grid grid-cols-4 h-8 bg-slate-50 dark:bg-slate-900 border p-0.5 rounded-md">
+                        <TabsTrigger value="script" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600 data-[state=active]:shadow-none data-[state=active]:border-none">Script</TabsTrigger>
+                        <TabsTrigger value="docs" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600">Docs</TabsTrigger>
+                        <TabsTrigger value="video" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600">Videos</TabsTrigger>
+                        <TabsTrigger value="faq" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600">FAQs</TabsTrigger>
                       </TabsList>
                       
-                      <div className="mt-4 space-y-2">
-                        <TabsContent value="script" className="mt-0">
-                          <div className="p-2 rounded bg-slate-50 dark:bg-slate-900 border text-[10px] font-code leading-relaxed">
-                            <span className="text-primary font-bold">AGENT:</span> "Hi, I'm reaching out from Nexus regarding your scaling needs..."
-                          </div>
+                      <div className="mt-3">
+                        <TabsContent value="script" className="m-0">
+                          <ResourceList 
+                            items={[{ name: 'Sales_Pitch_V2.txt', type: 'txt' }]} 
+                            type="script"
+                          />
                         </TabsContent>
                         
-                        <TabsContent value="docs" className="mt-0 space-y-1">
-                          {[
-                            { name: 'Specifications.pdf', icon: FileText },
-                            { name: 'Pricing_Matrix.xlsx', icon: FileText }
-                          ].map((doc, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-2 rounded hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <doc.icon size={12} className="text-primary shrink-0" />
-                                <span className="text-[10px] truncate">{doc.name}</span>
-                              </div>
-                              <Download size={12} className="text-muted-foreground cursor-pointer hover:text-primary shrink-0" />
+                        <TabsContent value="docs" className="m-0">
+                          <ResourceList 
+                            items={[
+                              { name: 'Feature_Guide.pdf', type: 'pdf' },
+                              { name: 'Pricing_Matrix_Q2.xlsx', type: 'xlsx' }
+                            ]} 
+                            type="docs"
+                          />
+                        </TabsContent>
+
+                        <TabsContent value="video" className="m-0">
+                          <ResourceList 
+                            items={[{ name: 'Product_Demo_Full.mp4', type: 'mp4' }]} 
+                            type="video"
+                          />
+                        </TabsContent>
+
+                        <TabsContent value="faq" className="m-0">
+                          <div className="space-y-2 py-1">
+                            <div className="border-l-2 border-indigo-200 pl-2">
+                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Q: Deployment timeline?</p>
+                              <p className="text-[10px] text-slate-500">A: Standard setup takes 14 business days.</p>
                             </div>
-                          ))}
-                        </TabsContent>
-
-                        <TabsContent value="video" className="mt-0">
-                          <div className="aspect-video bg-slate-200 dark:bg-slate-800 rounded flex items-center justify-center">
-                            <Video size={20} className="text-slate-400" />
-                          </div>
-                        </TabsContent>
-
-                        <TabsContent value="faq" className="mt-0 space-y-2">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold">Q: How long is deployment?</p>
-                            <p className="text-[10px] text-muted-foreground">A: Typical enterprise setup is 2-4 weeks.</p>
+                            <div className="border-l-2 border-indigo-200 pl-2">
+                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Q: Support levels?</p>
+                              <p className="text-[10px] text-slate-500">A: 24/7 technical assistance included.</p>
+                            </div>
                           </div>
                         </TabsContent>
                       </div>
                     </Tabs>
-                  )}
-                </div>
-
-                {!isLocked && (
-                  <div className="p-3 border-t bg-slate-50/30">
-                    <Button variant="outline" size="sm" className="w-full h-8 text-[11px] gap-2">
-                      <ExternalLink size={12} /> External Sales Portal
-                    </Button>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
     </Shell>
+  );
+}
+
+function ResourceList({ items, type }: { items: { name: string, type: string }[], type: string }) {
+  if (items.length === 0) {
+    return <p className="text-[10px] text-slate-400 italic py-2">No {type} added yet</p>;
+  }
+
+  return (
+    <div className="space-y-0.5">
+      {items.map((item, idx) => (
+        <div key={idx} className="flex items-center justify-between h-8 px-2 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group/item">
+          <div className="flex items-center gap-2 overflow-hidden">
+            {type === 'script' ? <FileCode size={12} className="text-indigo-500 shrink-0" /> : <FileText size={12} className="text-indigo-500 shrink-0" />}
+            <span className="text-[11px] truncate text-slate-600 dark:text-slate-400 font-medium">{item.name}</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Badge variant="outline" className="text-[9px] px-1 h-3.5 font-bold uppercase text-slate-400 border-slate-200">
+              {item.type}
+            </Badge>
+            <Download size={12} className="text-slate-300 hover:text-indigo-600 cursor-pointer transition-colors" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
