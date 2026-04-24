@@ -38,6 +38,7 @@ export interface Wallet {
   withdrawn: number;
 }
 
+// Stages: New, Contacted, Qualified, Proposal, Negotiation, Won, Lost, Dormant
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'dormant';
 
 export interface Lead {
@@ -111,8 +112,12 @@ export interface Commission {
   id: string;
   agentId: string;
   leadId: string;
+  clientName?: string;
   amount: number;
+  dealAmount: number;
+  commissionPct: number;
   status: 'pending' | 'approved';
+  triggerType: string;
   createdAt: string;
 }
 

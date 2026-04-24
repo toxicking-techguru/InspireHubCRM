@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -18,12 +19,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Link from 'next/link';
 
 const CHANNEL_MAP: Record<string, string[]> = {
-  'LinkedIn': ['InMail', 'Connection Request', 'Group', 'Post'],
-  'Ads': ['Google Search', 'Meta', 'Display', 'YouTube'],
-  'Referral': ['Partner', 'Client', 'Internal'],
-  'Cold Outreach': ['Email', 'Call', 'WhatsApp'],
-  'Event': ['Conference', 'Webinar', 'Workshop'],
-  'Website': ['Contact Form', 'Chatbot', 'Newsletter'],
+  'Physical visit': ['Office Walk-in', 'Field Prospecting', 'Exhibition Stand'],
+  'Referral': ['Existing Client', 'Friend', 'Consultant', 'Partner', 'NGO'],
+  'Social media': ['LinkedIn', 'TikTok', 'Facebook', 'Instagram', 'X'],
+  'Email': ['Inbound Inquiry', 'Cold Outreach', 'Newsletter'],
+  'Website Inquiry': ['Contact Form', 'Chatbot', 'Download Resource'],
+  'Partnership': ['Agency', 'Distributor', 'Strategic Partner'],
+  'Events or Expos': ['Trade Show', 'Local Meetup', 'Industry Conference'],
+  'Webinars': ['Product Launch', 'Educational Session'],
+  'Workshops': ['Training Session', 'Demo Day'],
+  'Walk in': ['Direct Arrival', 'Branch Visit']
 };
 
 export default function NewLeadPage() {
@@ -34,7 +39,6 @@ export default function NewLeadPage() {
 
   const [loading, setLoading] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ id: string; name: string } | null>(null);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -56,13 +60,10 @@ export default function NewLeadPage() {
   , [firestore]);
   
   const { data: allProducts } = useCollection<Product>(productsQuery as any);
-  
-  // Filter products by tier if needed (simplified for MVP)
   const products = allProducts;
 
   const checkDuplicate = async (field: 'clientEmail' | 'clientPhone', value: string) => {
     if (!firestore || !value || !user) return;
-    
     try {
       const q = query(
         collection(firestore, 'leads'),
@@ -76,13 +77,7 @@ export default function NewLeadPage() {
       } else {
         setDuplicateWarning(null);
       }
-    } catch (e) {
-      console.error("Duplicate check error:", e);
-    }
-  };
-
-  const handleBlur = (field: 'clientEmail' | 'clientPhone') => {
-    checkDuplicate(field, formData[field]);
+    } catch (e) {}
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,6 +91,7 @@ export default function NewLeadPage() {
         clientName: `${formData.firstName} ${formData.lastName}`.trim(),
         clientEmail: formData.clientEmail,
         clientPhone: formData.clientPhone,
+        companyName: formData.companyName,
         businessCountry: formData.businessCountry,
         businessRegion: formData.businessRegion,
         estimatedBudget: parseFloat(formData.estimatedBudget) || 0,
@@ -113,25 +109,18 @@ export default function NewLeadPage() {
         await addDoc(collection(firestore, 'leads', docRef.id, 'activities'), {
           leadId: docRef.id,
           agentId: user.id,
-          type: 'note',
+          agentName: user.name,
+          type: 'Call made', // Default start activity
           remark: formData.initialNote,
           createdAt: new Date().toISOString(),
           outcomeStatus: 'recorded'
         });
       }
       
-      toast({
-        title: "Lead Created",
-        description: `${leadData.clientName} successfully registered.`,
-      });
-      
+      toast({ title: "Lead Created", description: `${leadData.clientName} successfully registered.` });
       router.push(`/leads/${docRef.id}`);
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Submission Failed",
-        description: error.message || "An unexpected error occurred.",
-      });
+      toast({ variant: "destructive", title: "Submission Failed", description: error.message });
     } finally {
       setLoading(false);
     }
@@ -140,249 +129,135 @@ export default function NewLeadPage() {
   const handleChange = (field: string, value: string) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
-      if (field === 'firstContactChannel') {
-        updated.firstContactSubchannel = '';
-      }
+      if (field === 'firstContactChannel') updated.firstContactSubchannel = '';
       return updated;
     });
   };
-
-  const sectionHeader = (title: string) => (
-    <div className="pt-2 pb-1 mb-4 border-b border-slate-100">
-      <h2 className="text-[15px] font-semibold text-slate-800">{title}</h2>
-    </div>
-  );
 
   return (
     <Shell>
       <div className="max-w-[680px] mx-auto space-y-4 py-2">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-muted-foreground">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
             <ChevronLeft size={18} />
           </Button>
-          <h1 className="text-xl font-bold text-slate-900">Add New Lead</h1>
+          <h1 className="text-xl font-bold">Add New Lead</h1>
         </div>
 
         {duplicateWarning && (
-          <div className="bg-amber-50 border border-amber-200 p-3 rounded-md flex items-start gap-3 text-amber-900 text-[13px] animate-in fade-in slide-in-from-top-1">
+          <div className="bg-amber-50 border border-amber-200 p-3 rounded-md flex items-start gap-3 text-amber-900 text-[13px]">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="font-bold">Potential Duplicate Found</p>
-              <p>A lead named <Link href={`/leads/${duplicateWarning.id}`} className="underline font-semibold">{duplicateWarning.name}</Link> already shares this contact info.</p>
+              <p>A lead named <Link href={`/leads/${duplicateWarning.id}`} className="underline font-semibold">{duplicateWarning.name}</Link> shares this contact info.</p>
             </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <Card className="border-slate-200 shadow-sm overflow-hidden">
+          <Card className="border-slate-200 shadow-sm">
             <CardContent className="p-5 space-y-6">
-              {/* Section 1: Client Bio */}
               <div className="space-y-4">
-                {sectionHeader("1. Client Information")}
+                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">1. Client Information</h2></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">First Name <span className="text-destructive">*</span></Label>
-                    <Input 
-                      required 
-                      className="h-9 text-[13px]" 
-                      placeholder="John" 
-                      value={formData.firstName}
-                      onChange={(e) => handleChange('firstName', e.target.value)}
-                    />
+                    <Label>First Name <span className="text-red-500">*</span></Label>
+                    <Input required placeholder="John" value={formData.firstName} onChange={(e) => handleChange('firstName', e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Last Name <span className="text-destructive">*</span></Label>
-                    <Input 
-                      required 
-                      className="h-9 text-[13px]" 
-                      placeholder="Doe" 
-                      value={formData.lastName}
-                      onChange={(e) => handleChange('lastName', e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Phone Number <span className="text-destructive">*</span></Label>
-                    <Input 
-                      required 
-                      className="h-9 text-[13px]" 
-                      placeholder="+1 234 567 890" 
-                      value={formData.clientPhone}
-                      onBlur={() => handleBlur('clientPhone')}
-                      onChange={(e) => handleChange('clientPhone', e.target.value)}
-                    />
+                    <Label>Last Name <span className="text-red-500">*</span></Label>
+                    <Input required placeholder="Doe" value={formData.lastName} onChange={(e) => handleChange('lastName', e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Email Address <span className="text-destructive">*</span></Label>
-                    <Input 
-                      type="email" 
-                      required 
-                      className="h-9 text-[13px]" 
-                      placeholder="john.doe@company.com" 
-                      value={formData.clientEmail}
-                      onBlur={() => handleBlur('clientEmail')}
-                      onChange={(e) => handleChange('clientEmail', e.target.value)}
-                    />
+                    <Label>Phone Number <span className="text-red-500">*</span></Label>
+                    <Input required onBlur={() => checkDuplicate('clientPhone', formData.clientPhone)} value={formData.clientPhone} onChange={(e) => handleChange('clientPhone', e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Email Address <span className="text-red-500">*</span></Label>
+                    <Input required type="email" onBlur={() => checkDuplicate('clientEmail', formData.clientEmail)} value={formData.clientEmail} onChange={(e) => handleChange('clientEmail', e.target.value)} />
                   </div>
                 </div>
               </div>
 
-              {/* Section 2: Business Data */}
               <div className="space-y-4">
-                {sectionHeader("2. Business Context")}
+                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">2. Business Context</h2></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label className="text-[13px] font-medium">Company Name <span className="text-destructive">*</span></Label>
-                    <Input 
-                      required 
-                      className="h-9 text-[13px]" 
-                      placeholder="e.g. Acme Corp" 
-                      value={formData.companyName}
-                      onChange={(e) => handleChange('companyName', e.target.value)}
-                    />
+                  <div className="space-y-1.5 col-span-2">
+                    <Label>Company Name <span className="text-red-500">*</span></Label>
+                    <Input required placeholder="Acme Corp" value={formData.companyName} onChange={(e) => handleChange('companyName', e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Country <span className="text-destructive">*</span></Label>
-                    <Input 
-                      required 
-                      className="h-9 text-[13px]" 
-                      placeholder="Search country..." 
-                      value={formData.businessCountry}
-                      onChange={(e) => handleChange('businessCountry', e.target.value)}
-                    />
+                    <Label>Country <span className="text-red-500">*</span></Label>
+                    <Input required placeholder="Search country..." value={formData.businessCountry} onChange={(e) => handleChange('businessCountry', e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Region / City</Label>
-                    <Input 
-                      className="h-9 text-[13px]" 
-                      placeholder="e.g. California" 
-                      value={formData.businessRegion}
-                      onChange={(e) => handleChange('businessRegion', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Estimated Budget <span className="text-destructive">*</span></Label>
+                    <Label>Estimated Budget <span className="text-red-500">*</span></Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[13px]">$</span>
-                      <Input 
-                        type="number" 
-                        required 
-                        className="h-9 pl-6 text-[13px]" 
-                        placeholder="0.00" 
-                        value={formData.estimatedBudget}
-                        onChange={(e) => handleChange('estimatedBudget', e.target.value)}
-                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                      <Input type="number" required className="pl-6" placeholder="0.00" value={formData.estimatedBudget} onChange={(e) => handleChange('estimatedBudget', e.target.value)} />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Section 3: Channel */}
               <div className="space-y-4">
-                {sectionHeader("3. Acquisition Channel")}
+                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">3. Acquisition Channel</h2></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Main Source <span className="text-destructive">*</span></Label>
+                    <Label>Main Source <span className="text-red-500">*</span></Label>
                     <Select required value={formData.firstContactChannel} onValueChange={(val) => handleChange('firstContactChannel', val)}>
-                      <SelectTrigger className="h-9 text-[13px]">
-                        <SelectValue placeholder="Select channel" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select channel" /></SelectTrigger>
                       <SelectContent>
-                        {Object.keys(CHANNEL_MAP).map(c => (
-                          <SelectItem key={c} value={c} className="text-[13px]">{c}</SelectItem>
-                        ))}
+                        {Object.keys(CHANNEL_MAP).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Sub-channel <span className="text-destructive">*</span></Label>
-                    <Select 
-                      required 
-                      disabled={!formData.firstContactChannel} 
-                      value={formData.firstContactSubchannel} 
-                      onValueChange={(val) => handleChange('firstContactSubchannel', val)}
-                    >
-                      <SelectTrigger className="h-9 text-[13px]">
-                        <SelectValue placeholder={formData.firstContactChannel ? "Select detail" : "Choose main channel first"} />
-                      </SelectTrigger>
+                    <Label>Sub-channel <span className="text-red-500">*</span></Label>
+                    <Select required disabled={!formData.firstContactChannel} value={formData.firstContactSubchannel} onValueChange={(val) => handleChange('firstContactSubchannel', val)}>
+                      <SelectTrigger><SelectValue placeholder={formData.firstContactChannel ? "Select detail" : "Choose main source first"} /></SelectTrigger>
                       <SelectContent>
-                        {formData.firstContactChannel && CHANNEL_MAP[formData.firstContactChannel].map(sc => (
-                          <SelectItem key={sc} value={sc} className="text-[13px]">{sc}</SelectItem>
-                        ))}
+                        {formData.firstContactChannel && CHANNEL_MAP[formData.firstContactChannel].map(sc => <SelectItem key={sc} value={sc}>{sc}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               </div>
 
-              {/* Section 4: Product & Assignment */}
               <div className="space-y-4">
-                {sectionHeader("4. Product & Assignment")}
+                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">4. Product & Assignment</h2></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium">Product of Interest <span className="text-destructive">*</span></Label>
+                    <Label>Product of Interest <span className="text-red-500">*</span></Label>
                     <Select required value={formData.productId} onValueChange={(val) => handleChange('productId', val)}>
-                      <SelectTrigger className="h-9 text-[13px]">
-                        <SelectValue placeholder="Select product" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                       <SelectContent>
-                        {products?.map(p => (
-                          <SelectItem key={p.id} value={p.id} className="text-[13px]">{p.name}</SelectItem>
-                        ))}
+                        {products?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium text-slate-400">Assigned Agent</Label>
-                    <div className="h-9 bg-slate-50 border rounded-md flex items-center px-3 text-[13px] text-slate-500 font-medium cursor-not-allowed">
+                    <Label className="text-slate-400">Assigned Agent</Label>
+                    <div className="h-10 bg-slate-50 border rounded-md flex items-center px-3 text-[13px] text-slate-500 font-medium">
                       {user.name} (You)
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Section 5: Notes */}
               <div className="space-y-4">
-                {sectionHeader("5. Initial Discovery Notes")}
+                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">5. Initial Notes</h2></div>
                 <div className="space-y-1.5 relative">
-                  <Label className="text-[13px] font-medium text-slate-700">Optional Notes</Label>
-                  <Textarea 
-                    placeholder="Briefly describe the client's current pain points or context..." 
-                    className="min-h-[100px] text-[13px] resize-none"
-                    maxLength={500}
-                    value={formData.initialNote}
-                    onChange={(e) => handleChange('initialNote', e.target.value)}
-                  />
-                  <div className="absolute bottom-2 right-2 text-[10px] font-bold text-slate-400">
-                    {formData.initialNote.length}/500
-                  </div>
+                  <Textarea placeholder="Client's pain points or context..." className="min-h-[100px]" maxLength={500} value={formData.initialNote} onChange={(e) => handleChange('initialNote', e.target.value)} />
+                  <div className="absolute bottom-2 right-2 text-[10px] font-bold text-slate-400">{formData.initialNote.length}/500</div>
                 </div>
               </div>
 
-              {/* Form Footer */}
-              <div className="flex items-center justify-end gap-6 pt-2 border-t mt-4">
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  className="text-[13px] font-medium text-slate-500 hover:text-slate-900"
-                  onClick={() => router.back()}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="h-9 px-8 text-[13px] font-bold shadow-sm" disabled={loading}>
-                  {loading ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Saving...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={14} />
-                      <span>Save Lead</span>
-                    </div>
-                  )}
+              <div className="flex items-center justify-end gap-6 pt-4 border-t">
+                <Button type="button" variant="ghost" onClick={() => router.back()} disabled={loading}>Cancel</Button>
+                <Button type="submit" className="h-10 px-8 font-bold" disabled={loading}>
+                  {loading ? <Loader2 size={16} className="animate-spin mr-2" /> : <CheckCircle2 size={16} className="mr-2" />}
+                  Save Lead
                 </Button>
               </div>
             </CardContent>

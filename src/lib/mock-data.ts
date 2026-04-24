@@ -1,3 +1,4 @@
+
 import { Tier, Agent, Product, Lead, LeadActivity, Wallet, Target } from '@/types/crm';
 
 export const TIERS: Tier[] = [
@@ -23,22 +24,16 @@ export const AGENTS: Agent[] = [
 ];
 
 export const LEADS: Lead[] = [
-  { id: 'l1', agent_id: 'a1', client_name: 'TechFlow Inc.', client_email: 'contact@techflow.io', client_phone: '555-0101', business_country: 'USA', business_region: 'West', estimated_budget: 12000, product_id: 'p2', status: 'qualified', first_contact_channel: 'Linkedln', first_contact_subchannel: 'InMail', created_at: '2024-03-01T10:00:00Z', last_activity_at: '2024-03-05T14:30:00Z' },
-  { id: 'l2', agent_id: 'a1', client_name: 'Green Energy Ltd', client_email: 'info@greenenergy.com', client_phone: '555-0202', business_country: 'Germany', business_region: 'EU', estimated_budget: 25000, product_id: 'p1', status: 'proposal', first_contact_channel: 'Cold Email', first_contact_subchannel: 'General', created_at: '2024-02-15T09:00:00Z', last_activity_at: '2024-03-04T11:20:00Z' },
+  { id: 'l1', agent_id: 'a1', client_name: 'TechFlow Inc.', client_email: 'contact@techflow.io', client_phone: '555-0101', business_country: 'USA', business_region: 'West', estimated_budget: 12000, product_id: 'p2', status: 'qualified', first_contact_channel: 'LinkedIn', first_contact_subchannel: 'InMail', created_at: '2024-03-01T10:00:00Z', last_activity_at: '2024-03-05T14:30:00Z' },
+  { id: 'l2', agent_id: 'a1', client_name: 'Green Energy Ltd', client_email: 'info@greenenergy.com', client_phone: '555-0202', business_country: 'Germany', business_region: 'EU', estimated_budget: 25000, product_id: 'p1', status: 'proposal', first_contact_channel: 'Social media', first_contact_subchannel: 'Facebook', created_at: '2024-02-15T09:00:00Z', last_activity_at: '2024-03-04T11:20:00Z' },
   { id: 'l3', agent_id: 'a2', client_name: 'Global Logistics', client_email: 'ops@globallog.net', client_phone: '555-0303', business_country: 'Singapore', business_region: 'APAC', estimated_budget: 45000, product_id: 'p4', status: 'won', first_contact_channel: 'Referral', first_contact_subchannel: 'Partner', created_at: '2024-01-10T08:30:00Z', last_activity_at: '2024-02-28T16:45:00Z', won_at: '2024-02-28T16:45:00Z' },
-  { id: 'l4', agent_id: 'a1', client_name: 'StartupX', client_email: 'ceo@startupx.co', client_phone: '555-0404', business_country: 'UK', business_region: 'EMEA', estimated_budget: 5000, product_id: 'p3', status: 'new', first_contact_channel: 'Ads', first_contact_subchannel: 'Google Search', created_at: '2024-03-06T15:00:00Z', last_activity_at: '2024-03-06T15:00:00Z' },
+  { id: 'l4', agent_id: 'a1', client_name: 'StartupX', client_email: 'ceo@startupx.co', client_phone: '555-0404', business_country: 'UK', business_region: 'EMEA', estimated_budget: 5000, product_id: 'p3', status: 'new', first_contact_channel: 'Website Inquiry', first_contact_subchannel: 'Contact Form', created_at: '2024-03-06T15:00:00Z', last_activity_at: '2024-03-06T15:00:00Z' },
 ];
 
 export const ACTIVITIES: LeadActivity[] = [
-  { id: 'ac1', lead_id: 'l1', agent_id: 'a1', activity_type: 'call', scheduled_at: '2024-03-02T10:00:00Z', next_action_type: 'meeting', next_action_date: '2024-03-05T14:00:00Z', remark: 'Initial discovery call. Client interested in ERP module.', outcome_status: 'positive', created_at: '2024-03-02T10:30:00Z' },
-  { id: 'ac2', lead_id: 'l1', agent_id: 'a1', activity_type: 'meeting', scheduled_at: '2024-03-05T14:00:00Z', next_action_type: 'proposal', next_action_date: '2024-03-10T09:00:00Z', remark: 'On-site demo. Budget confirmed. Moving to proposal stage.', outcome_status: 'success', created_at: '2024-03-05T15:15:00Z' },
+  { id: 'ac1', lead_id: 'l1', agent_id: 'a1', type: 'Call made', scheduled_at: '2024-03-02T10:00:00Z', nextActionType: 'Intro meeting', nextActionDate: '2024-03-05', remark: 'Initial discovery call. Client interested in ERP module.', outcomeStatus: 'positive', createdAt: '2024-03-02T10:30:00Z' },
 ];
 
 export const WALLETS: Wallet[] = [
-  { id: 'w1', agent_id: 'a1', total_earned: 4500, pending: 1200, withdrawable: 3000, withdrawn: 300, balance: 3000 },
-  { id: 'w2', agent_id: 'a2', total_earned: 12500, pending: 2500, withdrawable: 8000, withdrawn: 2000, balance: 8000 },
-];
-
-export const TARGETS: Target[] = [
-  { id: 'tg1', agent_id: 'a1', month: '2024-03', leads_target: 15, qualified_target: 8, closed_target: 3, revenue_target: 20000, activity_score_target: 85 },
+  { id: 'w1', agent_id: 'a1', total_earned: 4500, pending: 1200, withdrawable: 3000, withdrawn: 300 },
 ];
