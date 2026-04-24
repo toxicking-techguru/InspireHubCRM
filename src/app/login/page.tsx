@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -7,8 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Loader2 } from 'lucide-react';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc 
+} from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
@@ -25,36 +35,96 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const performLogin = async (emailInput: string, passwordInput: string) => {
+    const auth = getAuth();
+    const db = getFirestore();
 
     try {
-      const auth = getAuth();
-      const db = getFirestore();
-      
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // 1. Try to sign in
+      const userCredential = await signInWithEmailAndPassword(auth, emailInput, passwordInput);
       const userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
 
       if (userDoc.exists()) {
         const agentData = { id: userDoc.id, ...userDoc.data() } as any;
         setAuth(agentData);
-        router.push('/dashboard');
+        return true;
       } else {
-        toast({
-          variant: "destructive",
-          title: "Access Denied",
-          description: "Your account record was not found in the database."
-        });
+        // Auth exists but Firestore record doesn't (could happen if deleted from DB)
+        // We'll treat this as a failure so handleDevLogin can fix it if needed
+        return false;
       }
     } catch (error: any) {
+      return false;
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const success = await performLogin(email, password);
+    if (!success) {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error.message || "Invalid credentials."
+        description: "Invalid credentials or account record missing."
       });
-    } finally {
       setLoading(false);
+    } else {
+      router.push('/dashboard');
+    }
+  };
+
+  const handleDevLogin = async (role: 'Agent' | 'Manager' | 'Admin') => {
+    setLoading(true);
+    const db = getFirestore();
+    const auth = getAuth();
+    
+    const devEmail = role === 'Agent' ? 'agent@nexus.com' : role === 'Manager' ? 'manager@nexus.com' : 'admin@nexus.com';
+    const devPassword = 'password';
+
+    // Try standard login first
+    const loggedIn = await performLogin(devEmail, devPassword);
+    
+    if (!loggedIn) {
+      // If fails, try to register the dev account
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
+        const userData = {
+          name: `Dev ${role}`,
+          email: devEmail,
+          phone: '+1 000 000 0000',
+          region: 'Global',
+          status: 'active',
+          role: role,
+          tierId: role === 'Agent' ? 't1' : 't4',
+          managerId: null,
+          joinDate: new Date().toISOString()
+        };
+
+        await setDoc(doc(db, 'agents', cred.user.uid), userData);
+        
+        // Create initial wallet
+        await setDoc(doc(db, 'wallets', cred.user.uid), {
+          agentId: cred.user.uid,
+          totalEarned: 0,
+          pending: 0,
+          withdrawable: 0,
+          withdrawn: 0
+        });
+
+        setAuth({ id: cred.user.uid, ...userData } as any);
+        toast({ title: "Account Created", description: `Developer ${role} account initialized.` });
+        router.push('/dashboard');
+      } catch (err: any) {
+        toast({
+          variant: "destructive",
+          title: "Setup Failed",
+          description: err.message
+        });
+        setLoading(false);
+      }
+    } else {
+      router.push('/dashboard');
     }
   };
 
@@ -107,20 +177,23 @@ export default function LoginPage() {
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">Development Access</p>
             <div className="flex flex-wrap justify-center gap-2">
               <button 
-                onClick={() => { setEmail('agent@nexus.com'); setPassword('password'); }}
-                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100"
+                onClick={() => handleDevLogin('Agent')}
+                disabled={loading}
+                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50"
               >
                 Agent
               </button>
               <button 
-                onClick={() => { setEmail('manager@nexus.com'); setPassword('password'); }}
-                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100"
+                onClick={() => handleDevLogin('Manager')}
+                disabled={loading}
+                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50"
               >
                 Manager
               </button>
               <button 
-                onClick={() => { setEmail('admin@nexus.com'); setPassword('password'); }}
-                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100"
+                onClick={() => handleDevLogin('Admin')}
+                disabled={loading}
+                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50"
               >
                 Admin
               </button>
