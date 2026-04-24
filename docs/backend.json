@@ -77,6 +77,29 @@
         "withdrawable": { "type": "number" },
         "withdrawn": { "type": "number" }
       }
+    },
+    "Commission": {
+      "title": "Commission",
+      "description": "Earnings from specific leads",
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "leadId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "Payout requests",
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "paid"] },
+        "requestedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -102,6 +125,14 @@
     "/wallets/{agentId}": {
       "schema": { "$ref": "#/backend/entities/Wallet" },
       "description": "Agent earnings and financial state"
+    },
+    "/commissions/{commissionId}": {
+      "schema": { "$ref": "#/backend/entities/Commission" },
+      "description": "Earnings log"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": { "$ref": "#/backend/entities/Withdrawal" },
+      "description": "Withdrawal requests history"
     }
   }
 }

@@ -1,3 +1,4 @@
+
 export type Role = 'Admin' | 'Manager' | 'Agent';
 
 export type UserStatus = 'active' | 'inactive' | 'suspended';
@@ -86,4 +87,21 @@ export interface Target {
   closedTarget: number;
   revenueTarget: number;
   activityScoreTarget: number;
+}
+
+export interface Commission {
+  id: string;
+  agentId: string;
+  leadId: string;
+  amount: number;
+  status: 'pending' | 'approved';
+  createdAt: string;
+}
+
+export interface Withdrawal {
+  id: string;
+  agentId: string;
+  amount: number;
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  requestedAt: string;
 }

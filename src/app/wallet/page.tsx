@@ -1,14 +1,15 @@
+
 "use client"
 
 import React, { useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useDoc, useFirestore } from '@/firebase';
-import { Wallet } from '@/types/crm';
+import { useDoc, useFirestore, useCollection } from '@/firebase';
+import { Wallet, Commission, Withdrawal } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { 
   CreditCard, 
   ArrowUpRight, 
@@ -19,6 +20,7 @@ import {
   CheckCircle2,
   Loader2
 } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function WalletPage() {
   const { user } = useAuthStore();
@@ -29,9 +31,31 @@ export default function WalletPage() {
     return doc(firestore, 'wallets', user.id);
   }, [firestore, user]);
 
-  const { data: wallet, loading } = useDoc<Wallet>(walletRef as any);
+  const { data: wallet, loading: walletLoading } = useDoc<Wallet>(walletRef as any);
 
-  if (loading) {
+  const commissionsQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, 'commissions'), 
+      where('agentId', '==', user.id), 
+      orderBy('createdAt', 'desc'),
+      limit(10)
+    );
+  }, [firestore, user]);
+  const { data: commissions } = useCollection<Commission>(commissionsQuery as any);
+
+  const withdrawalsQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, 'withdrawals'), 
+      where('agentId', '==', user.id), 
+      orderBy('requestedAt', 'desc'),
+      limit(10)
+    );
+  }, [firestore, user]);
+  const { data: withdrawals } = useCollection<Withdrawal>(withdrawalsQuery as any);
+
+  if (walletLoading) {
     return (
       <Shell>
         <div className="py-20 flex flex-col items-center">
@@ -108,7 +132,7 @@ export default function WalletPage() {
             { label: 'Lifetime Earned', value: `$${w.totalEarned.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500' },
             { label: 'Total Withdrawn', value: `$${w.withdrawn.toLocaleString()}`, icon: ArrowDownLeft, color: 'text-slate-500' },
             { label: 'Commission Rate', value: '12%', icon: TrendingUp, color: 'text-indigo-500' },
-            { label: 'Approved Today', value: '$0.00', icon: CheckCircle2, color: 'text-blue-500' },
+            { label: 'Pending Payout', value: `$${w.pending.toLocaleString()}`, icon: Clock, color: 'text-blue-500' },
           ].map((item, i) => (
             <div key={i} className="bg-card border rounded-lg p-3 shadow-sm flex items-center gap-3">
               <div className={`p-2 rounded bg-slate-50 dark:bg-slate-900 ${item.color}`}>
@@ -126,11 +150,34 @@ export default function WalletPage() {
           <div className="bg-card border rounded-lg shadow-sm">
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <TrendingUp size={16} className="text-emerald-500" /> Recent Activity
+                <TrendingUp size={16} className="text-emerald-500" /> Recent Commissions
               </h3>
             </div>
-            <div className="p-12 text-center text-muted-foreground italic text-xs">
-              No recent commissions recorded in this period.
+            <div className="overflow-x-auto">
+              {commissions && commissions.length > 0 ? (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Date</th>
+                      <th className="px-4 py-2 text-left">Amount</th>
+                      <th className="px-4 py-2 text-left">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {commissions.map(c => (
+                      <tr key={c.id}>
+                        <td className="px-4 py-2">{format(new Date(c.createdAt), 'MMM d, yyyy')}</td>
+                        <td className="px-4 py-2 font-bold">${c.amount.toLocaleString()}</td>
+                        <td className="px-4 py-2 capitalize">{c.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-12 text-center text-muted-foreground italic text-xs">
+                  No recent commissions recorded.
+                </div>
+              )}
             </div>
           </div>
 
@@ -140,8 +187,39 @@ export default function WalletPage() {
                 <History size={16} className="text-indigo-500" /> Withdrawal History
               </h3>
             </div>
-            <div className="p-12 text-center text-muted-foreground italic text-xs">
-              No withdrawal history found.
+            <div className="overflow-x-auto">
+              {withdrawals && withdrawals.length > 0 ? (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Date</th>
+                      <th className="px-4 py-2 text-left">Amount</th>
+                      <th className="px-4 py-2 text-left">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {withdrawals.map(w => (
+                      <tr key={w.id}>
+                        <td className="px-4 py-2">{format(new Date(w.requestedAt), 'MMM d, yyyy')}</td>
+                        <td className="px-4 py-2 font-bold">${w.amount.toLocaleString()}</td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            w.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 
+                            w.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {w.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-12 text-center text-muted-foreground italic text-xs">
+                  No withdrawal history found.
+                </div>
+              )}
             </div>
           </div>
         </div>
