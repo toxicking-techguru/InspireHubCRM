@@ -10,7 +10,10 @@ const tierConfig: Record<string, { label: string; className: string }> = {
 export function TierBadge({ tierId }: { tierId: string }) {
   const config = tierConfig[tierId] || { label: 'Standard', className: 'bg-slate-50' };
   return (
-    <span className={cn("inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-bold uppercase", config.className)}>
+    <span className={cn(
+      "inline-flex items-center px-1.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider", 
+      config.className
+    )}>
       {config.label}
     </span>
   );

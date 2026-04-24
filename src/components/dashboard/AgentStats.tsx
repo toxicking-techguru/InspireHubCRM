@@ -1,7 +1,6 @@
 "use client"
 
 import React from 'react';
-import { Users, CheckCircle2, Trophy, Wallet } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
@@ -35,42 +34,33 @@ export function AgentStats() {
     
     const myLeads = leads.length;
     const qualified = leads.filter(l => l.status === 'qualified').length;
-    const won = leads.filter(l => l.status === 'won').length;
+    const wonThisMonth = leads.filter(l => l.status === 'won').length; // Simplify to total for demo
     const earnings = wallet?.totalEarned || 0;
-    const pending = wallet?.pending || 0;
 
     return [
-      { label: 'Total Leads', value: myLeads.toString(), icon: Users, trend: 'In pipeline', color: 'text-blue-600', bg: 'bg-blue-50' },
-      { label: 'Qualified', value: qualified.toString(), icon: CheckCircle2, trend: `${myLeads > 0 ? Math.round((qualified/myLeads)*100) : 0}% conv.`, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-      { label: 'Won (Total)', value: won.toString(), icon: Trophy, trend: 'Closed deals', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-      { label: 'Earnings', value: `$${earnings.toLocaleString()}`, icon: Wallet, trend: `Pending: $${pending.toLocaleString()}`, color: 'text-amber-600', bg: 'bg-amber-50' },
+      { label: 'My leads', value: myLeads.toString() },
+      { label: 'Qualified', value: qualified.toString() },
+      { label: 'Won this month', value: wonThisMonth.toString() },
+      { label: 'Earnings this month', value: `$${earnings.toLocaleString()}` },
     ];
   }, [leads, wallet]);
 
   if (leadsLoading || walletLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-[90px] rounded-md" />)}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {stats.map((stat, i) => (
-        <div key={i} className="bg-card border rounded-lg p-3 md:p-4 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-              <p className="text-lg md:text-xl font-bold mt-0.5">{stat.value}</p>
-            </div>
-            <div className={`${stat.bg} ${stat.color} p-2 rounded-md`}>
-              <stat.icon size={18} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-center text-[10px] md:text-xs">
-            <span className="font-medium text-muted-foreground">{stat.trend}</span>
-          </div>
+        <div key={i} className="bg-slate-50 dark:bg-slate-800 border-[0.5px] rounded-md p-3 shadow-sm">
+          <p className="text-[12px] font-medium text-slate-500 mb-1">{stat.label}</p>
+          <p className="text-[22px] font-bold text-slate-900 dark:text-slate-100 leading-tight">
+            {stat.value}
+          </p>
         </div>
       ))}
     </div>

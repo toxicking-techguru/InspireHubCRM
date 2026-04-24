@@ -49,15 +49,14 @@ export function EarningsChart() {
     return months;
   }, [commissions]);
 
-  if (loading) return <Skeleton className="h-[250px] w-full rounded-lg" />;
+  if (loading) return <Skeleton className="h-full w-full rounded-md" />;
 
   return (
-    <div className="bg-card border rounded-lg p-4 shadow-sm h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold">Earnings Overview</h3>
-        <span className="text-xs text-muted-foreground">Last 6 Months</span>
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Earnings Overview</h3>
       </div>
-      <div className="flex-1 min-h-[200px]">
+      <div className="flex-1 min-h-[160px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -77,9 +76,9 @@ export function EarningsChart() {
             />
             <Tooltip 
               cursor={{ fill: '#f8fafc' }}
-              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+              contentStyle={{ borderRadius: '6px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
             />
-            <Bar dataKey="earnings" fill="#4F46E5" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="earnings" fill="#4F46E5" radius={[2, 2, 0, 0]} barSize={24} />
           </BarChart>
         </ResponsiveContainer>
       </div>

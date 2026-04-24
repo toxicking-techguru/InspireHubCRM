@@ -13,9 +13,12 @@ const statusConfig: Record<LeadStatus, { label: string; className: string }> = {
 };
 
 export function StatusBadge({ status }: { status: LeadStatus }) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || statusConfig.new;
   return (
-    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-tight", config.className)}>
+    <span className={cn(
+      "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tight shrink-0", 
+      config.className
+    )}>
       {config.label}
     </span>
   );
