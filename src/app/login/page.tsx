@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword 
@@ -15,13 +15,18 @@ import {
 import { 
   doc, 
   getDoc, 
-  setDoc 
+  setDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc
 } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('agent@nexus.com');
+  const [email, setEmail] = useState('admin@nexus.com');
   const [password, setPassword] = useState('password');
   const [loading, setLoading] = useState(false);
   const { setAuth: setGlobalAuth, isAuthenticated } = useAuthStore();
@@ -36,38 +41,85 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  const performLogin = async (emailInput: string, passwordInput: string) => {
-    if (!auth || !db) return false;
+  // Helper to ensure Firestore profile exists and matches Auth UID
+  const syncUserSession = async (uid: string, userEmail: string) => {
+    if (!db) return null;
 
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, emailInput, passwordInput);
-      const userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
-
-      if (userDoc.exists()) {
-        const agentData = { id: userDoc.id, ...userDoc.data() } as any;
-        setGlobalAuth(agentData);
-        return true;
+    // 1. Try direct UID lookup
+    let userDoc = await getDoc(doc(db, 'agents', uid));
+    
+    if (!userDoc.exists()) {
+      // 2. If UID lookup fails, check if a seeded record exists with this email but wrong ID
+      const q = query(collection(db, 'agents'), where('email', '==', userEmail));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        const seededData = snap.docs[0].data();
+        const oldId = snap.docs[0].id;
+        
+        // Migrate seeded data to correct UID
+        await setDoc(doc(db, 'agents', uid), seededData);
+        if (oldId !== uid) {
+          await deleteDoc(doc(db, 'agents', oldId));
+        }
+        userDoc = await getDoc(doc(db, 'agents', uid));
+      } else {
+        // 3. If no record at all, create a default Agent profile
+        const isDefaultAdmin = userEmail === 'admin@nexus.com';
+        const isDefaultManager = userEmail === 'manager@nexus.com';
+        
+        const userData = {
+          name: userEmail.split('@')[0],
+          email: userEmail,
+          phone: '+1 000 000 0000',
+          region: 'Global',
+          status: 'active',
+          role: isDefaultAdmin ? 'Admin' : (isDefaultManager ? 'Manager' : 'Agent'),
+          tierId: isDefaultAdmin ? 't4' : 't1',
+          managerId: null,
+          joinDate: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'agents', uid), userData);
+        
+        // Initialize wallet
+        await setDoc(doc(db, 'wallets', uid), {
+          agentId: uid,
+          totalEarned: 0,
+          pending: 0,
+          withdrawable: 0,
+          withdrawn: 0
+        });
+        
+        userDoc = await getDoc(doc(db, 'agents', uid));
       }
-      return false;
-    } catch (error: any) {
-      console.error("Login attempt failed:", error.code);
-      return false;
     }
+
+    return { id: userDoc.id, ...userDoc.data() } as any;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth || !db) return;
     setLoading(true);
-    const success = await performLogin(email, password);
-    if (!success) {
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const agentData = await syncUserSession(userCredential.user.uid, email);
+      
+      if (agentData) {
+        setGlobalAuth(agentData);
+        toast({ title: "Login Successful", description: `Welcome back, ${agentData.name}` });
+        router.push('/dashboard');
+      } else {
+        throw new Error("Failed to sync account data.");
+      }
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Login Failed",
         description: "Invalid credentials or account record missing."
       });
       setLoading(false);
-    } else {
-      router.push('/dashboard');
     }
   };
 
@@ -80,54 +132,21 @@ export default function LoginPage() {
 
     try {
       let uid = '';
-      let userData: any = null;
-
       try {
-        // 1. Try to sign in
         const cred = await signInWithEmailAndPassword(auth, devEmail, devPassword);
         uid = cred.user.uid;
       } catch (err: any) {
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-          // 2. If not found, create user
-          const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
-          uid = cred.user.uid;
-        } else {
-          throw err;
-        }
+        // If sign in fails, try to create
+        const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
+        uid = cred.user.uid;
       }
 
-      // 3. Check/Create Firestore Profile
-      const userDoc = await getDoc(doc(db, 'agents', uid));
-      if (!userDoc.exists()) {
-        userData = {
-          name: `Dev ${role}`,
-          email: devEmail,
-          phone: '+1 000 000 0000',
-          region: 'Global',
-          status: 'active',
-          role: role,
-          tierId: role === 'Agent' ? 't1' : 't4',
-          managerId: null,
-          joinDate: new Date().toISOString()
-        };
-        await setDoc(doc(db, 'agents', uid), userData);
-        
-        // Create initial wallet
-        await setDoc(doc(db, 'wallets', uid), {
-          agentId: uid,
-          totalEarned: 0,
-          pending: 0,
-          withdrawable: 0,
-          withdrawn: 0
-        });
-      } else {
-        userData = userDoc.data();
+      const agentData = await syncUserSession(uid, devEmail);
+      if (agentData) {
+        setGlobalAuth(agentData);
+        toast({ title: "Welcome", description: `Signed in as ${role}.` });
+        router.push('/dashboard');
       }
-
-      setGlobalAuth({ id: uid, ...userData });
-      toast({ title: "Welcome back", description: `Signed in as ${role}.` });
-      router.push('/dashboard');
-
     } catch (err: any) {
       toast({
         variant: "destructive",
@@ -156,7 +175,7 @@ export default function LoginPage() {
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="agent@nexus.com" 
+                placeholder="admin@nexus.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -184,29 +203,33 @@ export default function LoginPage() {
           </form>
           
           <div className="bg-slate-50 dark:bg-slate-900 border-t p-4 text-center">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">One-Click Dev Login</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">Development Access</p>
             <div className="flex flex-wrap justify-center gap-2">
               <button 
                 onClick={() => handleDevLogin('Agent')}
                 disabled={loading}
-                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium"
+                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium border-slate-200"
               >
                 Agent
               </button>
               <button 
                 onClick={() => handleDevLogin('Manager')}
                 disabled={loading}
-                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium"
+                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium border-slate-200"
               >
                 Manager
               </button>
               <button 
                 onClick={() => handleDevLogin('Admin')}
                 disabled={loading}
-                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium"
+                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium border-slate-200"
               >
                 Admin
               </button>
+            </div>
+            <div className="mt-3 flex items-center justify-center gap-1 text-[9px] text-muted-foreground">
+              <AlertCircle size={10} />
+              <span>Auto-registers missing profiles after seed.</span>
             </div>
           </div>
         </div>
