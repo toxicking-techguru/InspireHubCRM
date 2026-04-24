@@ -5,13 +5,13 @@ export type UserStatus = 'active' | 'inactive' | 'suspended';
 export interface Tier {
   id: string;
   name: string;
-  rank_level: number;
-  commission_pct: number;
-  product_limit: number;
-  upgrade_criteria: {
-    leads_target: number;
-    closed_target: number;
-    revenue_target: number;
+  rankLevel: number;
+  commissionPct: number;
+  productLimit: number;
+  upgradeCriteria: {
+    leadsTarget: number;
+    closedTarget: number;
+    revenueTarget: number;
   };
 }
 
@@ -22,103 +22,68 @@ export interface Agent {
   email: string;
   region: string;
   status: UserStatus;
-  join_date: string;
-  manager_id: string | null;
-  tier_id: string;
+  joinDate: string;
+  managerId: string | null;
+  tierId: string;
   role: Role;
 }
 
 export interface Wallet {
   id: string;
-  agent_id: string;
-  total_earned: number;
+  agentId: string;
+  totalEarned: number;
   pending: number;
   withdrawable: number;
   withdrawn: number;
-  balance: number;
 }
 
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'dormant';
 
 export interface Lead {
   id: string;
-  agent_id: string;
-  client_name: string;
-  client_phone: string;
-  client_email: string;
-  business_country: string;
-  business_region: string;
-  estimated_budget: number;
-  product_id: string;
+  agentId: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail: string;
+  businessCountry: string;
+  businessRegion: string;
+  estimatedBudget: number;
+  productId: string;
   status: LeadStatus;
-  first_contact_channel: string;
-  first_contact_subchannel: string;
-  created_at: string;
-  last_activity_at: string;
-  won_at?: string;
+  firstContactChannel: string;
+  firstContactSubchannel: string;
+  createdAt: string;
+  lastActivityAt: string;
 }
 
 export interface Product {
   id: string;
   name: string;
   description: string;
-  commission_structure: any;
-  tier_required: string;
+  commissionStructure: any;
+  tierRequired: string;
 }
 
 export interface LeadActivity {
   id: string;
-  lead_id: string;
-  agent_id: string;
-  activity_type: 'call' | 'email' | 'meeting' | 'note' | 'proposal' | 'whatsapp';
-  scheduled_at: string;
-  next_action_type: string;
-  next_action_date: string;
+  leadId: string;
+  agentId: string;
+  type: 'call' | 'email' | 'meeting' | 'note' | 'proposal' | 'whatsapp';
+  scheduledAt: string;
+  nextActionType: string;
+  nextActionDate: string;
   remark: string;
-  file_url?: string;
-  outcome_status: string;
-  created_at: string;
+  outcomeStatus: string;
+  createdAt: string;
 }
 
 export interface Target {
   id: string;
-  agent_id: string;
+  agentId: string;
   month: string;
-  leads_target: number;
-  qualified_target: number;
-  closed_target: number;
-  revenue_target: number;
-  activity_score_target: number;
-}
-
-export interface TargetProgress {
-  id: string;
-  target_id: string;
-  leads_created: number;
-  qualified_count: number;
-  closed_count: number;
-  revenue: number;
-  activity_score: number;
-  evaluated_at: string;
-}
-
-export interface Commission {
-  id: string;
-  agent_id: string;
-  lead_id: string;
-  amount: number;
-  tier_pct: number;
-  trigger_type: string;
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-}
-
-export interface Withdrawal {
-  id: string;
-  agent_id: string;
-  amount: number;
-  status: 'pending' | 'approved' | 'rejected' | 'paid';
-  requested_at: string;
-  processed_at?: string;
-  processed_by?: string;
+  leadsTarget: number;
+  qualifiedTarget: number;
+  closedTarget: number;
+  revenueTarget: number;
+  activityScoreTarget: number;
 }

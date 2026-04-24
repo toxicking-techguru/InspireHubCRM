@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Users, 
@@ -21,22 +21,66 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuthStore();
+  const { user, setAuth, logout } = useAuthStore();
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        if (!user) {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, 'agents', fbUser.uid));
+          if (userDoc.exists()) {
+            setAuth({ id: userDoc.id, ...userDoc.data() } as any);
+          }
+        }
+      } else {
+        if (pathname !== '/login') {
+          router.push('/login');
+        }
+      }
+      setInitializing(false);
+    });
+
+    return () => unsubscribe();
+  }, [pathname, router, setAuth, user]);
+
+  const handleLogout = async () => {
+    const auth = getAuth();
+    await signOut(auth);
+    logout();
+    router.push('/login');
+  };
 
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['Agent', 'Manager', 'Admin'] },
     { label: 'Leads', icon: Users, href: '/leads', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Targets', icon: Target, href: '/targets', roles: ['Agent', 'Manager'] },
     { label: 'Wallet', icon: Wallet, href: '/wallet', roles: ['Agent', 'Manager', 'Admin'] },
     { label: 'Products', icon: Package, href: '/products', roles: ['Agent', 'Manager', 'Admin'] },
     { label: 'Admin Tiers', icon: Settings, href: '/admin/tiers', roles: ['Admin'] },
     { label: 'Admin Users', icon: Briefcase, href: '/admin/users', roles: ['Admin', 'Manager'] },
   ].filter(item => user && item.roles.includes(user.role));
 
+  if (initializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-12 h-12 bg-primary rounded-xl mb-4"></div>
+          <p className="text-xs font-medium text-slate-400">Initializing NexusCRM...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && pathname !== '/login') return null;
   if (!user) return <>{children}</>;
 
   return (
@@ -84,15 +128,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <Button 
             variant="ghost" 
             className="w-full justify-start gap-3 text-destructive hover:bg-destructive/10 hover:text-destructive px-3"
-            onClick={logout}
+            onClick={handleLogout}
           >
             <LogOut size={18} />
             {!isCollapsed && <span className="text-sm">Logout</span>}
           </Button>
         </div>
       </aside>
-
-      {/* Mobile Nav Placeholder - Bottom Bar for mobile would go here */}
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
@@ -116,7 +158,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <span className="text-xs font-bold leading-none">{user.name}</span>
               <span className="text-[10px] text-muted-foreground">{user.role}</span>
             </div>
-            <TierBadge tierId={user.tier_id} />
+            <TierBadge tierId={user.tierId} />
           </div>
         </header>
 
