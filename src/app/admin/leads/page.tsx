@@ -187,7 +187,7 @@ export default function AdminAllLeadsPage() {
               <label className="text-[10px] font-bold uppercase text-slate-400">Idle Filter</label>
               <div className="flex items-center h-8 gap-2">
                  <Checkbox id="idle-only" />
-                 <label htmlFor="idle-only" className="text-[12px] cursor-pointer">Show Idle (>72h) only</label>
+                 <label htmlFor="idle-only" className="text-[12px] cursor-pointer">Show Idle (&gt;72h) only</label>
               </div>
             </div>
             <div className="flex items-end">
