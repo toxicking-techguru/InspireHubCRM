@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export default function AdminAgentsPage() {
   const { user } = useAuthStore();
@@ -104,7 +105,7 @@ export default function AdminAgentsPage() {
         joinDate: editingAgent ? editingAgent.joinDate : new Date().toISOString(),
       };
       await setDoc(doc(firestore, 'agents', agentId), finalData, { merge: true });
-      toast({ title: editingAgent ? "Agent Updated" : "Agent Created", description: `${formData.name} record saved.` });
+      toast({ title: typeof editingAgent !== 'undefined' && editingAgent ? "Agent Updated" : "Agent Created", description: `${formData.name} record saved.` });
       setIsCollapsed(false);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Operation Failed", description: err.message });
