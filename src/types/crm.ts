@@ -46,6 +46,7 @@ export interface Lead {
   clientName: string;
   clientPhone: string;
   clientEmail: string;
+  companyName?: string;
   businessCountry: string;
   businessRegion: string;
   estimatedBudget: number;
@@ -55,7 +56,22 @@ export interface Lead {
   firstContactSubchannel: string;
   createdAt: string;
   lastActivityAt: string;
+  wonAt?: string;
 }
+
+export type ActivityType = 
+  | 'Call made' 
+  | 'Intro meeting' 
+  | 'Follow up' 
+  | 'Proposal sent' 
+  | 'Demo done' 
+  | 'Presentation' 
+  | 'Negotiation' 
+  | 'Quotation shared' 
+  | 'Contract sent' 
+  | 'Invoice sent' 
+  | 'Closed won' 
+  | 'Closed lost';
 
 export interface Product {
   id: string;
@@ -69,13 +85,15 @@ export interface LeadActivity {
   id: string;
   leadId: string;
   agentId: string;
-  type: 'call' | 'email' | 'meeting' | 'note' | 'proposal' | 'whatsapp';
+  agentName?: string;
+  type: ActivityType;
   scheduledAt: string;
   nextActionType: string;
   nextActionDate: string;
   remark: string;
   outcomeStatus: string;
   createdAt: string;
+  fileUrl?: string;
 }
 
 export interface Target {

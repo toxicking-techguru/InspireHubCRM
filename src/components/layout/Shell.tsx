@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -64,15 +65,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  // Define Navigation based on Role
   const navItems = [
-    { label: 'Dashboard', desc: 'Overview & tasks', icon: LayoutDashboard, href: '/dashboard', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'My leads', desc: 'Full lead list', icon: Users, href: '/leads', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Add lead', desc: 'New lead form', icon: Plus, href: '/leads/new', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Activities', desc: 'My interactions', icon: Clock, href: '/activities', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Products', desc: 'Tier catalog', icon: Package, href: '/products', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Wallet', desc: 'My earnings', icon: Wallet, href: '/wallet', roles: ['Agent', 'Manager', 'Admin'] },
-    { label: 'Targets', desc: 'Performance', icon: Target, href: '/targets', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'My leads', icon: Users, href: '/leads', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Add lead', icon: Plus, href: '/leads/new', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Activities', icon: Clock, href: '/activities', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Products', icon: Package, href: '/products', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Wallet', icon: Wallet, href: '/wallet', roles: ['Agent', 'Manager', 'Admin'] },
+    { label: 'Targets', icon: Target, href: '/targets', roles: ['Agent', 'Manager', 'Admin'] },
   ].filter(item => user && item.roles.includes(user.role));
 
   const adminItems = [
@@ -80,18 +80,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
     { label: 'Admin Tiers', icon: Settings, href: '/admin/tiers', roles: ['Admin'] },
   ].filter(item => user && item.roles.includes(user.role));
 
-  // Role Guard for specific paths
   useEffect(() => {
     if (!user || initializing) return;
-
     const isAdminPath = pathname.startsWith('/admin');
     if (isAdminPath) {
-      if (pathname.includes('/admin/tiers') && user.role !== 'Admin') {
-        router.push('/dashboard');
-      }
-      if (pathname.includes('/admin/users') && !['Admin', 'Manager'].includes(user.role)) {
-        router.push('/dashboard');
-      }
+      if (pathname.includes('/admin/tiers') && user.role !== 'Admin') router.push('/dashboard');
+      if (pathname.includes('/admin/users') && !['Admin', 'Manager'].includes(user.role)) router.push('/dashboard');
     }
   }, [pathname, user, initializing, router]);
 
@@ -113,18 +107,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar - Desktop */}
       <aside className={cn(
         "hidden md:flex flex-col border-r bg-sidebar transition-all duration-300 ease-in-out z-30 sticky top-0 h-screen",
         isCollapsed ? "w-[48px]" : "w-[200px]"
       )}>
-        {/* Header row 48px */}
-        <div className="h-12 border-b flex items-center px-3 justify-between overflow-hidden bg-sidebar">
+        <div className="h-12 border-b flex items-center px-3 justify-between overflow-hidden bg-sidebar shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-primary rounded flex items-center justify-center shrink-0">
               <Zap size={14} className="text-white" />
             </div>
-            {!isCollapsed && <span className="text-[13px] font-bold text-sidebar-foreground truncate">NexusCRM</span>}
+            {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate">NexusCRM</span>}
           </div>
           {!isCollapsed && (
             <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="h-7 w-7">
@@ -137,7 +129,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <TooltipProvider delayDuration={0}>
             <div className="space-y-0.5">
               {navItems.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = pathname === item.href || (item.href === '/leads' && pathname.startsWith('/leads'));
                 return (
                   <Tooltip key={item.href}>
                     <TooltipTrigger asChild>
@@ -151,11 +143,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                         )}
                       >
                         <item.icon size={14} className="shrink-0" />
-                        {!isCollapsed && (
-                          <div className="flex-1 flex items-center justify-between overflow-hidden">
-                            <span className="text-[13px] font-medium truncate">{item.label}</span>
-                          </div>
-                        )}
+                        {!isCollapsed && <span className="text-[13px] font-medium truncate">{item.label}</span>}
                       </Link>
                     </TooltipTrigger>
                     {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
@@ -198,8 +186,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </TooltipProvider>
         </nav>
 
-        {/* Footer 52px */}
-        <div className="h-[52px] border-t p-2 flex items-center bg-sidebar overflow-hidden">
+        <div className="h-[52px] border-t p-2 flex items-center bg-sidebar overflow-hidden shrink-0">
           {!isCollapsed ? (
             <div className="flex items-center gap-2 w-full">
               <div className="flex-1 min-w-0">
@@ -220,9 +207,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Main Layout Container */}
       <div className="flex-1 flex flex-col min-w-0 pb-[60px] md:pb-0">
-        {/* Topbar */}
         <header className="h-[48px] border-b bg-card sticky top-0 z-20 flex items-center px-4 justify-between">
           <div className="text-[12px] font-medium text-muted-foreground hidden md:block">
             NexusCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/')[1] || 'Dashboard'}</span>
@@ -244,7 +229,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="flex-1 p-3 md:p-4 overflow-x-hidden overflow-y-auto">
           <div className="max-w-screen-xl mx-auto space-y-4">
             {children}
@@ -252,19 +236,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Mobile Bottom Tab Bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[56px] bg-background border-t z-40 flex items-center justify-around px-2">
         {navItems.slice(0, 5).map((item) => {
           const isActive = pathname === item.href;
           return (
-            <Link 
-              key={item.href} 
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center justify-center flex-1 gap-1 h-full",
-                isActive ? "text-primary" : "text-muted-foreground"
-              )}
-            >
+            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center flex-1 gap-1 h-full", isActive ? "text-primary" : "text-muted-foreground")}>
               <item.icon size={18} />
               <span className="text-[10px] font-medium">{item.label}</span>
             </Link>
