@@ -110,7 +110,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     { label: 'All leads', icon: Users, href: '/manager/leads', sub: 'Team leads with filters' },
     { label: 'Idle leads', icon: AlertTriangle, href: '/manager/idle', sub: 'Leads needing action' },
     { label: 'Reports', icon: BarChart3, href: '/manager/reports', sub: 'Conversion & revenue' },
-    { label: 'Targets', icon: Target, href: '/targets', sub: 'Set & review targets' },
+    { label: 'Targets', icon: Target, href: '/manager/targets', sub: 'Set & review targets' },
     { label: 'Upgrade queue', icon: ArrowUpCircle, href: '/manager/upgrade', sub: 'Tier upgrade candidates' },
   ];
 
