@@ -1,40 +1,59 @@
 "use client"
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { PRODUCTS, TIERS } from '@/lib/mock-data';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCollection, useFirestore } from '@/firebase';
+import { Product, Tier } from '@/types/crm';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { 
   FileText, 
   Video, 
   HelpCircle, 
-  BookOpen, 
   Download,
   ExternalLink,
-  Lock
+  Lock,
+  Loader2
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ProductsPage() {
   const { user } = useAuthStore();
-  
-  const userTierRank = TIERS.find(t => t.id === user?.tier_id)?.rank_level || 1;
+  const firestore = useFirestore();
+
+  const productsQuery = useMemo(() => firestore ? query(collection(firestore, 'products'), orderBy('name')) : null, [firestore]);
+  const { data: products, loading: productsLoading } = useCollection<Product>(productsQuery as any);
+
+  const tiersQuery = useMemo(() => firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null, [firestore]);
+  const { data: tiers } = useCollection<Tier>(tiersQuery as any);
+
+  const userTierRank = tiers?.find(t => t.id === user?.tierId)?.rankLevel || 1;
+
+  if (productsLoading) {
+    return (
+      <Shell>
+        <div className="py-20 flex flex-col items-center">
+          <Loader2 className="animate-spin text-primary mb-2" />
+          <p className="text-sm text-muted-foreground">Loading catalog...</p>
+        </div>
+      </Shell>
+    );
+  }
 
   return (
     <Shell>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold">Product Catalog</h1>
-            <p className="text-sm text-muted-foreground">Access sales materials and technical documentation.</p>
-          </div>
+        <div>
+          <h1 className="text-xl font-bold">Product Catalog</h1>
+          <p className="text-sm text-muted-foreground">Access approved sales materials and technical documentation.</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {PRODUCTS.map((product) => {
-            const productTierRank = TIERS.find(t => t.id === product.tier_required)?.rank_level || 1;
+          {products?.map((product) => {
+            const productTier = tiers?.find(t => t.id === product.tierRequired);
+            const productTierRank = productTier?.rankLevel || 1;
             const isLocked = productTierRank > userTierRank;
 
             return (
@@ -42,7 +61,7 @@ export default function ProductsPage() {
                 <div className="p-4 border-b bg-slate-50/50 dark:bg-slate-900/50">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="text-sm font-bold truncate">{product.name}</h3>
-                    <TierBadge tierId={product.tier_required} />
+                    <TierBadge tierId={product.tierRequired} />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 h-8">
                     {product.description}
@@ -54,11 +73,11 @@ export default function ProductsPage() {
                     <div className="flex flex-col items-center justify-center h-full py-8 text-center">
                       <Lock size={24} className="text-slate-300 mb-2" />
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Locked</p>
-                      <p className="text-[10px] text-slate-400 mt-1">Upgrade to {TIERS.find(t => t.id === product.tier_required)?.name} to access.</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Upgrade to {productTier?.name || 'Higher Tier'} to access.</p>
                     </div>
                   ) : (
                     <Tabs defaultValue="script" className="w-full">
-                      <TabsList className="w-full grid grid-cols-4 h-8">
+                      <TabsList className="w-full grid grid-cols-4 h-8 bg-slate-100/50">
                         <TabsTrigger value="script" className="text-[10px]">Script</TabsTrigger>
                         <TabsTrigger value="docs" className="text-[10px]">Docs</TabsTrigger>
                         <TabsTrigger value="video" className="text-[10px]">Video</TabsTrigger>
@@ -68,14 +87,14 @@ export default function ProductsPage() {
                       <div className="mt-4 space-y-2">
                         <TabsContent value="script" className="mt-0">
                           <div className="p-2 rounded bg-slate-50 dark:bg-slate-900 border text-[10px] font-code leading-relaxed">
-                            <span className="text-primary font-bold">AGENT:</span> "Hi [Name], I noticed your business is looking to scale its ERP..."
+                            <span className="text-primary font-bold">AGENT:</span> "Hi, I'm reaching out from Nexus regarding your scaling needs..."
                           </div>
                         </TabsContent>
                         
                         <TabsContent value="docs" className="mt-0 space-y-1">
                           {[
-                            { name: 'Product Specs.pdf', icon: FileText },
-                            { name: 'Pricing Matrix.xlsx', icon: FileText }
+                            { name: 'Specifications.pdf', icon: FileText },
+                            { name: 'Pricing_Matrix.xlsx', icon: FileText }
                           ].map((doc, idx) => (
                             <div key={idx} className="flex items-center justify-between p-2 rounded hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200">
                               <div className="flex items-center gap-2 overflow-hidden">
