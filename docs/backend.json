@@ -1,0 +1,107 @@
+
+{
+  "entities": {
+    "Agent": {
+      "title": "Agent",
+      "description": "System users (Agents, Managers, Admins)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "region": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "suspended"] },
+        "role": { "type": "string", "enum": ["Admin", "Manager", "Agent"] },
+        "tierId": { "type": "string" },
+        "managerId": { "type": "string" },
+        "joinDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "role", "status"]
+    },
+    "Tier": {
+      "title": "Tier",
+      "description": "Agent performance tiers",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "rankLevel": { "type": "number" },
+        "commissionPct": { "type": "number" },
+        "productLimit": { "type": "number" },
+        "upgradeCriteria": { "type": "object" }
+      }
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Sales leads",
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "businessCountry": { "type": "string" },
+        "businessRegion": { "type": "string" },
+        "estimatedBudget": { "type": "number" },
+        "productId": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost", "dormant"] },
+        "firstContactChannel": { "type": "string" },
+        "firstContactSubchannel": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastActivityAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Activity": {
+      "title": "Lead Activity",
+      "description": "Log of interactions with a lead",
+      "type": "object",
+      "properties": {
+        "leadId": { "type": "string" },
+        "agentId": { "type": "string" },
+        "type": { "type": "string", "enum": ["call", "email", "meeting", "note", "proposal", "whatsapp"] },
+        "remark": { "type": "string" },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "nextActionType": { "type": "string" },
+        "nextActionDate": { "type": "string", "format": "date-time" },
+        "outcomeStatus": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Wallet": {
+      "title": "Agent Wallet",
+      "description": "Earnings and balance for an agent",
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "totalEarned": { "type": "number" },
+        "pending": { "type": "number" },
+        "withdrawable": { "type": "number" },
+        "withdrawn": { "type": "number" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/agents/{agentId}": {
+      "schema": { "$ref": "#/backend/entities/Agent" },
+      "description": "Registered agents and staff"
+    },
+    "/tiers/{tierId}": {
+      "schema": { "$ref": "#/backend/entities/Tier" },
+      "description": "Performance tiers"
+    },
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/backend/entities/Lead" },
+      "description": "CRM Leads"
+    },
+    "/leads/{leadId}/activities/{activityId}": {
+      "schema": { "$ref": "#/backend/entities/Activity" },
+      "description": "Lead interaction history"
+    },
+    "/wallets/{agentId}": {
+      "schema": { "$ref": "#/backend/entities/Wallet" },
+      "description": "Agent earnings and financial state"
+    }
+  }
+}
