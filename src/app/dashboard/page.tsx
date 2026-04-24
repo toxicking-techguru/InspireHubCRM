@@ -1,7 +1,6 @@
-
 "use client"
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Shell } from '@/components/layout/Shell';
 import { AgentStats } from '@/components/dashboard/AgentStats';
@@ -11,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Clock, Users, Target, TrendingUp, AlertCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Lead, Agent } from '@/types/crm';
 import { formatDistanceToNow } from 'date-fns';
@@ -29,27 +28,27 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, router]);
 
-  const activeLeadsQuery = useMemo(() => {
+  const activeLeadsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     let q = collection(firestore, 'leads');
     if (user.role === 'Agent') {
       return query(q, where('agentId', '==', user.id), orderBy('lastActivityAt', 'desc'), limit(5));
     }
     return query(q, orderBy('lastActivityAt', 'desc'), limit(5));
-  }, [firestore, user]);
+  }, [firestore, user?.id, user?.role]);
 
-  const { data: recentLeads } = useCollection<Lead>(activeLeadsQuery as any);
+  const { data: recentLeads } = useCollection<Lead>(activeLeadsQuery);
 
-  // Conversion data for Pie Chart
-  const allLeadsQuery = useMemo(() => {
+  const allLeadsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     let q = collection(firestore, 'leads');
     if (user.role === 'Agent') return query(q, where('agentId', '==', user.id));
     return q;
-  }, [firestore, user]);
-  const { data: allLeads } = useCollection<Lead>(allLeadsQuery as any);
+  }, [firestore, user?.id, user?.role]);
 
-  const funnelData = useMemo(() => {
+  const { data: allLeads } = useCollection<Lead>(allLeadsQuery);
+
+  const funnelData = React.useMemo(() => {
     if (!allLeads) return [];
     const counts = {
       new: allLeads.filter(l => l.status === 'new').length,
@@ -82,7 +81,6 @@ export default function DashboardPage() {
         <AgentStats />
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Main Content Area */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-card border rounded-lg shadow-sm">
               <div className="p-4 border-b flex items-center justify-between">
@@ -132,7 +130,6 @@ export default function DashboardPage() {
             {isManagement ? <TeamPerformanceSection /> : <EarningsChart />}
           </div>
 
-          {/* Sidebar Area */}
           <div className="space-y-6">
             {!isManagement && (
               <div className="bg-card border rounded-lg p-4 shadow-sm">
@@ -230,10 +227,13 @@ export default function DashboardPage() {
 
 function TeamPerformanceSection() {
   const firestore = useFirestore();
-  const { data: agents } = useCollection<Agent>(firestore ? collection(firestore, 'agents') : null as any);
-  const { data: leads } = useCollection<Lead>(firestore ? collection(firestore, 'leads') : null as any);
+  const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
+  const leadsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
 
-  const teamData = useMemo(() => {
+  const { data: agents } = useCollection<Agent>(agentsQuery);
+  const { data: leads } = useCollection<Lead>(leadsQuery);
+
+  const teamData = React.useMemo(() => {
     if (!agents || !leads) return [];
     return agents.filter(a => a.role === 'Agent').map(agent => ({
       name: agent.name.split(' ')[0],
