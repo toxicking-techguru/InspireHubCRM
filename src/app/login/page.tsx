@@ -9,25 +9,26 @@ import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { 
-  getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword 
 } from 'firebase/auth';
 import { 
-  getFirestore, 
   doc, 
   getDoc, 
   setDoc 
 } from 'firebase/firestore';
+import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('agent@nexus.com');
   const [password, setPassword] = useState('password');
   const [loading, setLoading] = useState(false);
-  const { setAuth, isAuthenticated } = useAuthStore();
+  const { setAuth: setGlobalAuth, isAuthenticated } = useAuthStore();
   const router = useRouter();
   const { toast } = useToast();
+  const auth = useAuth();
+  const db = useFirestore();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -36,8 +37,7 @@ export default function LoginPage() {
   }, [isAuthenticated, router]);
 
   const performLogin = async (emailInput: string, passwordInput: string) => {
-    const auth = getAuth();
-    const db = getFirestore();
+    if (!auth || !db) return false;
 
     try {
       // 1. Try to sign in
@@ -46,11 +46,9 @@ export default function LoginPage() {
 
       if (userDoc.exists()) {
         const agentData = { id: userDoc.id, ...userDoc.data() } as any;
-        setAuth(agentData);
+        setGlobalAuth(agentData);
         return true;
       } else {
-        // Auth exists but Firestore record doesn't (could happen if deleted from DB)
-        // We'll treat this as a failure so handleDevLogin can fix it if needed
         return false;
       }
     } catch (error: any) {
@@ -75,9 +73,8 @@ export default function LoginPage() {
   };
 
   const handleDevLogin = async (role: 'Agent' | 'Manager' | 'Admin') => {
+    if (!auth || !db) return;
     setLoading(true);
-    const db = getFirestore();
-    const auth = getAuth();
     
     const devEmail = role === 'Agent' ? 'agent@nexus.com' : role === 'Manager' ? 'manager@nexus.com' : 'admin@nexus.com';
     const devPassword = 'password';
@@ -86,7 +83,6 @@ export default function LoginPage() {
     const loggedIn = await performLogin(devEmail, devPassword);
     
     if (!loggedIn) {
-      // If fails, try to register the dev account
       try {
         const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
         const userData = {
@@ -112,7 +108,7 @@ export default function LoginPage() {
           withdrawn: 0
         });
 
-        setAuth({ id: cred.user.uid, ...userData } as any);
+        setGlobalAuth({ id: cred.user.uid, ...userData } as any);
         toast({ title: "Account Created", description: `Developer ${role} account initialized.` });
         router.push('/dashboard');
       } catch (err: any) {

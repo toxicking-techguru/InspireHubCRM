@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -21,8 +22,9 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useAuth, useFirestore } from '@/firebase';
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, setAuth, logout } = useAuthStore();
@@ -30,13 +32,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const auth = useAuth();
+  const db = useFirestore();
 
   useEffect(() => {
-    const auth = getAuth();
+    if (!auth || !db) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         if (!user) {
-          const db = getFirestore();
           const userDoc = await getDoc(doc(db, 'agents', fbUser.uid));
           if (userDoc.exists()) {
             setAuth({ id: userDoc.id, ...userDoc.data() } as any);
@@ -51,11 +55,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [pathname, router, setAuth, user]);
+  }, [pathname, router, setAuth, user, auth, db]);
 
   const handleLogout = async () => {
-    const auth = getAuth();
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
     logout();
     router.push('/login');
   };
