@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -22,7 +21,9 @@ import {
   Globe,
   DollarSign,
   AlertTriangle,
-  Play
+  Play,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -257,4 +258,3 @@ function RoleMatrix() {
     </div>
   );
 }
-
