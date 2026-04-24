@@ -1,31 +1,30 @@
-
 "use client"
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Commission } from '@/types/crm';
-import { format, subMonths, startOfMonth, isWithinInterval } from 'date-fns';
+import { format, subMonths, startOfMonth } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function EarningsChart() {
   const { user } = useAuthStore();
   const firestore = useFirestore();
 
-  const commissionsQuery = useMemo(() => {
+  const commissionsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    let q = query(collection(firestore, 'commissions'), orderBy('createdAt', 'desc'));
+    let q = collection(firestore, 'commissions');
     if (user.role === 'Agent') {
-      q = query(q, where('agentId', '==', user.id));
+      return query(q, where('agentId', '==', user.id), orderBy('createdAt', 'desc'));
     }
-    return q;
-  }, [firestore, user]);
+    return query(q, orderBy('createdAt', 'desc'));
+  }, [firestore, user?.id, user?.role]);
 
   const { data: commissions, loading } = useCollection<Commission>(commissionsQuery as any);
 
-  const chartData = useMemo(() => {
+  const chartData = React.useMemo(() => {
     const months = Array.from({ length: 6 }).map((_, i) => {
       const date = subMonths(new Date(), 5 - i);
       return {

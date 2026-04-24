@@ -3,17 +3,26 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { firebaseConfig } from './config';
 
+let app: FirebaseApp;
+let db: Firestore;
+let firebaseAuth: Auth;
+
 export function initializeFirebase(): {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   auth: Auth;
 } {
-  const firebaseApp =
-    getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  const firestore = getFirestore(firebaseApp);
-  const auth = getAuth(firebaseApp);
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    firebaseAuth = getAuth(app);
+  } else {
+    app = getApp();
+    db = getFirestore(app);
+    firebaseAuth = getAuth(app);
+  }
 
-  return { firebaseApp, firestore, auth };
+  return { firebaseApp: app, firestore: db, auth: firebaseAuth };
 }
 
 export * from './provider';

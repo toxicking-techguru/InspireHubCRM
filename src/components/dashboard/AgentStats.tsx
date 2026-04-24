@@ -1,10 +1,9 @@
-
 "use client"
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Users, CheckCircle2, Trophy, Wallet } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useCollection, useFirestore, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Lead, Wallet as WalletType } from '@/types/crm';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,24 +12,25 @@ export function AgentStats() {
   const { user } = useAuthStore();
   const firestore = useFirestore();
 
-  const leadsQuery = useMemo(() => {
+  const leadsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     let q = collection(firestore, 'leads');
     if (user.role === 'Agent') {
       return query(q, where('agentId', '==', user.id));
     }
     return q;
-  }, [firestore, user]);
+  }, [firestore, user?.id, user?.role]);
 
   const { data: leads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
   
-  const walletRef = useMemo(() => {
+  const walletRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'wallets', user.id);
-  }, [firestore, user]);
+  }, [firestore, user?.id]);
+  
   const { data: wallet, loading: walletLoading } = useDoc<WalletType>(walletRef as any);
 
-  const stats = useMemo(() => {
+  const stats = React.useMemo(() => {
     if (!leads) return [];
     
     const myLeads = leads.length;

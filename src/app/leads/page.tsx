@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import {
   Globe,
   Loader2
 } from 'lucide-react';
-import Link from 'next/link';
+import Link from 'link';
 import { Lead, Product } from '@/types/crm';
 import { format } from 'date-fns';
 
@@ -29,22 +29,23 @@ export default function LeadsPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const leadsQuery = useMemo(() => {
+  const leadsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    let q = query(collection(firestore, 'leads'));
+    let q = collection(firestore, 'leads');
     
     if (user.role === 'Agent') {
-      q = query(q, where('agentId', '==', user.id));
+      return query(q, where('agentId', '==', user.id), orderBy('createdAt', 'desc'));
     }
     
-    // Note: To use orderBy with where on different fields, a composite index is needed.
-    // For MVP, we'll order by createdAt and filter in memory if complex.
     return query(q, orderBy('createdAt', 'desc'));
-  }, [firestore, user]);
+  }, [firestore, user?.id, user?.role]);
 
   const { data: leads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
   
-  const productsQuery = useMemo(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+  const productsQuery = useMemoFirebase(() => 
+    firestore ? collection(firestore, 'products') : null
+  , [firestore]);
+  
   const { data: products } = useCollection<Product>(productsQuery as any);
 
   const filteredLeads = useMemo(() => {

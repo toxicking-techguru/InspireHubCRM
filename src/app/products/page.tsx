@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { Product, Tier } from '@/types/crm';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,16 @@ export default function ProductsPage() {
   const { user } = useAuthStore();
   const firestore = useFirestore();
 
-  const productsQuery = useMemo(() => firestore ? query(collection(firestore, 'products'), orderBy('name')) : null, [firestore]);
+  const productsQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'products'), orderBy('name')) : null
+  , [firestore]);
+  
   const { data: products, loading: productsLoading } = useCollection<Product>(productsQuery as any);
 
-  const tiersQuery = useMemo(() => firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null, [firestore]);
+  const tiersQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null
+  , [firestore]);
+  
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
 
   const userTierRank = tiers?.find(t => t.id === user?.tierId)?.rankLevel || 1;

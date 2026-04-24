@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,10 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [seeding, setSeeding] = useState(false);
 
-  const agentsQuery = firestore ? query(collection(firestore, 'agents'), orderBy('name')) : null;
+  const agentsQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'agents'), orderBy('name')) : null
+  , [firestore]);
+  
   const { data: agents, loading } = useCollection<Agent>(agentsQuery as any);
 
   const filteredAgents = agents?.filter(a => 

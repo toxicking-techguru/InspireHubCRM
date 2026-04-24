@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,9 +37,11 @@ export default function NewLeadPage() {
     firstContactSubchannel: '',
   });
 
-  const { data: products } = useCollection<Product>(
-    firestore ? collection(firestore, 'products') : null as any
-  );
+  const productsQuery = useMemoFirebase(() => 
+    firestore ? collection(firestore, 'products') : null
+  , [firestore]);
+  
+  const { data: products } = useCollection<Product>(productsQuery as any);
 
   const checkDuplicate = async () => {
     if (!firestore || !user) return;
