@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useMemo, useState } from 'react';
@@ -10,6 +9,7 @@ import { Tier, Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Layers, 
   ChevronRight, 
@@ -20,11 +20,13 @@ import {
   CheckCircle2,
   TrendingUp,
   Package,
-  Target
+  Target,
+  Edit2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 export default function AdminTiersPage() {
   const { user } = useAuthStore();
