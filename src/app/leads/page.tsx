@@ -20,7 +20,7 @@ import {
   Globe,
   Loader2
 } from 'lucide-react';
-import Link from 'link';
+import Link from 'next/link';
 import { Lead, Product } from '@/types/crm';
 import { format } from 'date-fns';
 
