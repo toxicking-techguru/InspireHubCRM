@@ -20,14 +20,19 @@ import {
   Clock,
   BarChart3,
   ArrowUpCircle,
-  AlertTriangle
+  AlertTriangle,
+  Layers,
+  GitBranch,
+  ShieldCheck,
+  History,
+  Banknote
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +43,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState(0);
   const auth = useAuth();
   const db = useFirestore();
 
@@ -67,13 +73,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [pathname, router, setAuth, user, auth, db]);
 
+  // Listen for pending withdrawals if admin
+  useEffect(() => {
+    if (!db || !isAdmin) return;
+    const q = query(collection(db, 'withdrawals'), where('status', '==', 'pending'));
+    const unsub = onSnapshot(q, (snap) => setPendingWithdrawals(snap.size));
+    return () => unsub();
+  }, [db, isAdmin]);
+
   const handleLogout = async () => {
     if (auth) await signOut(auth);
     logout();
     router.push('/login');
   };
 
-  // Role Guarding - ensure users stay in their lanes
   useEffect(() => {
     if (!initializing && user) {
       if (pathname.startsWith('/admin') && !isAdmin) router.push('/dashboard');
@@ -81,7 +94,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, user, initializing, isAdmin, isManager, router]);
 
-  // Role-based Navigation
   const agentNav = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { label: 'My leads', icon: Users, href: '/leads' },
@@ -103,14 +115,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
   ];
 
   const adminNav = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-    { label: 'Team', icon: Users, href: '/admin/users' },
-    { label: 'Admin Tiers', icon: Settings, href: '/admin/tiers' },
+    { section: 'Operations', items: [
+      { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', sub: 'Global system overview' },
+      { label: 'Agents', icon: Users, href: '/admin/agents', sub: 'All agents CRUD' },
+      { label: 'All leads', icon: Users, href: '/admin/leads', sub: 'System-wide leads' },
+      { label: 'Tiers', icon: Layers, href: '/admin/tiers', sub: 'Commission & criteria' },
+      { label: 'Products', icon: Package, href: '/admin/products', sub: 'Product & resource mgmt' },
+      { label: 'Channels', icon: GitBranch, href: '/admin/channels', sub: 'Contact channel tree' },
+    ]},
+    { section: 'System', items: [
+      { label: 'Withdrawals', icon: Banknote, href: '/admin/withdrawals', sub: 'Approve/reject queue', badge: pendingWithdrawals },
+      { label: 'Reports', icon: BarChart3, href: '/admin/reports', sub: 'System-wide analytics' },
+      { label: 'Targets', icon: Target, href: '/admin/targets', sub: 'Set team targets' },
+      { label: 'Audit log', icon: History, href: '/admin/audit', sub: 'All system actions' },
+      { label: 'Settings', icon: Settings, href: '/admin/settings', sub: 'System config' },
+    ]}
   ];
 
-  const activeNav = isManager ? managerNav : (isAdmin ? adminNav : agentNav);
-
-  const themeClasses = isManager 
+  const themeClasses = isAdmin 
+    ? {
+        active: "bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-l-2 border-violet-600",
+        hover: "hover:bg-slate-50 dark:hover:bg-slate-800/50",
+        icon: "text-violet-600"
+      }
+    : isManager 
     ? {
         active: "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-l-2 border-cyan-600",
         hover: "hover:bg-slate-50 dark:hover:bg-slate-800/50",
@@ -126,7 +154,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
-          <div className={cn("w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white shadow-lg", isManager ? "bg-cyan-600" : "bg-primary")}>
+          <div className={cn("w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white shadow-lg", isAdmin ? "bg-violet-600" : isManager ? "bg-cyan-600" : "bg-primary")}>
              <Zap size={24} />
           </div>
           <p className="text-xs font-medium text-slate-400">Initializing NexusCRM...</p>
@@ -146,7 +174,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       )}>
         <div className="h-12 border-b flex items-center px-3 justify-between overflow-hidden bg-sidebar shrink-0">
           <div className="flex items-center gap-2">
-            <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0 shadow-sm", isManager ? "bg-cyan-600" : "bg-primary")}>
+            <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0 shadow-sm", isAdmin ? "bg-violet-600" : isManager ? "bg-cyan-600" : "bg-primary")}>
               <Zap size={14} className="text-white" />
             </div>
             {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate tracking-tight">NexusCRM</span>}
@@ -160,33 +188,73 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 p-2 overflow-y-auto overflow-x-hidden">
           <TooltipProvider delayDuration={0}>
-            <div className="space-y-0.5">
-              {activeNav.map((item) => {
-                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                return (
-                  <Tooltip key={item.href}>
-                    <TooltipTrigger asChild>
-                      <Link 
-                        href={item.href}
-                        className={cn(
-                          "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px]",
-                          isActive ? themeClasses.active : cn("text-sidebar-foreground", themeClasses.hover)
-                        )}
-                      >
-                        <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
-                        {!isCollapsed && (
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
-                            {(item as any).sub && <span className="text-[9px] text-slate-400 truncate font-normal">{(item as any).sub}</span>}
-                          </div>
-                        )}
-                      </Link>
-                    </TooltipTrigger>
-                    {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                  </Tooltip>
-                );
-              })}
-            </div>
+            {isAdmin ? (
+              <div className="space-y-4">
+                {adminNav.map((section, idx) => (
+                  <div key={idx} className="space-y-0.5">
+                    {!isCollapsed && <p className="text-[10px] font-bold uppercase text-slate-400 px-3 mt-2 mb-1">{section.section}</p>}
+                    {section.items.map((item) => {
+                      const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href));
+                      return (
+                        <Tooltip key={item.href}>
+                          <TooltipTrigger asChild>
+                            <Link 
+                              href={item.href}
+                              className={cn(
+                                "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px] relative",
+                                isActive ? themeClasses.active : cn("text-sidebar-foreground", themeClasses.hover)
+                              )}
+                            >
+                              <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
+                              {!isCollapsed && (
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
+                                  {item.sub && <span className="text-[9px] text-slate-400 truncate font-normal">{item.sub}</span>}
+                                </div>
+                              )}
+                              {item.badge && item.badge > 0 && (
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[9px] font-bold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center">
+                                  {item.badge > 9 ? '9+' : item.badge}
+                                </span>
+                              )}
+                            </Link>
+                          </TooltipTrigger>
+                          {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {(isManager ? managerNav : agentNav).map((item) => {
+                  const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                  return (
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger asChild>
+                        <Link 
+                          href={item.href}
+                          className={cn(
+                            "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px]",
+                            isActive ? themeClasses.active : cn("text-sidebar-foreground", themeClasses.hover)
+                          )}
+                        >
+                          <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
+                          {!isCollapsed && (
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
+                              {(item as any).sub && <span className="text-[9px] text-slate-400 truncate font-normal">{(item as any).sub}</span>}
+                            </div>
+                          )}
+                        </Link>
+                      </TooltipTrigger>
+                      {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            )}
           </TooltipProvider>
         </nav>
 
@@ -195,7 +263,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 w-full">
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-bold truncate leading-tight">{user.name}</p>
-                {isManager ? (
+                {isAdmin ? (
+                  <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-[9px] h-3.5 px-1.5 font-bold uppercase tracking-tight">Admin</Badge>
+                ) : isManager ? (
                    <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[9px] h-3.5 px-1.5 font-bold uppercase tracking-tight">Manager</Badge>
                 ) : (
                   <TierBadge tierId={user.tierId} />
@@ -218,10 +288,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0 pb-[60px] md:pb-0">
         <header className="h-[48px] border-b bg-card sticky top-0 z-20 flex items-center px-4 justify-between">
           <div className="text-[12px] font-medium text-muted-foreground hidden md:block">
-            NexusCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/')[1] || 'Dashboard'}</span>
+            NexusCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/').slice(-1)[0] || 'Dashboard'}</span>
           </div>
           <div className="md:hidden flex items-center gap-2">
-             <Zap size={16} className={isManager ? "text-cyan-600" : "text-primary"} />
+             <Zap size={16} className={isAdmin ? "text-violet-600" : isManager ? "text-cyan-600" : "text-primary"} />
              <span className="text-[13px] font-bold">NexusCRM</span>
           </div>
 
@@ -247,10 +317,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[56px] bg-background border-t z-40 flex items-center justify-around px-2">
-        {activeNav.slice(0, 5).map((item) => {
+        {(isAdmin ? adminNav[0].items.slice(0, 5) : (isManager ? managerNav : agentNav).slice(0, 5)).map((item) => {
           const isActive = pathname === item.href;
           return (
-            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center flex-1 gap-1 h-full", isActive ? (isManager ? "text-cyan-600" : "text-primary") : "text-muted-foreground")}>
+            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center flex-1 gap-1 h-full", isActive ? (isAdmin ? "text-violet-600" : isManager ? "text-cyan-600" : "text-primary") : "text-muted-foreground")}>
               <item.icon size={18} />
               <span className="text-[10px] font-medium">{item.label}</span>
             </Link>
