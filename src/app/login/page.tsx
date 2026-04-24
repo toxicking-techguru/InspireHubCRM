@@ -40,7 +40,6 @@ export default function LoginPage() {
     if (!auth || !db) return false;
 
     try {
-      // 1. Try to sign in
       const userCredential = await signInWithEmailAndPassword(auth, emailInput, passwordInput);
       const userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
 
@@ -48,10 +47,10 @@ export default function LoginPage() {
         const agentData = { id: userDoc.id, ...userDoc.data() } as any;
         setGlobalAuth(agentData);
         return true;
-      } else {
-        return false;
       }
+      return false;
     } catch (error: any) {
+      console.error("Login attempt failed:", error.code);
       return false;
     }
   };
@@ -79,13 +78,28 @@ export default function LoginPage() {
     const devEmail = role === 'Agent' ? 'agent@nexus.com' : role === 'Manager' ? 'manager@nexus.com' : 'admin@nexus.com';
     const devPassword = 'password';
 
-    // Try standard login first
-    const loggedIn = await performLogin(devEmail, devPassword);
-    
-    if (!loggedIn) {
+    try {
+      let uid = '';
+      let userData: any = null;
+
       try {
-        const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
-        const userData = {
+        // 1. Try to sign in
+        const cred = await signInWithEmailAndPassword(auth, devEmail, devPassword);
+        uid = cred.user.uid;
+      } catch (err: any) {
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+          // 2. If not found, create user
+          const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
+          uid = cred.user.uid;
+        } else {
+          throw err;
+        }
+      }
+
+      // 3. Check/Create Firestore Profile
+      const userDoc = await getDoc(doc(db, 'agents', uid));
+      if (!userDoc.exists()) {
+        userData = {
           name: `Dev ${role}`,
           email: devEmail,
           phone: '+1 000 000 0000',
@@ -96,31 +110,31 @@ export default function LoginPage() {
           managerId: null,
           joinDate: new Date().toISOString()
         };
-
-        await setDoc(doc(db, 'agents', cred.user.uid), userData);
+        await setDoc(doc(db, 'agents', uid), userData);
         
         // Create initial wallet
-        await setDoc(doc(db, 'wallets', cred.user.uid), {
-          agentId: cred.user.uid,
+        await setDoc(doc(db, 'wallets', uid), {
+          agentId: uid,
           totalEarned: 0,
           pending: 0,
           withdrawable: 0,
           withdrawn: 0
         });
-
-        setGlobalAuth({ id: cred.user.uid, ...userData } as any);
-        toast({ title: "Account Created", description: `Developer ${role} account initialized.` });
-        router.push('/dashboard');
-      } catch (err: any) {
-        toast({
-          variant: "destructive",
-          title: "Setup Failed",
-          description: err.message
-        });
-        setLoading(false);
+      } else {
+        userData = userDoc.data();
       }
-    } else {
+
+      setGlobalAuth({ id: uid, ...userData });
+      toast({ title: "Welcome back", description: `Signed in as ${role}.` });
       router.push('/dashboard');
+
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Access Error",
+        description: err.message
+      });
+      setLoading(false);
     }
   };
 
@@ -170,26 +184,26 @@ export default function LoginPage() {
           </form>
           
           <div className="bg-slate-50 dark:bg-slate-900 border-t p-4 text-center">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">Development Access</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">One-Click Dev Login</p>
             <div className="flex flex-wrap justify-center gap-2">
               <button 
                 onClick={() => handleDevLogin('Agent')}
                 disabled={loading}
-                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50"
+                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium"
               >
                 Agent
               </button>
               <button 
                 onClick={() => handleDevLogin('Manager')}
                 disabled={loading}
-                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50"
+                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium"
               >
                 Manager
               </button>
               <button 
                 onClick={() => handleDevLogin('Admin')}
                 disabled={loading}
-                className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50"
+                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium"
               >
                 Admin
               </button>
