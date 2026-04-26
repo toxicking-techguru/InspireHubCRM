@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -164,7 +163,7 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground mb-4 shadow-lg">
             <ShieldCheck size={28} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">NexusCRM</h1>
+          <h1 className="text-2xl font-bold tracking-tight">InspireHubCRM</h1>
           <p className="text-sm text-muted-foreground">Production-ready CRM Automation</p>
         </div>
 

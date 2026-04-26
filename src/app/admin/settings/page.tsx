@@ -105,7 +105,7 @@ export default function AdminSettingsPage() {
 }
 
 function GeneralSettings({ config, onSave, saving }: any) {
-  const [data, setData] = useState(config || { appName: 'NexusCRM', timezone: 'UTC+3', currency: 'USD', idleThreshold: 72 });
+  const [data, setData] = useState(config || { appName: 'InspireHubCRM', timezone: 'UTC+3', currency: 'USD', idleThreshold: 72 });
   
   return (
     <div className="space-y-6 max-w-[500px]">

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -157,7 +156,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className={cn("w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white shadow-lg", isAdmin ? "bg-violet-600" : isManager ? "bg-cyan-600" : "bg-primary")}>
              <Zap size={24} />
           </div>
-          <p className="text-xs font-medium text-slate-400">Initializing NexusCRM...</p>
+          <p className="text-xs font-medium text-slate-400">Initializing InspireHubCRM...</p>
         </div>
       </div>
     );
@@ -177,7 +176,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0 shadow-sm", isAdmin ? "bg-violet-600" : isManager ? "bg-cyan-600" : "bg-primary")}>
               <Zap size={14} className="text-white" />
             </div>
-            {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate tracking-tight">NexusCRM</span>}
+            {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate tracking-tight">InspireHubCRM</span>}
           </div>
           {!isCollapsed && (
             <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="h-7 w-7">
@@ -288,11 +287,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0 pb-[60px] md:pb-0">
         <header className="h-[48px] border-b bg-card sticky top-0 z-20 flex items-center px-4 justify-between">
           <div className="text-[12px] font-medium text-muted-foreground hidden md:block">
-            NexusCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/').slice(-1)[0] || 'Dashboard'}</span>
+            InspireHubCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/').slice(-1)[0] || 'Dashboard'}</span>
           </div>
           <div className="md:hidden flex items-center gap-2">
              <Zap size={16} className={isAdmin ? "text-violet-600" : isManager ? "text-cyan-600" : "text-primary"} />
-             <span className="text-[13px] font-bold">NexusCRM</span>
+             <span className="text-[13px] font-bold">InspireHubCRM</span>
           </div>
 
           <div className="flex items-center gap-2">

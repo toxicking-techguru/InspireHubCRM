@@ -1,11 +1,10 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'NexusCRM Leads - Automation System',
+  title: 'InspireHubCRM - Leads Automation System',
   description: 'Production-ready CRM Leads Automation System',
 };
 
