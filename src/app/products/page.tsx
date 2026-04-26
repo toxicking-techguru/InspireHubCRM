@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react';
@@ -14,7 +15,8 @@ import {
   Download,
   Lock,
   Loader2,
-  FileCode
+  FileCode,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,18 +55,16 @@ export default function ProductsPage() {
     <Shell>
       <div className="space-y-4">
         <div>
-          <h1 className="text-lg font-bold">Product Catalog</h1>
-          <p className="text-[13px] text-muted-foreground">Approved sales materials and technical documentation based on your tier.</p>
+          <h1 className="text-lg font-bold">Product Resource Center</h1>
+          <p className="text-[13px] text-muted-foreground">Access marketing collateral and sales aids approved for your tier.</p>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
           {products?.map((product) => {
             const productTier = tiers?.find(t => t.id === product.tierRequired);
             const productTierRank = productTier?.rankLevel || 0;
             const isLocked = productTierRank > userTierRank;
-            
-            // Mocking commission based on tier if not product-specific
-            const commission = productTier?.commissionPct || 0;
+            const commission = productTier?.commissionPct || 5;
 
             return (
               <div 
@@ -85,11 +85,11 @@ export default function ProductsPage() {
                   </div>
                 )}
 
-                <div className="p-[14px] flex-1 flex flex-col">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <h3 className="text-[14px] font-medium leading-tight text-slate-900 dark:text-slate-100">{product.name}</h3>
-                    <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-[10px] px-1.5 h-4 border-none shrink-0 font-bold">
-                      {commission}% Commission
+                <div className="p-4 flex-1 flex flex-col">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="text-[15px] font-bold leading-tight text-slate-900 dark:text-slate-100">{product.name}</h3>
+                    <Badge className="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 text-[10px] px-1.5 h-4 border-none font-bold">
+                      {commission}% Comm
                     </Badge>
                   </div>
                   
@@ -99,48 +99,38 @@ export default function ProductsPage() {
 
                   <div className={cn("flex-1", isLocked && "pointer-events-none")}>
                     <Tabs defaultValue="script" className="w-full">
-                      <TabsList className="w-full grid grid-cols-4 h-8 bg-slate-50 dark:bg-slate-900 border p-0.5 rounded-md">
-                        <TabsTrigger value="script" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600 data-[state=active]:shadow-none data-[state=active]:border-none">Script</TabsTrigger>
-                        <TabsTrigger value="docs" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600">Docs</TabsTrigger>
-                        <TabsTrigger value="video" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600">Videos</TabsTrigger>
-                        <TabsTrigger value="faq" className="text-[10px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-indigo-600">FAQs</TabsTrigger>
+                      <TabsList className="w-full grid grid-cols-5 h-8 bg-slate-50 dark:bg-slate-900 border p-0.5 rounded-md">
+                        <TabsTrigger value="script" className="text-[9px] px-0">Script</TabsTrigger>
+                        <TabsTrigger value="docs" className="text-[9px] px-0">Docs</TabsTrigger>
+                        <TabsTrigger value="video" className="text-[9px] px-0">Videos</TabsTrigger>
+                        <TabsTrigger value="manual" className="text-[9px] px-0">Manuals</TabsTrigger>
+                        <TabsTrigger value="faq" className="text-[9px] px-0">FAQs</TabsTrigger>
                       </TabsList>
                       
                       <div className="mt-3">
                         <TabsContent value="script" className="m-0">
-                          <ResourceList 
-                            items={[{ name: 'Sales_Pitch_V2.txt', type: 'txt' }]} 
-                            type="script"
-                          />
+                          <ResourceList items={product.resources?.scripts || []} type="script" />
                         </TabsContent>
-                        
                         <TabsContent value="docs" className="m-0">
-                          <ResourceList 
-                            items={[
-                              { name: 'Feature_Guide.pdf', type: 'pdf' },
-                              { name: 'Pricing_Matrix_Q2.xlsx', type: 'xlsx' }
-                            ]} 
-                            type="docs"
-                          />
+                          <ResourceList items={product.resources?.docs || []} type="docs" />
                         </TabsContent>
-
                         <TabsContent value="video" className="m-0">
-                          <ResourceList 
-                            items={[{ name: 'Product_Demo_Full.mp4', type: 'mp4' }]} 
-                            type="video"
-                          />
+                          <ResourceList items={product.resources?.videos || []} type="video" />
                         </TabsContent>
-
+                        <TabsContent value="manual" className="m-0">
+                          <ResourceList items={product.resources?.manuals || []} type="manual" />
+                        </TabsContent>
                         <TabsContent value="faq" className="m-0">
                           <div className="space-y-2 py-1">
-                            <div className="border-l-2 border-indigo-200 pl-2">
-                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Q: Deployment timeline?</p>
-                              <p className="text-[10px] text-slate-500">A: Standard setup takes 14 business days.</p>
-                            </div>
-                            <div className="border-l-2 border-indigo-200 pl-2">
-                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Q: Support levels?</p>
-                              <p className="text-[10px] text-slate-500">A: 24/7 technical assistance included.</p>
-                            </div>
+                            {(product.resources?.faqs || []).map((faq, i) => (
+                              <div key={i} className="border-l-2 border-indigo-200 pl-2">
+                                <p className="text-[10px] font-bold text-slate-700">{faq.name}</p>
+                                <p className="text-[10px] text-slate-500">{faq.url}</p>
+                              </div>
+                            ))}
+                            {(!product.resources?.faqs || product.resources.faqs.length === 0) && (
+                              <p className="text-[10px] text-slate-400 italic">No FAQs yet</p>
+                            )}
                           </div>
                         </TabsContent>
                       </div>
@@ -156,25 +146,22 @@ export default function ProductsPage() {
   );
 }
 
-function ResourceList({ items, type }: { items: { name: string, type: string }[], type: string }) {
-  if (items.length === 0) {
-    return <p className="text-[10px] text-slate-400 italic py-2">No {type} added yet</p>;
+function ResourceList({ items, type }: { items: any[], type: string }) {
+  if (!items || items.length === 0) {
+    return <p className="text-[10px] text-slate-400 italic py-2">No {type} available</p>;
   }
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       {items.map((item, idx) => (
-        <div key={idx} className="flex items-center justify-between h-8 px-2 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group/item">
+        <div key={idx} className="flex items-center justify-between h-8 px-2 rounded-md hover:bg-slate-50 transition-colors group/item">
           <div className="flex items-center gap-2 overflow-hidden">
-            {type === 'script' ? <FileCode size={12} className="text-indigo-500 shrink-0" /> : <FileText size={12} className="text-indigo-500 shrink-0" />}
-            <span className="text-[11px] truncate text-slate-600 dark:text-slate-400 font-medium">{item.name}</span>
+            {type === 'video' ? <Video size={12} className="text-red-500" /> : type === 'manual' ? <BookOpen size={12} className="text-emerald-500" /> : <FileText size={12} className="text-indigo-500" />}
+            <span className="text-[11px] truncate text-slate-600 font-medium">{item.name}</span>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Badge variant="outline" className="text-[9px] px-1 h-3.5 font-bold uppercase text-slate-400 border-slate-200">
-              {item.type}
-            </Badge>
-            <Download size={12} className="text-slate-300 hover:text-indigo-600 cursor-pointer transition-colors" />
-          </div>
+          <a href={item.url} target="_blank" className="shrink-0 p-1 hover:bg-indigo-100 rounded text-slate-400 hover:text-indigo-600">
+            <Download size={12} />
+          </a>
         </div>
       ))}
     </div>

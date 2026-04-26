@@ -58,19 +58,21 @@ export interface Lead {
   createdAt: string;
   lastActivityAt: string;
   wonAt?: string;
+  firstResponseAt?: string;
+  contractSignedAt?: string;
 }
 
 export type ActivityType = 
   | 'Call made' 
   | 'Intro meeting' 
   | 'Follow up' 
-  | 'Proposal sent' 
+  | 'Proposal send' 
   | 'Demo done' 
-  | 'Presentation' 
+  | 'Presentation done' 
   | 'Negotiation' 
   | 'Quotation shared' 
-  | 'Contract sent' 
-  | 'Invoice sent' 
+  | 'Contract send' 
+  | 'Invoice send' 
   | 'Closed won' 
   | 'Closed lost';
 
@@ -80,6 +82,13 @@ export interface Product {
   description: string;
   commissionStructure: any;
   tierRequired: string;
+  resources: {
+    scripts: any[];
+    docs: any[];
+    videos: any[];
+    manuals: any[];
+    faqs: any[];
+  };
 }
 
 export interface LeadActivity {

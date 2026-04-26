@@ -29,7 +29,8 @@ import {
   ChevronRight,
   ExternalLink,
   PlayCircle,
-  AlertCircle
+  AlertCircle,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -66,7 +67,7 @@ export default function AdminProductsPage() {
       description: 'Enter description...',
       tierRequired: 't1',
       status: 'active',
-      resources: { scripts: [], docs: [], videos: [], faqs: [] },
+      resources: { scripts: [], docs: [], videos: [], manuals: [], faqs: [] },
       commissionStructure: { base: 5 }
     };
     await setDoc(doc(firestore, 'products', newId), newProduct);
@@ -131,7 +132,6 @@ export default function AdminProductsPage() {
                       <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-violet-100 bg-white text-violet-600 font-bold uppercase tracking-tight">
                          {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
                       </Badge>
-                      <span className="text-[10px] text-slate-400 font-medium">Updated 2d ago</span>
                    </div>
                 </div>
               ))}
@@ -162,49 +162,14 @@ export default function AdminProductsPage() {
                       </Button>
                    </div>
 
-                   <div className="grid grid-cols-2 gap-8 pt-4 border-t">
-                      <div className="space-y-4">
-                         <h3 className="text-[12px] font-bold text-violet-700 uppercase tracking-widest">Configuration</h3>
-                         <div className="space-y-3">
-                            <div className="space-y-1.5">
-                               <Label className="text-[11px] font-bold text-slate-400 uppercase">Primary Tier Access</Label>
-                               <select 
-                                 className="w-full h-9 border rounded-md px-3 text-[13px] bg-white"
-                                 value={selectedProduct.tierRequired}
-                                 onChange={(e) => handleUpdateProduct({ tierRequired: e.target.value })}
-                               >
-                                  {tiers?.map(t => <option key={t.id} value={t.id}>{t.name} (Rank {t.rankLevel})</option>)}
-                               </select>
-                            </div>
-                            <div className="space-y-1.5">
-                               <Label className="text-[11px] font-bold text-slate-400 uppercase">Commission Structure</Label>
-                               <div className="p-3 bg-slate-50 rounded border font-mono text-[11px]">
-                                  {JSON.stringify(selectedProduct.commissionStructure || {}, null, 2)}
-                                  <Button variant="ghost" size="sm" className="h-6 mt-2 text-[10px] w-full border border-dashed text-violet-600">Edit JSON</Button>
-                               </div>
-                            </div>
-                         </div>
-                      </div>
-                      <div className="space-y-4">
-                         <h3 className="text-[12px] font-bold text-violet-700 uppercase tracking-widest">Tier Availability</h3>
-                         <div className="space-y-2">
-                            {tiers?.map(t => (
-                              <div key={t.id} className="flex items-center gap-3 p-2 rounded hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-colors">
-                                 <Switch className="scale-75 data-[state=checked]:bg-violet-600" defaultChecked />
-                                 <span className="text-[13px] font-medium">{t.name} Tier</span>
-                              </div>
-                            ))}
-                         </div>
-                      </div>
-                   </div>
-
                    <div className="pt-6 border-t">
                       <Tabs defaultValue="scripts" className="w-full">
                          <TabsList className="bg-slate-100 p-0.5 rounded-md h-9 gap-1">
-                            <TabsTrigger value="scripts" className="text-[12px] px-4 gap-2 data-[state=active]:text-violet-700"><FileCode size={14} /> Scripts</TabsTrigger>
-                            <TabsTrigger value="docs" className="text-[12px] px-4 gap-2 data-[state=active]:text-violet-700"><FileText size={14} /> Docs</TabsTrigger>
-                            <TabsTrigger value="videos" className="text-[12px] px-4 gap-2 data-[state=active]:text-violet-700"><Video size={14} /> Videos</TabsTrigger>
-                            <TabsTrigger value="faqs" className="text-[12px] px-4 gap-2 data-[state=active]:text-violet-700"><HelpCircle size={14} /> FAQs</TabsTrigger>
+                            <TabsTrigger value="scripts" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><FileCode size={14} /> Scripts</TabsTrigger>
+                            <TabsTrigger value="docs" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><FileText size={14} /> Docs</TabsTrigger>
+                            <TabsTrigger value="videos" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><Video size={14} /> Videos</TabsTrigger>
+                            <TabsTrigger value="manuals" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><BookOpen size={14} /> Manuals</TabsTrigger>
+                            <TabsTrigger value="faqs" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><HelpCircle size={14} /> FAQs</TabsTrigger>
                          </TabsList>
                          
                          <div className="mt-4">
@@ -216,6 +181,9 @@ export default function AdminProductsPage() {
                             </TabsContent>
                             <TabsContent value="videos" className="m-0 space-y-4">
                                <ResourceManager type="videos" productId={selectedProductId} items={(selectedProduct as any).resources?.videos || []} />
+                            </TabsContent>
+                            <TabsContent value="manuals" className="m-0 space-y-4">
+                               <ResourceManager type="manuals" productId={selectedProductId} items={(selectedProduct as any).resources?.manuals || []} />
                             </TabsContent>
                             <TabsContent value="faqs" className="m-0 space-y-4">
                                <ResourceManager type="faqs" productId={selectedProductId} items={(selectedProduct as any).resources?.faqs || []} />
@@ -282,7 +250,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
             <div className="col-span-2">
                <Input required placeholder="URL or File Path..." className="h-8 text-[12px]" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
             </div>
-            <Button type="submit" className="h-8 bg-violet-600 text-[11px] font-bold uppercase tracking-tight">Save {type.slice(0,-1)}</Button>
+            <Button type="submit" className="h-8 bg-violet-600 text-[11px] font-bold uppercase tracking-tight">Save</Button>
          </form>
        )}
 
@@ -299,8 +267,8 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
              <tbody className="divide-y bg-white">
                 {items.map(item => (
                   <tr key={item.id} className="h-9 hover:bg-slate-50 group">
-                     <td className="px-3">
-                        {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'docs' ? <FileText size={14} className="text-blue-500" /> : <FileCode size={14} className="text-indigo-500" />}
+                     <td className="px-3 text-slate-400">
+                        {type === 'videos' ? <PlayCircle size={14} /> : type === 'manuals' ? <BookOpen size={14} /> : <FileText size={14} />}
                      </td>
                      <td className="font-medium truncate max-w-[300px]">
                         <div className="flex flex-col">
@@ -316,22 +284,15 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
                            <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-violet-600">
                               <ExternalLink size={14} />
                            </a>
-                           <TooltipProvider>
-                              <Tooltip>
-                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500" onClick={() => handleDelete(item.id)}>
-                                       <Trash2 size={14} />
-                                    </Button>
-                                 </TooltipTrigger>
-                                 <TooltipContent className="text-[11px] bg-red-600 text-white border-none">Delete this resource?</TooltipContent>
-                              </Tooltip>
-                           </TooltipProvider>
+                           <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500" onClick={() => handleDelete(item.id)}>
+                              <Trash2 size={14} />
+                           </Button>
                         </div>
                      </td>
                   </tr>
                 ))}
                 {items.length === 0 && (
-                  <tr className="h-20 text-center"><td colSpan={4} className="text-slate-400 italic text-[12px]">No {type} uploaded for this product yet.</td></tr>
+                  <tr className="h-20 text-center"><td colSpan={4} className="text-slate-400 italic text-[12px]">No items yet.</td></tr>
                 )}
              </tbody>
           </table>
@@ -339,4 +300,3 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
     </div>
   );
 }
-

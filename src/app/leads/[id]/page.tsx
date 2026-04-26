@@ -23,7 +23,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Paperclip
+  Paperclip,
+  Activity,
+  Zap,
+  FileCheck
 } from 'lucide-react';
 import { 
   Select, 
@@ -34,15 +37,15 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { format, formatDistanceToNow, differenceInDays, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, differenceInDays, parseISO, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 
 const ACTIVITY_TYPES: ActivityType[] = [
-  'Call made', 'Intro meeting', 'Follow up', 'Proposal sent', 'Demo done', 
-  'Presentation', 'Negotiation', 'Quotation shared', 'Contract sent', 
-  'Invoice sent', 'Closed won', 'Closed lost'
+  'Call made', 'Intro meeting', 'Follow up', 'Proposal send', 'Demo done', 
+  'Presentation done', 'Negotiation', 'Quotation shared', 'Contract send', 
+  'Invoice send', 'Closed won', 'Closed lost'
 ];
 
 export default function LeadDetailPage() {
@@ -96,6 +99,7 @@ export default function LeadDetailPage() {
     setSubmitting(true);
 
     try {
+      const now = new Date().toISOString();
       const activityData = {
         leadId: id as string,
         agentId: user.id,
@@ -106,16 +110,25 @@ export default function LeadDetailPage() {
         nextActionType,
         nextActionDate,
         outcomeStatus,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
       };
 
       await addDoc(collection(firestore, 'leads', id as string, 'activities'), activityData);
       
-      const updateData: any = { lastActivityAt: new Date().toISOString() };
+      const updateData: any = { lastActivityAt: now };
       
+      // Capture first response if this is the first interaction
+      if (!lead.firstResponseAt) {
+        updateData.firstResponseAt = now;
+      }
+
+      if (type === 'Contract send') {
+        updateData.contractSignedAt = now; // Simplified logic: track when contract is initiated
+      }
+
       if (type === 'Closed won') {
         updateData.status = 'won';
-        updateData.wonAt = new Date().toISOString();
+        updateData.wonAt = now;
 
         // COMMISSION AUTOMATION TRIGGER
         const currentTier = tiers?.find(t => t.id === user.tierId);
@@ -131,7 +144,7 @@ export default function LeadDetailPage() {
           amount: commAmount,
           status: 'pending',
           triggerType: 'Deal marked Won',
-          createdAt: new Date().toISOString()
+          createdAt: now
         });
 
         // Update Wallet Pending
@@ -163,6 +176,11 @@ export default function LeadDetailPage() {
 
   const daysInPipeline = differenceInDays(new Date(), parseISO(lead.createdAt));
   const lastActivityDate = lead.lastActivityAt ? parseISO(lead.lastActivityAt) : parseISO(lead.createdAt);
+  
+  // Calculate Response Time
+  const firstResponseHours = lead.firstResponseAt 
+    ? differenceInHours(parseISO(lead.firstResponseAt), parseISO(lead.createdAt))
+    : null;
 
   return (
     <Shell>
@@ -188,12 +206,36 @@ export default function LeadDetailPage() {
         </Select>
       </div>
 
-      <div className="flex items-center gap-6 py-2 px-1 border-b mb-6 text-[11px] font-bold uppercase tracking-tight text-slate-400">
-        <div className="flex gap-2"><span>Days in Pipeline:</span><span className="text-slate-900">{daysInPipeline} days</span></div>
+      {/* Lifecycle Metrics Bar */}
+      <div className="flex items-center gap-6 py-2 px-1 border-b mb-6 text-[10px] font-bold uppercase tracking-widest text-slate-400 overflow-x-auto whitespace-nowrap">
+        <div className="flex gap-2 items-center">
+          <CalendarIcon size={12} />
+          <span>Created: <b className="text-slate-700">{format(parseISO(lead.createdAt), 'MMM d, yyyy')}</b></span>
+        </div>
         <div className="h-3 w-px bg-slate-200" />
-        <div className="flex gap-2"><span>Last Activity:</span><span className="text-slate-900">{formatDistanceToNow(lastActivityDate)} ago</span></div>
+        <div className="flex gap-2 items-center">
+          <Activity size={12} />
+          <span>Pipeline: <b className="text-slate-700">{daysInPipeline} Days</b></span>
+        </div>
         <div className="h-3 w-px bg-slate-200" />
-        <div className="flex gap-2"><span>Status:</span><span className="text-primary">{lead.status}</span></div>
+        <div className="flex gap-2 items-center">
+          <Zap size={12} />
+          <span>Response: <b className="text-slate-700">{firstResponseHours !== null ? `${firstResponseHours}h` : 'Pending'}</b></span>
+        </div>
+        <div className="h-3 w-px bg-slate-200" />
+        <div className="flex gap-2 items-center">
+          <Clock size={12} />
+          <span>Last Touch: <b className="text-slate-700">{formatDistanceToNow(lastActivityDate)} ago</b></span>
+        </div>
+        {lead.wonAt && (
+          <>
+            <div className="h-3 w-px bg-slate-200" />
+            <div className="flex gap-2 items-center">
+              <CheckCircle2 size={12} className="text-emerald-500" />
+              <span>Time to Close: <b className="text-emerald-700">{differenceInDays(parseISO(lead.wonAt), parseISO(lead.createdAt))} Days</b></span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-10 gap-6">
@@ -210,7 +252,6 @@ export default function LeadDetailPage() {
                   { label: 'Budget', value: `$${lead.estimatedBudget.toLocaleString()}` },
                   { label: 'Channel', value: lead.firstContactChannel },
                   { label: 'Sub-channel', value: lead.firstContactSubchannel },
-                  { label: 'Created Date', value: format(parseISO(lead.createdAt), 'MMM d, yyyy') },
                 ].map((item, i) => (
                   <div key={i} className="flex flex-col gap-0.5">
                     <span className="text-[12px] text-slate-500 font-medium">{item.label}</span>
@@ -277,6 +318,9 @@ export default function LeadDetailPage() {
                     </div>
                   </div>
                 ))}
+                {(!activities || activities.length === 0) && (
+                  <div className="p-10 text-center text-slate-400 italic text-[12px]">No activity history yet.</div>
+                )}
               </div>
             </CardContent>
           </Card>
