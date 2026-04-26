@@ -1,26 +1,19 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc, addDoc } from 'firebase/firestore';
-import { Agent, Lead, Commission, Target, Wallet } from '@/types/crm';
+import { collection, query, where } from 'firebase/firestore';
+import { Agent, Lead, Commission } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Users, 
   Search, 
   Filter, 
   MoreVertical, 
-  Calendar, 
-  TrendingUp, 
   Wallet as WalletIcon, 
-  Briefcase,
-  X,
-  Loader2,
-  CheckCircle2
 } from 'lucide-react';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,12 +21,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
 
 export default function ManagerTeamPage() {
   const { user } = useAuthStore();
   const firestore = useFirestore();
-  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
@@ -80,7 +71,7 @@ export default function ManagerTeamPage() {
               />
             </div>
             <Button variant="outline" size="sm" className="h-9 gap-2">
-              <Filter size={14} /> Filter Team
+              <Filter size(14) /> Filter Team
             </Button>
           </div>
         </div>
@@ -109,7 +100,7 @@ export default function ManagerTeamPage() {
 
                   <div className="grid grid-cols-2 gap-4 mb-4 text-[11px]">
                      <div className="space-y-0.5">
-                        <p className="text-slate-400 font-medium uppercase tracking-wider">Region</p>
+                        <p className="text-slate-400 font-medium uppercase tracking-wider">Region / Territory</p>
                         <p className="font-bold text-slate-700">{agent.region}</p>
                      </div>
                      <div className="space-y-0.5">
@@ -186,7 +177,7 @@ export default function ManagerTeamPage() {
                         { label: 'Full Name', value: selectedAgent?.name },
                         { label: 'Email', value: selectedAgent?.email },
                         { label: 'Phone', value: selectedAgent?.phone },
-                        { label: 'Region', value: selectedAgent?.region },
+                        { label: 'Region / Territory', value: selectedAgent?.region },
                         { label: 'Status', value: selectedAgent?.status },
                         { label: 'Join Date', value: selectedAgent ? format(parseISO(selectedAgent.joinDate), 'PPP') : '' },
                       ].map((item, i) => (

@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -9,7 +10,6 @@ import { Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Users, 
   Search, 
   Filter, 
   UserPlus, 
@@ -112,7 +112,7 @@ export default function AdminUsersPage() {
               <thead>
                 <tr>
                   <th className="px-4">Agent Name</th>
-                  <th>Region</th>
+                  <th>Region / Territory</th>
                   <th>Role</th>
                   <th>Tier</th>
                   <th>Status</th>

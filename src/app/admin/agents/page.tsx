@@ -5,19 +5,16 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
 import { Agent, Tier, UserStatus, Role } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  Filter, 
-  UserPlus, 
-  MoreVertical, 
   Download, 
   Loader2, 
-  X,
-  ShieldAlert,
+  UserPlus, 
+  MoreVertical, 
   Wallet,
   CheckCircle2,
   XCircle,
@@ -37,7 +34,7 @@ export default function AdminAgentsPage() {
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDrawerOpen, setIsCollapsed] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -82,7 +79,7 @@ export default function AdminAgentsPage() {
       status: agent.status,
       role: agent.role
     });
-    setIsCollapsed(true);
+    setIsDrawerOpen(true);
   };
 
   const handleAdd = () => {
@@ -90,7 +87,7 @@ export default function AdminAgentsPage() {
     setFormData({
       name: '', email: '', phone: '', region: '', managerId: '', tierId: 't1', status: 'active', role: 'Agent'
     });
-    setIsCollapsed(true);
+    setIsDrawerOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -101,12 +98,12 @@ export default function AdminAgentsPage() {
       const agentId = editingAgent ? editingAgent.id : `agent_${Date.now()}`;
       const finalData = {
         ...formData,
-        managerId: formData.managerId || null,
+        managerId: formData.managerId === 'none' ? null : (formData.managerId || null),
         joinDate: editingAgent ? editingAgent.joinDate : new Date().toISOString(),
       };
       await setDoc(doc(firestore, 'agents', agentId), finalData, { merge: true });
-      toast({ title: typeof editingAgent !== 'undefined' && editingAgent ? "Agent Updated" : "Agent Created", description: `${formData.name} record saved.` });
-      setIsCollapsed(false);
+      toast({ title: editingAgent ? "Agent Updated" : "Agent Created", description: `${formData.name} record saved.` });
+      setIsDrawerOpen(false);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Operation Failed", description: err.message });
     } finally {
@@ -121,7 +118,7 @@ export default function AdminAgentsPage() {
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="h-11 flex items-center justify-between gap-4">
-          <h1 className="text-[16px] font-bold shrink-0 text-violet-900">User Management</h1>
+          <h1 className="text-[16px] font-bold shrink-0 text-violet-900">Agent Onboarding & Mgmt</h1>
           <div className="flex-1 max-w-[280px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
@@ -156,7 +153,7 @@ export default function AdminAgentsPage() {
                     <th className="px-3 text-left w-[180px]">Agent Name</th>
                     <th className="text-left w-[140px]">Manager</th>
                     <th className="text-center w-[90px]">Tier</th>
-                    <th className="text-left w-[100px]">Region</th>
+                    <th className="text-left w-[120px]">Region / Territory</th>
                     <th className="text-center w-[100px]">Status</th>
                     <th className="text-left w-[110px]">Join Date</th>
                     <th className="text-right w-[100px]">Wallet</th>
@@ -225,7 +222,7 @@ export default function AdminAgentsPage() {
       </div>
 
       {/* Add/Edit Drawer */}
-      <Sheet open={isDrawerOpen} onOpenChange={setIsCollapsed}>
+      <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <SheetContent className="w-[400px] sm:max-w-[400px] p-0 overflow-hidden flex flex-col">
           <SheetHeader className="p-4 border-b bg-violet-50">
              <SheetTitle className="text-[16px] font-bold flex items-center gap-2">
@@ -251,7 +248,7 @@ export default function AdminAgentsPage() {
                    </div>
                 </div>
                 <div className="space-y-1.5">
-                   <Label className="text-[11px] font-bold uppercase text-slate-400">Region</Label>
+                   <Label className="text-[11px] font-bold uppercase text-slate-400">Region / Territory</Label>
                    <Input required className="h-9 text-[13px]" placeholder="Global / North / EMEA" value={formData.region} onChange={(e) => setFormData({...formData, region: e.target.value})} />
                 </div>
                 
@@ -311,7 +308,7 @@ export default function AdminAgentsPage() {
           </form>
 
           <SheetFooter className="p-4 border-t bg-slate-50/50">
-             <Button variant="ghost" size="sm" className="h-9 px-6 text-slate-500 font-bold uppercase tracking-tight text-[11px]" onClick={() => setIsCollapsed(false)}>Cancel</Button>
+             <Button variant="ghost" size="sm" className="h-9 px-6 text-slate-500 font-bold uppercase tracking-tight text-[11px]" onClick={() => setIsDrawerOpen(false)}>Cancel</Button>
              <Button className="h-9 px-10 bg-violet-600 hover:bg-violet-700 font-bold uppercase tracking-tight text-[11px]" disabled={isSaving} onClick={handleSave}>
                 {isSaving ? <Loader2 className="animate-spin" size={14} /> : 'Confirm Save'}
              </Button>
