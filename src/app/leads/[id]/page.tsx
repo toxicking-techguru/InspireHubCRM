@@ -186,7 +186,7 @@ export default function LeadDetailPage() {
     <Shell>
       <div className="text-[12px] text-slate-500 mb-1 flex items-center gap-1">
         <Link href="/leads" className="hover:text-primary transition-colors">My leads</Link>
-        <span>></span><span className="text-slate-900 font-medium">{lead.clientName}</span>
+        <span>&gt;</span><span className="text-slate-900 font-medium">{lead.clientName}</span>
       </div>
 
       <div className="h-[52px] flex items-center justify-between border-b mb-4">
