@@ -26,6 +26,7 @@ import { TierBadge } from '@/components/ui/tier-badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -147,7 +148,7 @@ export default function ManagerTeamPage() {
         </div>
       </div>
 
-      {/* Agent Detail Modal (Overlay Div instead of absolute position:fixed) */}
+      {/* Agent Detail Modal */}
       <Dialog open={!!selectedAgentId} onOpenChange={() => setSelectedAgentId(null)}>
         <DialogContent className="max-w-[640px] p-0 overflow-hidden">
           <DialogHeader className="p-4 border-b bg-slate-50">
