@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -22,7 +21,7 @@ import {
   UserPlus,
   Moon
 } from 'lucide-react';
-import { format, differenceInHours, parseISO } from 'date-fns';
+import { format, differenceInHours, parseISO, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
