@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -71,7 +70,7 @@ export default function ManagerTeamPage() {
               />
             </div>
             <Button variant="outline" size="sm" className="h-9 gap-2">
-              <Filter size(14) /> Filter Team
+              <Filter size={14} /> Filter Team
             </Button>
           </div>
         </div>
