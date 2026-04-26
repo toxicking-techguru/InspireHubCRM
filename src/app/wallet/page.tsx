@@ -119,17 +119,17 @@ export default function WalletPage() {
   return (
     <Shell>
       <div className="space-y-8">
-        {/* Metric Cards Grid - 5 items */}
+        {/* Metric Cards Grid - Aligned with image list */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
             { label: 'Total Earned', value: wallet?.totalEarned || 0, color: 'bg-slate-50' },
-            { label: 'Pending', value: wallet?.pending || 0, color: 'bg-slate-50' },
+            { label: 'Pending Commission', value: wallet?.pending || 0, color: 'bg-slate-50' },
             { label: 'Withdrawable', value: wallet?.withdrawable || 0, color: 'bg-indigo-100 border-indigo-200' },
-            { label: 'Withdrawn', value: wallet?.withdrawn || 0, color: 'bg-slate-50' },
-            { label: 'Balance', value: balance, color: 'bg-slate-50' },
+            { label: 'Withdrawn Amount', value: wallet?.withdrawn || 0, color: 'bg-slate-50' },
+            { label: 'Remaining Balance', value: balance, color: 'bg-slate-50' },
           ].map((item, i) => (
             <div key={i} className={cn("border-[0.5px] rounded-md p-3 shadow-sm", item.color)}>
-              <p className="text-[12px] font-medium text-slate-500 mb-1">{item.label}</p>
+              <p className="text-[11px] font-bold uppercase tracking-tight text-slate-400 mb-1">{item.label}</p>
               <p className="text-[20px] font-bold text-slate-900 leading-tight">
                 ${item.value.toLocaleString()}
               </p>
@@ -139,7 +139,7 @@ export default function WalletPage() {
 
         {/* Withdrawal Request Form Section */}
         <div className="space-y-4">
-          <SectionHeader title="Withdrawal Request" />
+          <SectionHeader title="Withdrawal Request Flow" />
           <div className="bg-card border-[0.5px] rounded-lg p-5 shadow-sm max-w-[480px]">
             <form onSubmit={handleWithdrawalRequest} className="space-y-4">
               <div className="space-y-1.5">
@@ -155,27 +155,27 @@ export default function WalletPage() {
                     onChange={(e) => setAmount(e.target.value)}
                   />
                 </div>
-                <p className="text-[11px] text-muted-foreground">Available: ${withdrawableBalance.toLocaleString()}</p>
+                <p className="text-[11px] text-muted-foreground">Approved Withdrawable Balance: ${withdrawableBalance.toLocaleString()}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 col-span-2">
-                  <Label className="text-[12px] font-bold">Bank Name</Label>
+                  <Label className="text-[12px] font-bold uppercase text-slate-400">Target Bank / Provider</Label>
                   <Input required className="h-9 text-[13px]" placeholder="e.g. Standard Chartered" value={bankName} onChange={(e) => setBankName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[12px] font-bold">Account Name</Label>
+                  <Label className="text-[12px] font-bold uppercase text-slate-400">Account Name</Label>
                   <Input required className="h-9 text-[13px]" placeholder="Account Holder" value={accountName} onChange={(e) => setAccountName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[12px] font-bold">Account Number</Label>
+                  <Label className="text-[12px] font-bold uppercase text-slate-400">Account Number</Label>
                   <Input required className="h-9 text-[13px]" placeholder="**** **** ****" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
                 </div>
               </div>
 
-              <Button type="submit" className="w-full gap-2 h-9 font-bold" disabled={isSubmitting}>
+              <Button type="submit" className="w-full gap-2 h-9 font-bold bg-indigo-600 hover:bg-indigo-700" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}
-                Submit Request
+                Initiate Request
               </Button>
             </form>
           </div>
@@ -183,7 +183,7 @@ export default function WalletPage() {
 
         {/* Withdrawal History Section */}
         <div className="space-y-4">
-          <SectionHeader title="Withdrawal History" />
+          <SectionHeader title="Payout Status Tracking" />
           <div className="bg-card border-[0.5px] rounded-md shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
@@ -225,62 +225,6 @@ export default function WalletPage() {
                   )}
                 </tbody>
               </table>
-            </div>
-            <div className="p-2 px-3 border-t bg-slate-50/30 flex justify-between text-[11px] text-slate-400">
-               <span>Showing last 15 entries</span>
-               <div className="flex gap-2">
-                 <Button variant="ghost" className="h-5 text-[10px] p-0" disabled>Previous</Button>
-                 <Button variant="ghost" className="h-5 text-[10px] p-0" disabled>Next</Button>
-               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Commission Log Section */}
-        <div className="space-y-4">
-          <SectionHeader title="Commission Log" />
-          <div className="bg-card border-[0.5px] rounded-md shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 h-9">
-                    <th className="px-3 text-left w-[180px]">Lead Name</th>
-                    <th className="text-left w-[120px]">Deal Amount</th>
-                    <th className="text-left w-[80px]">Comm %</th>
-                    <th className="text-left w-[120px]">Comm Earned</th>
-                    <th className="text-left w-[120px]">Trigger Type</th>
-                    <th className="text-left w-[120px]">Date</th>
-                    <th className="text-left px-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-[13px]">
-                  {commissionsLoading ? (
-                    <tr className="h-20"><td colSpan={7} className="text-center"><Loader2 className="animate-spin mx-auto text-primary" /></td></tr>
-                  ) : commissions?.map((c) => (
-                    <tr key={c.id} className="h-9 hover:bg-slate-50/50 transition-colors">
-                      <td className="px-3 font-medium">{(c as any).clientName || 'Unknown Lead'}</td>
-                      <td className="text-slate-500">${((c as any).dealAmount || 0).toLocaleString()}</td>
-                      <td className="text-slate-500">{(c as any).commissionPct || 0}%</td>
-                      <td className="font-bold text-emerald-600">${c.amount.toLocaleString()}</td>
-                      <td className="text-slate-500">{(c as any).triggerType || 'Sale Won'}</td>
-                      <td className="text-slate-500">{format(parseISO(c.createdAt), 'MMM d, yyyy')}</td>
-                      <td className="px-3">
-                         <Badge variant="secondary" className="text-[10px] h-4 uppercase">{c.status}</Badge>
-                      </td>
-                    </tr>
-                  ))}
-                  {(!commissions || commissions.length === 0) && (
-                    <tr className="h-20"><td colSpan={7} className="text-center text-muted-foreground italic">No commissions recorded yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-2 px-3 border-t bg-slate-50/30 flex justify-between text-[11px] text-slate-400">
-               <span>Showing last 15 entries</span>
-               <div className="flex gap-2">
-                 <Button variant="ghost" className="h-5 text-[10px] p-0" disabled>Previous</Button>
-                 <Button variant="ghost" className="h-5 text-[10px] p-0" disabled>Next</Button>
-               </div>
             </div>
           </div>
         </div>

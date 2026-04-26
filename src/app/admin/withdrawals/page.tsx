@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, writeBatch, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, writeBatch, where, increment } from 'firebase/firestore';
 import { Withdrawal, Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +63,7 @@ export default function AdminWithdrawalsPage() {
       const wRef = doc(firestore, 'withdrawals', withdrawal.id);
       const walletRef = doc(firestore, 'wallets', withdrawal.agentId);
 
+      // Status Transition: Finance Approves -> Paid -> Wallet Updated
       batch.update(wRef, { 
         status: 'paid', 
         processedAt: new Date().toISOString(),
@@ -70,11 +71,14 @@ export default function AdminWithdrawalsPage() {
         reference: paymentRef
       });
       
-      // Update wallet totals (mock logic: increment withdrawn, decrement withdrawable)
-      // This usually happens in a secure cloud function in production
+      // Real wallet update: Subtract from withdrawable, add to withdrawn
+      batch.update(walletRef, {
+        withdrawable: increment(-withdrawal.amount),
+        withdrawn: increment(withdrawal.amount)
+      });
       
       await batch.commit();
-      toast({ title: "Payment Recorded", description: "Withdrawal marked as paid and wallet updated." });
+      toast({ title: "Payment Disbursed", description: `Wallet for agent has been updated successfully.` });
       setProcessingId(null);
       setPaymentRef('');
     } catch (e: any) {
@@ -112,9 +116,9 @@ export default function AdminWithdrawalsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[18px] font-bold flex items-center gap-2 text-violet-900">
-               <Banknote className="text-violet-600" size={20} /> Withdrawal Approvals
+               <Banknote className="text-violet-600" size={20} /> Withdrawal Flow Control
             </h1>
-            <p className="text-[12px] text-muted-foreground mt-0.5">Manage agent payout requests and monitor disbursement health.</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Finance Approval → Payout Execution → Automated Wallet Synchronization.</p>
           </div>
           <Button variant="outline" size="sm" className="h-8 gap-2 border-violet-200 text-violet-700">
              <Download size={14} /> Export Queue
@@ -293,4 +297,3 @@ export default function AdminWithdrawalsPage() {
     </Shell>
   );
 }
-
