@@ -26,7 +26,8 @@ import {
   Paperclip,
   Activity,
   Zap,
-  FileCheck
+  FileCheck,
+  ExternalLink
 } from 'lucide-react';
 import { 
   Select, 
@@ -73,6 +74,7 @@ export default function LeadDetailPage() {
   const [nextActionType, setNextActionType] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
   const [outcomeStatus, setOutcomeStatus] = useState('Pending');
+  const [fileUrl, setFileUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<LeadStatus | null>(null);
 
@@ -110,6 +112,7 @@ export default function LeadDetailPage() {
         nextActionType,
         nextActionDate,
         outcomeStatus,
+        fileUrl,
         createdAt: now,
       };
 
@@ -117,20 +120,18 @@ export default function LeadDetailPage() {
       
       const updateData: any = { lastActivityAt: now };
       
-      // Capture first response if this is the first interaction
       if (!lead.firstResponseAt) {
         updateData.firstResponseAt = now;
       }
 
       if (type === 'Contract send') {
-        updateData.contractSignedAt = now; // Simplified logic: track when contract is initiated
+        updateData.contractSignedAt = now;
       }
 
       if (type === 'Closed won') {
         updateData.status = 'won';
         updateData.wonAt = now;
 
-        // COMMISSION AUTOMATION TRIGGER
         const currentTier = tiers?.find(t => t.id === user.tierId);
         const commPct = currentTier?.commissionPct || 5;
         const commAmount = (lead.estimatedBudget * commPct) / 100;
@@ -147,7 +148,6 @@ export default function LeadDetailPage() {
           createdAt: now
         });
 
-        // Update Wallet Pending
         const walletRef = doc(firestore, 'wallets', user.id);
         const walletSnap = await getDoc(walletRef);
         if (walletSnap.exists()) {
@@ -162,7 +162,7 @@ export default function LeadDetailPage() {
       }
 
       await updateDoc(doc(firestore, 'leads', id as string), updateData);
-      setRemark(''); setNextActionType(''); setNextActionDate('');
+      setRemark(''); setNextActionType(''); setNextActionDate(''); setFileUrl('');
       toast({ title: "Activity Logged", description: "Interaction recorded successfully." });
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to log activity." });
@@ -176,11 +176,7 @@ export default function LeadDetailPage() {
 
   const daysInPipeline = differenceInDays(new Date(), parseISO(lead.createdAt));
   const lastActivityDate = lead.lastActivityAt ? parseISO(lead.lastActivityAt) : parseISO(lead.createdAt);
-  
-  // Calculate Response Time
-  const firstResponseHours = lead.firstResponseAt 
-    ? differenceInHours(parseISO(lead.firstResponseAt), parseISO(lead.createdAt))
-    : null;
+  const firstResponseHours = lead.firstResponseAt ? differenceInHours(parseISO(lead.firstResponseAt), parseISO(lead.createdAt)) : null;
 
   return (
     <Shell>
@@ -206,7 +202,6 @@ export default function LeadDetailPage() {
         </Select>
       </div>
 
-      {/* Lifecycle Metrics Bar */}
       <div className="flex items-center gap-6 py-2 px-1 border-b mb-6 text-[10px] font-bold uppercase tracking-widest text-slate-400 overflow-x-auto whitespace-nowrap">
         <div className="flex gap-2 items-center">
           <CalendarIcon size={12} />
@@ -227,15 +222,6 @@ export default function LeadDetailPage() {
           <Clock size={12} />
           <span>Last Touch: <b className="text-slate-700">{formatDistanceToNow(lastActivityDate)} ago</b></span>
         </div>
-        {lead.wonAt && (
-          <>
-            <div className="h-3 w-px bg-slate-200" />
-            <div className="flex gap-2 items-center">
-              <CheckCircle2 size={12} className="text-emerald-500" />
-              <span>Time to Close: <b className="text-emerald-700">{differenceInDays(parseISO(lead.wonAt), parseISO(lead.createdAt))} Days</b></span>
-            </div>
-          </>
-        )}
       </div>
 
       <div className="grid lg:grid-cols-10 gap-6">
@@ -286,10 +272,50 @@ export default function LeadDetailPage() {
                     </Select>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Schedule Next Action</Label>
+                      <Input 
+                        placeholder="e.g. Call for followup" 
+                        className="h-8 text-[11px]" 
+                        value={nextActionType} 
+                        onChange={(e) => setNextActionType(e.target.value)} 
+                      />
+                   </div>
+                   <div className="space-y-1">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Next Action Date</Label>
+                      <Input 
+                        type="date" 
+                        className="h-8 text-[11px]" 
+                        value={nextActionDate} 
+                        onChange={(e) => setNextActionDate(e.target.value)} 
+                      />
+                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold">File Link (Optional)</Label>
+                  <div className="relative">
+                    <Paperclip className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                    <Input 
+                      placeholder="HTTPS link to document or image..." 
+                      className="pl-8 h-8 text-[11px]" 
+                      value={fileUrl}
+                      onChange={(e) => setFileUrl(e.target.value)}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <Label className="text-[11px] font-bold">Remark <span className="text-red-500">*</span></Label>
-                  <Textarea required className="text-[11px] min-h-[80px]" placeholder="Interaction details..." value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={1000} />
+                  <Textarea required className="text-[11px] min-h-[80px]" placeholder="Detailed notes about this interaction..." value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={1000} />
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold">Created by: {user.name}</span>
+                    <span className="text-[9px] text-slate-400">{remark.length}/1000</span>
+                  </div>
                 </div>
+
                 <Button type="submit" className="w-full h-9 font-bold" disabled={submitting}>
                   {submitting ? <Loader2 className="animate-spin" size={16} /> : 'Save Activity'}
                 </Button>
@@ -311,9 +337,34 @@ export default function LeadDetailPage() {
                     <div className="flex gap-3">
                       <div className="mt-1 w-2 h-2 rounded-full shrink-0 bg-primary" />
                       <div className="space-y-1 w-full">
-                        <div className="flex items-center justify-between"><span className="text-[13px] font-bold">{activity.type}</span><span className="text-[10px] text-slate-400">{format(parseISO(activity.createdAt), 'MMM d, h:mm a')}</span></div>
-                        <div className="text-[11px] text-slate-500">Added by <span className="font-bold">{activity.agentName || 'System'}</span></div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[13px] font-bold">{activity.type}</span>
+                          <span className="text-[10px] text-slate-400">{format(parseISO(activity.createdAt), 'MMM d, h:mm a')}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                           <div className="text-[11px] text-slate-500">By <span className="font-bold">{activity.agentName || 'System'}</span></div>
+                           <Badge variant="outline" className="text-[9px] h-3.5 px-1.5 font-bold uppercase tracking-tight">{activity.outcomeStatus}</Badge>
+                        </div>
                         <p className="text-[13px] text-slate-700 whitespace-pre-wrap mt-1">{activity.remark}</p>
+                        
+                        {(activity.nextActionType || activity.nextActionDate) && (
+                          <div className="mt-2 p-1.5 bg-slate-50 border rounded text-[11px] flex items-center gap-2">
+                             <Clock size={12} className="text-primary" />
+                             <span className="font-bold uppercase text-[9px] text-slate-400">Next Action:</span>
+                             <span className="text-slate-600">{activity.nextActionType || 'Pending'}</span>
+                             {activity.nextActionDate && <span className="text-primary font-bold">({activity.nextActionDate})</span>}
+                          </div>
+                        )}
+
+                        {activity.fileUrl && (
+                          <a 
+                            href={activity.fileUrl} 
+                            target="_blank" 
+                            className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-primary hover:underline font-medium"
+                          >
+                            <Paperclip size={12} /> View Attached Document <ExternalLink size={10} />
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
