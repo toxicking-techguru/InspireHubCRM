@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useMemo, useState } from 'react';
@@ -21,7 +22,10 @@ import {
   TrendingUp,
   Package,
   Target,
-  Edit2
+  Edit2,
+  Trophy,
+  Zap,
+  BarChart2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -63,11 +67,6 @@ export default function AdminTiersPage() {
     }
   };
 
-  const handleAddCriterion = (id: string) => {
-    // Simplified for MVP - normally would push to array
-    toast({ title: "Metric Added", description: "New performance target added to evaluation list." });
-  };
-
   if (!user || user.role !== 'Admin') return null;
 
   const colorConfig: Record<string, string> = {
@@ -80,11 +79,16 @@ export default function AdminTiersPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-[18px] font-bold flex items-center gap-2 text-violet-900">
-             <Layers className="text-violet-600" size={20} /> Performance Tiers & Criteria
-          </h1>
-          <p className="text-[12px] text-muted-foreground mt-0.5">Configure global commission rates and auto-upgrade performance targets.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[18px] font-bold flex items-center gap-2 text-violet-900">
+               <Layers className="text-violet-600" size={20} /> Sales Tiers Configuration
+            </h1>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Define rank levels, commission rates, and qualitative upgrade targets.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="h-6 border-violet-200 text-violet-700 font-bold">4 LEVELS CONFIGURED</Badge>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -103,10 +107,10 @@ export default function AdminTiersPage() {
                      <div>
                         <div className="flex items-center gap-1.5 mb-1">
                            <h3 className="text-[15px] font-bold text-slate-800">{tier.name}</h3>
-                           <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-slate-200">RANK {tier.rankLevel}</Badge>
+                           <Badge variant="secondary" className="text-[9px] h-3.5 px-1 bg-slate-100">{tier.rankLabel?.toUpperCase() || 'LEVEL'}</Badge>
                         </div>
                         <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                          {tierAgents.length} Active Agents
+                          {tierAgents.length} Agents Assigned
                         </p>
                      </div>
                      {isEditing ? (
@@ -114,7 +118,7 @@ export default function AdminTiersPage() {
                           {savingId === tier.id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
                        </Button>
                      ) : (
-                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-violet-600" onClick={() => handleStartEdit(tier)}>
+                       <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-400 hover:text-violet-600" onClick={() => handleStartEdit(tier)}>
                           <Edit2 size={14} />
                        </Button>
                      )}
@@ -122,8 +126,8 @@ export default function AdminTiersPage() {
 
                   <div className="p-4 space-y-5 flex-1">
                      <div className="space-y-4">
-                        <div className="flex justify-between items-center group">
-                           <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                        <div className="flex justify-between items-center">
+                           <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase">
                               <TrendingUp size={14} className="text-slate-300" /> Commission
                            </div>
                            {isEditing ? (
@@ -142,42 +146,55 @@ export default function AdminTiersPage() {
                         </div>
 
                         <div className="flex justify-between items-center">
-                           <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
-                              <Package size={14} className="text-slate-300" /> Prod Limit
+                           <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase">
+                              <Package size={14} className="text-slate-300" /> Catalog Access
                            </div>
                            {isEditing ? (
                              <Input 
-                               type="number" 
-                               className="h-7 w-16 text-right text-[12px] p-1 font-bold" 
-                               value={editValues.productLimit} 
-                               onChange={(e) => setEditValues({...editValues, productLimit: parseInt(e.target.value)})}
+                               className="h-7 w-[120px] text-right text-[11px] p-1 border-violet-100" 
+                               value={editValues.productLimitLabel} 
+                               onChange={(e) => setEditValues({...editValues, productLimitLabel: e.target.value})}
+                               placeholder="e.g. Few Products"
                              />
                            ) : (
-                             <span className="text-[18px] font-bold text-slate-800">{tier.productLimit}</span>
+                             <span className="text-[12px] font-bold text-slate-700">{tier.productLimitLabel || 'Standard'}</span>
+                           )}
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                           <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase">
+                              <Trophy size={14} className="text-slate-300" /> Upgrade Target
+                           </div>
+                           {isEditing ? (
+                             <Input 
+                               className="h-7 w-[120px] text-right text-[11px] p-1 border-violet-100" 
+                               value={editValues.upgradeTargetLabel} 
+                               onChange={(e) => setEditValues({...editValues, upgradeTargetLabel: e.target.value})}
+                               placeholder="e.g. Monthly sales"
+                             />
+                           ) : (
+                             <span className="text-[12px] font-bold text-violet-700 text-right max-w-[100px] truncate">{tier.upgradeTargetLabel || 'N/A'}</span>
                            )}
                         </div>
                      </div>
 
                      <div className="pt-4 border-t space-y-3">
-                        <div className="flex justify-between items-center">
-                           <h4 className="text-[11px] font-bold text-violet-700 uppercase tracking-widest">Upgrade Criteria</h4>
-                           {isEditing && (
-                             <button className="text-[10px] text-violet-600 font-bold hover:underline" onClick={() => handleAddCriterion(tier.id)}>+ ADD</button>
-                           )}
-                        </div>
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Logic Criteria (Auto-check)</h4>
                         <div className="space-y-2">
                            {[
-                             { label: 'Leads Target', key: 'leadsTarget' },
-                             { label: 'Won Target', key: 'closedTarget' },
-                             { label: 'Revenue Target', key: 'revenueTarget', isPrice: true },
+                             { label: 'Leads Created', key: 'leadsTarget' },
+                             { label: 'Closed Deals', key: 'closedTarget' },
+                             { label: 'Revenue ($)', key: 'revenueTarget' },
+                             { label: 'Act. Score', key: 'activityScoreTarget' },
+                             { label: 'Conv %', key: 'conversionRateTarget' },
                            ].map(item => (
-                             <div key={item.key} className="flex justify-between items-center p-2 rounded bg-white border border-slate-100 group">
-                                <span className="text-[11px] font-medium text-slate-500">{item.label}</span>
+                             <div key={item.key} className="flex justify-between items-center p-2 rounded bg-slate-50/50 border border-slate-100">
+                                <span className="text-[10px] font-medium text-slate-500">{item.label}</span>
                                 {isEditing ? (
                                   <Input 
                                     type="number" 
-                                    className="h-6 w-20 text-right text-[11px] p-1 border-violet-100" 
-                                    value={(editValues as any).upgradeCriteria[item.key]} 
+                                    className="h-6 w-16 text-right text-[11px] p-1 border-violet-100" 
+                                    value={(editValues as any).upgradeCriteria?.[item.key]} 
                                     onChange={(e) => {
                                       const newVal = parseFloat(e.target.value);
                                       setEditValues({
@@ -188,7 +205,7 @@ export default function AdminTiersPage() {
                                   />
                                 ) : (
                                   <span className="text-[11px] font-bold text-slate-700">
-                                    {item.isPrice ? `$${tier.upgradeCriteria[item.key as keyof typeof tier.upgradeCriteria].toLocaleString()}` : tier.upgradeCriteria[item.key as keyof typeof tier.upgradeCriteria]}
+                                    {(tier.upgradeCriteria as any)[item.key]?.toLocaleString() || 0}
                                   </span>
                                 )}
                              </div>
@@ -197,9 +214,9 @@ export default function AdminTiersPage() {
                      </div>
                   </div>
 
-                  <div className="p-3 bg-slate-50/80 mt-auto rounded-b-lg border-t flex justify-center">
-                     <Link href={`/admin/agents?tier=${tier.id}`} className="text-[10px] font-bold text-slate-400 hover:text-violet-600 uppercase tracking-tighter flex items-center gap-1">
-                        Manage Agents in this tier <ChevronRight size={10} />
+                  <div className="p-3 bg-slate-50 mt-auto rounded-b-lg border-t flex justify-center">
+                     <Link href={`/admin/agents?tier=${tier.id}`} className="text-[10px] font-bold text-slate-400 hover:text-violet-600 uppercase flex items-center gap-1">
+                        View Team in Tier <ChevronRight size={10} />
                      </Link>
                   </div>
                 </div>
@@ -208,14 +225,12 @@ export default function AdminTiersPage() {
           }
         </div>
 
-        <div className="bg-violet-50 border border-violet-100 p-4 rounded-lg flex items-start gap-4">
-           <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
-              <Target size={20} />
-           </div>
+        <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg flex items-start gap-4">
+           <Zap className="text-amber-500 mt-0.5 shrink-0" size={18} />
            <div>
-              <h3 className="text-[14px] font-bold text-violet-900">System Evaluation Logic</h3>
-              <p className="text-[12px] text-violet-700 mt-1 leading-relaxed">
-                 NexusCRM performs an automated evaluation on the 1st of every month. Agents meeting the cumulative criteria defined above are automatically migrated to the next tier. Tier migrations trigger an audit log entry and a dashboard notification for both the Agent and their Manager.
+              <h3 className="text-[14px] font-bold text-amber-900">System Upgrade Engine</h3>
+              <p className="text-[12px] text-amber-700 mt-1 leading-relaxed">
+                 InspireHubCRM monitors the 5 key criteria above. When an agent hits the threshold for the next rank, the system automatically migrates their profile, updates their commission percentage, and unlocks relevant product resources.
               </p>
            </div>
         </div>

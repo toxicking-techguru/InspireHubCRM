@@ -7,12 +7,17 @@ export interface Tier {
   id: string;
   name: string;
   rankLevel: number;
+  rankLabel: string; // Entry, Mid, Senior, Elite
   commissionPct: number;
   productLimit: number;
+  productLimitLabel: string; // Few Products, More Products, etc.
+  upgradeTargetLabel: string; // Monthly sales target, Retention metrics, etc.
   upgradeCriteria: {
     leadsTarget: number;
     closedTarget: number;
     revenueTarget: number;
+    activityScoreTarget: number;
+    conversionRateTarget: number;
   };
 }
 
@@ -38,7 +43,6 @@ export interface Wallet {
   withdrawn: number;
 }
 
-// Stages: New, Contacted, Qualified, Proposal, Negotiation, Won, Lost, Dormant
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'dormant';
 
 export interface Lead {
@@ -80,7 +84,7 @@ export interface Product {
   id: string;
   name: string;
   description: string;
-  commissionStructure: any;
+  commissionStructure: Record<string, any>;
   tierRequired: string;
   resources: {
     scripts: any[];
