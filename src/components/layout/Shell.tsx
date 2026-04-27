@@ -49,6 +49,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, isInitializing, logout } = useAuthStore();
@@ -65,19 +67,41 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
-    if (!db || !isAdmin) return;
+    if (!db || !isAdmin || !user) return;
     
     const qW = query(collection(db, 'withdrawals'), where('status', '==', 'pending'));
-    const unsubW = onSnapshot(qW, (snap) => setPendingWithdrawals(snap.size));
+    const unsubW = onSnapshot(
+      qW, 
+      (snap) => setPendingWithdrawals(snap.size),
+      async (err) => {
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'withdrawals',
+            operation: 'list'
+          }));
+        }
+      }
+    );
     
     const qC = query(collection(db, 'commissions'), where('status', '==', 'pending'));
-    const unsubC = onSnapshot(qC, (snap) => setPendingCommissions(snap.size));
+    const unsubC = onSnapshot(
+      qC, 
+      (snap) => setPendingCommissions(snap.size),
+      async (err) => {
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'commissions',
+            operation: 'list'
+          }));
+        }
+      }
+    );
 
     return () => {
       unsubW();
       unsubC();
     };
-  }, [db, isAdmin]);
+  }, [db, isAdmin, user?.id]);
 
   const handleLogout = async () => {
     if (auth) await signOut(auth);
@@ -144,7 +168,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     ]}
   ];
 
-  // Mobile Bottom Nav Items
   const mobileNavItems = React.useMemo(() => {
     if (isAdmin) return [
       { label: 'Home', icon: Home, href: '/admin/dashboard' },

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Query, onSnapshot, QuerySnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
  * Hook to subscribe to a Firestore collection or query.
@@ -19,7 +21,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    // Reset loading state for a new query if we don't have cached data for it
     setLoading(true);
 
     const unsubscribe = onSnapshot(
@@ -34,12 +35,17 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         setLoading(false);
         setError(null);
       },
-      (err) => {
-        console.warn('Firestore useCollection error:', err.message, err.code);
-        // If we get an index error, we still want to stop loading
+      async (err) => {
+        if (err.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            path: (query as any)._query?.path?.toString() || 'unknown',
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        }
+        
         setError(err);
         setLoading(false);
-        // Ensure data is at least an empty array if it fails so the UI can render
         if (!data) setData([]);
       }
     );
