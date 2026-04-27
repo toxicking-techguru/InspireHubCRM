@@ -20,11 +20,14 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Wallet as WalletIcon
+  Wallet as WalletIcon,
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function WalletPage() {
   const { user } = useAuthStore();
@@ -130,7 +133,7 @@ export default function WalletPage() {
     <Shell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-bold">Earnings & Wallet</h1>
+          <h1 className="text-xl font-bold text-cyan-950">Earnings & Wallet</h1>
           <p className="text-sm text-muted-foreground">Manage your commissions and payout requests.</p>
         </div>
 
@@ -139,7 +142,7 @@ export default function WalletPage() {
           {[
             { label: 'Total Earned', value: wallet?.totalEarned || 0, color: 'bg-slate-50' },
             { label: 'Pending Commission', value: wallet?.pending || 0, color: 'bg-slate-50' },
-            { label: 'Withdrawable', value: withdrawableBalance, color: 'bg-primary/5 border-primary/20' },
+            { label: 'Withdrawable', value: withdrawableBalance, color: 'bg-cyan-50 border-cyan-200' },
             { label: 'Withdrawn', value: wallet?.withdrawn || 0, color: 'bg-slate-50' },
             { label: 'Net Balance', value: totalBalance, color: 'bg-slate-50' },
           ].map((item, i) => (
@@ -196,7 +199,7 @@ export default function WalletPage() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md" disabled={isSubmitting || withdrawableBalance === 0}>
+                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md bg-cyan-600 hover:bg-cyan-700" disabled={isSubmitting || withdrawableBalance === 0}>
                     {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}
                     Initiate Transfer
                   </Button>
@@ -226,31 +229,55 @@ export default function WalletPage() {
                         <th className="px-4 text-left">Date</th>
                         <th className="text-left">Amount</th>
                         <th className="text-left">Status</th>
-                        <th className="text-right px-4">Ref</th>
+                        <th className="text-right px-4">Ref / Note</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {withdrawalsLoading ? (
-                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-primary" /></td></tr>
-                      ) : withdrawals?.map((w) => (
-                        <tr key={w.id} className="h-10 hover:bg-slate-50/30 transition-colors">
-                          <td className="px-4 text-slate-500">{format(parseISO(w.requestedAt), 'MMM d, yyyy')}</td>
-                          <td className="font-bold text-slate-700">${w.amount.toLocaleString()}</td>
-                          <td>
-                            <Badge variant="outline" className={cn(
-                              "text-[10px] uppercase h-4 px-1.5 font-bold border-none",
-                              w.status === 'pending' ? "bg-amber-50 text-amber-700" :
-                              w.status === 'paid' ? "bg-emerald-50 text-emerald-700" :
-                              w.status === 'rejected' ? "bg-red-50 text-red-700" : "bg-slate-100"
-                            )}>
-                              {w.status}
-                            </Badge>
-                          </td>
-                          <td className="px-4 text-right font-mono text-[10px] text-slate-400">
-                             {(w as any).reference || '---'}
-                          </td>
-                        </tr>
-                      ))}
+                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-cyan-600" /></td></tr>
+                      ) : withdrawals?.map((w) => {
+                        const isRejected = w.status === 'rejected';
+                        return (
+                          <tr key={w.id} className="h-11 hover:bg-slate-50/30 transition-colors">
+                            <td className="px-4 text-slate-500">{format(parseISO(w.requestedAt), 'MMM d, yyyy')}</td>
+                            <td className="font-bold text-slate-700">${w.amount.toLocaleString()}</td>
+                            <td>
+                              <Badge variant="outline" className={cn(
+                                "text-[10px] uppercase h-4 px-1.5 font-bold border-none",
+                                w.status === 'pending' ? "bg-amber-50 text-amber-700" :
+                                w.status === 'paid' ? "bg-emerald-50 text-emerald-700" :
+                                isRejected ? "bg-red-50 text-red-700" : "bg-slate-100"
+                              )}>
+                                {w.status}
+                              </Badge>
+                            </td>
+                            <td className="px-4 text-right">
+                               {isRejected ? (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center justify-end gap-1 text-red-600 cursor-help">
+                                          <AlertCircle size={14} />
+                                          <span className="text-[11px] font-bold uppercase">View Reason</span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="bg-red-600 text-white border-none p-3 max-w-[240px]">
+                                        <div className="flex flex-col gap-1">
+                                          <p className="font-bold uppercase text-[9px] opacity-80 flex items-center gap-1"><MessageSquare size={10} /> Rejection Reason</p>
+                                          <p className="text-[12px]">{(w as any).rejectionReason || "No details provided by Admin."}</p>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                               ) : (
+                                  <span className="font-mono text-[10px] text-slate-400">
+                                    {(w as any).reference || '---'}
+                                  </span>
+                               )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {(!withdrawals || withdrawals.length === 0) && (
                         <tr className="h-20"><td colSpan={4} className="text-center text-muted-foreground italic">No payout history.</td></tr>
                       )}
@@ -279,15 +306,15 @@ export default function WalletPage() {
                     </thead>
                     <tbody className="divide-y">
                       {commissionsLoading ? (
-                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-primary" /></td></tr>
+                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-cyan-600" /></td></tr>
                       ) : commissions?.map((c) => (
                         <tr key={c.id} className="h-10 hover:bg-slate-50/30 transition-colors">
                           <td className="px-4 font-medium text-slate-700">{c.clientName || 'Private Lead'}</td>
                           <td className="text-slate-500">${c.dealAmount?.toLocaleString()}</td>
-                          <td className="text-right font-bold text-primary">${c.amount.toLocaleString()}</td>
+                          <td className="text-right font-bold text-cyan-700">${c.amount.toLocaleString()}</td>
                           <td className="px-4 text-right">
                              <Badge variant="outline" className={cn(
-                               "text-[9px] uppercase h-3.5 px-1 font-bold border-none",
+                               "text-[9px] uppercase h-3.5 px-1.5 font-bold border-none",
                                c.status === 'pending' ? "bg-slate-100 text-slate-500" : "bg-emerald-50 text-emerald-700"
                              )}>
                                {c.status}
@@ -309,3 +336,4 @@ export default function WalletPage() {
     </Shell>
   );
 }
+

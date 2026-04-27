@@ -20,12 +20,14 @@ import {
   Download, 
   Search, 
   AlertCircle,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquare
 } from 'lucide-react';
 import { format, differenceInHours, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function AdminWithdrawalsPage() {
   const { user } = useAuthStore();
@@ -280,12 +282,14 @@ export default function AdminWithdrawalsPage() {
                              <th className="text-left w-[100px]">Status</th>
                              <th className="text-left w-[140px]">Processed</th>
                              <th className="text-left w-[140px]">Processed By</th>
-                             <th className="text-left px-3">Reference</th>
+                             <th className="text-left px-3">Reference / Reason</th>
                           </tr>
                        </thead>
                        <tbody className="divide-y">
                           {historyList.map(w => {
                              const agent = agents?.find(a => a.id === w.agentId);
+                             const isRejected = w.status === 'rejected';
+
                              return (
                                <tr key={w.id} className="h-9 hover:bg-slate-50 transition-colors">
                                   <td className="px-3 font-medium">{agent?.name || '--'}</td>
@@ -293,14 +297,24 @@ export default function AdminWithdrawalsPage() {
                                   <td>
                                      <Badge variant="outline" className={cn(
                                        "text-[9px] h-3.5 px-1 font-bold uppercase",
-                                       w.status === 'paid' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-700 border-red-100"
+                                       w.status === 'paid' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : 
+                                       isRejected ? "bg-red-50 text-red-700 border-red-100" : "bg-slate-100 text-slate-500 border-slate-200"
                                      )}>
                                         {w.status}
                                      </Badge>
                                   </td>
                                   <td className="text-slate-400">{(w as any).processedAt ? format(parseISO((w as any).processedAt), 'MMM d, HH:mm') : '--'}</td>
                                   <td className="text-slate-600 font-medium">{(w as any).processedBy || '--'}</td>
-                                  <td className="px-3 font-mono text-[10px] text-slate-400">{(w as any).reference || '--'}</td>
+                                  <td className="px-3">
+                                     {isRejected ? (
+                                        <div className="flex items-center gap-1.5 text-red-600 text-[11px] font-medium">
+                                           <MessageSquare size={12} className="shrink-0" />
+                                           <span className="truncate max-w-[200px]" title={(w as any).rejectionReason}>{(w as any).rejectionReason}</span>
+                                        </div>
+                                     ) : (
+                                        <span className="font-mono text-[10px] text-slate-400">{(w as any).reference || '--'}</span>
+                                     )}
+                                  </td>
                                </tr>
                              );
                           })}
@@ -314,3 +328,4 @@ export default function AdminWithdrawalsPage() {
     </Shell>
   );
 }
+
