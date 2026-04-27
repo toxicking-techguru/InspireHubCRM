@@ -8,7 +8,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { Agent, Lead, Withdrawal, Commission } from '@/types/crm';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow, format, startOfMonth, subMonths } from 'date-fns';
+import { formatDistanceToNow, format, startOfMonth, subMonths, parseISO, endOfMonth } from 'date-fns';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area 
@@ -46,46 +46,61 @@ export default function AdminDashboard() {
   const withdrawalsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'withdrawals') : null, [firestore]);
   const { data: withdrawals } = useCollection<Withdrawal>(withdrawalsQuery as any);
 
+  const commissionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'commissions') : null, [firestore]);
+  const { data: commissions } = useCollection<Commission>(commissionsQuery as any);
+
   const stats = useMemo(() => {
     if (leadsLoading || agentsLoading || !allLeads || !agents) return null;
     
     const activeLeads = allLeads.filter(l => !['won', 'lost', 'dormant'].includes(l.status)).length;
-    const wonThisMonth = allLeads.filter(l => l.status === 'won' && l.wonAt && new Date(l.wonAt) >= startOfMonth(new Date())).length;
-    const totalRevenue = allLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + l.estimatedBudget, 0);
+    const monthStart = startOfMonth(new Date());
+    const wonThisMonth = allLeads.filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= monthStart).length;
+    const totalRevenue = allLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
     const pendingWithdrawals = withdrawals?.filter(w => w.status === 'pending').length || 0;
-    const idleLeads = allLeads.filter(l => (Date.now() - new Date(l.lastActivityAt || l.createdAt).getTime()) > (72 * 60 * 60 * 1000)).length;
-    const newAgentsThisMonth = agents.filter(a => new Date(a.joinDate) >= startOfMonth(new Date())).length;
+    const idleLeads = allLeads.filter(l => {
+      if (['won', 'lost', 'dormant'].includes(l.status)) return false;
+      const lastTouch = new Date(l.lastActivityAt || l.createdAt).getTime();
+      return (Date.now() - lastTouch) > (72 * 60 * 60 * 1000);
+    }).length;
+    const newAgentsThisMonth = agents.filter(a => parseISO(a.joinDate) >= monthStart).length;
+    const pendingCommsAmount = commissions?.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0;
 
     return [
       { label: 'Total agents', value: agents.length, icon: Users },
       { label: 'Active leads', value: activeLeads, icon: Target },
       { label: 'Won this month', value: wonThisMonth, icon: TrendingUp },
-      { label: 'Total revenue', value: `$${(totalRevenue / 1000).toFixed(1)}k`, isCurrency: true, icon: TrendingUp },
-      { label: 'Pending comms', value: `$1.2k`, icon: Banknote }, // Mocked
+      { label: 'Total revenue', value: `$${(totalRevenue / 1000).toFixed(1)}k`, icon: TrendingUp },
+      { label: 'Pending comms', value: `$${(pendingCommsAmount / 1000).toFixed(1)}k`, icon: Banknote },
       { label: 'Pending withdrawals', value: pendingWithdrawals, isWarning: pendingWithdrawals > 0, icon: Banknote },
       { label: 'Idle leads', value: idleLeads, icon: AlertCircle },
       { label: 'New agents', value: newAgentsThisMonth, icon: UserPlus },
     ];
-  }, [allLeads, agents, withdrawals, leadsLoading, agentsLoading]);
+  }, [allLeads, agents, withdrawals, commissions, leadsLoading, agentsLoading]);
 
   const performanceData = useMemo(() => {
     if (!agents || !allLeads) return [];
     return agents.map(agent => {
       const agentLeads = allLeads.filter(l => l.agentId === agent.id);
       const won = agentLeads.filter(l => l.status === 'won').length;
-      const revenue = agentLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + l.estimatedBudget, 0);
+      const revenue = agentLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
       const conversion = agentLeads.length > 0 ? Math.round((won / agentLeads.length) * 100) : 0;
       return { ...agent, won, revenue, conversion };
     }).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
   }, [agents, allLeads]);
 
   const revenueChartData = useMemo(() => {
-    const months = Array.from({ length: 12 }).map((_, i) => format(subMonths(new Date(), 11 - i), 'MMM'));
-    return months.map(m => ({
-      name: m,
-      revenue: Math.floor(Math.random() * 50000) + 20000,
-    }));
-  }, []);
+    if (!allLeads) return [];
+    const months = Array.from({ length: 6 }).map((_, i) => {
+      const date = subMonths(new Date(), 5 - i);
+      const mStart = startOfMonth(date);
+      const mEnd = endOfMonth(date);
+      const rev = allLeads
+        .filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= mStart && parseISO(l.wonAt) <= mEnd)
+        .reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+      return { name: format(date, 'MMM'), revenue: rev };
+    });
+    return months;
+  }, [allLeads]);
 
   const tierDistribution = useMemo(() => {
     if (!agents) return [];
@@ -125,9 +140,9 @@ export default function AdminDashboard() {
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
             {/* Revenue Chart */}
-            <div className="bg-card border rounded-md p-4 shadow-sm">
+            <div className="bg-card border rounded-md p-4 shadow-sm border-violet-100">
                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[13px] font-bold uppercase tracking-wider text-slate-500">System Revenue Growth</h3>
+                  <h3 className="text-[13px] font-bold uppercase tracking-wider text-slate-500">Global Revenue Growth</h3>
                   <div className="flex bg-slate-100 p-0.5 rounded-md">
                     <button 
                       className={cn("px-3 py-1 text-[10px] font-bold rounded-md transition-all", revenueTimeframe === 'weekly' ? "bg-white shadow-sm text-violet-700" : "text-slate-500")}
@@ -159,7 +174,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Top Performers Table */}
-            <div className="bg-card border rounded-md shadow-sm overflow-hidden">
+            <div className="bg-card border rounded-md shadow-sm overflow-hidden border-violet-100">
                <div className="p-3 border-b bg-slate-50/50 flex items-center justify-between">
                   <h3 className="text-[12px] font-bold uppercase tracking-tight text-slate-500">Top Performing Agents</h3>
                   <Link href="/admin/agents">
@@ -178,7 +193,7 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y">
                     {performanceData.map((p, i) => (
-                      <tr key={p.id} className="h-9 hover:bg-slate-50/50 transition-colors">
+                      <tr key={p.id} className="h-10 hover:bg-slate-50/50 transition-colors">
                         <td className="px-3 font-bold text-slate-400">#{(i + 1)}</td>
                         <td className="font-bold">
                           <div className="flex items-center gap-2">
@@ -192,6 +207,9 @@ export default function AdminDashboard() {
                         </td>
                       </tr>
                     ))}
+                    {performanceData.length === 0 && !agentsLoading && (
+                      <tr className="h-20"><td colSpan={5} className="text-center text-slate-300 italic">No agent performance data.</td></tr>
+                    )}
                   </tbody>
                </table>
             </div>
@@ -199,7 +217,7 @@ export default function AdminDashboard() {
 
           <div className="space-y-4">
             {/* Tier Distribution */}
-            <div className="bg-card border rounded-md p-4 shadow-sm h-[140px]">
+            <div className="bg-card border rounded-md p-4 shadow-sm h-[140px] border-violet-100">
                <h3 className="text-[12px] font-bold uppercase text-slate-500 mb-3">Agent Tier Distribution</h3>
                <div className="flex h-6 w-full rounded-full overflow-hidden border border-slate-100">
                   {tierDistribution.map((t, i) => (
@@ -222,15 +240,15 @@ export default function AdminDashboard() {
             </div>
 
             {/* System Alerts */}
-            <div className="bg-card border rounded-md shadow-sm overflow-hidden">
+            <div className="bg-card border rounded-md shadow-sm overflow-hidden border-violet-100">
                <div className="p-3 border-b bg-red-50/30">
                   <h3 className="text-[12px] font-bold text-red-700 uppercase tracking-tight">System Alerts</h3>
                </div>
                <div className="divide-y">
                   {[
-                    { text: "5 agents have zero activity this week", icon: Clock },
-                    { text: "3 withdrawals pending > 48h", icon: Banknote },
-                    { text: "Lead volume down 15% vs prev month", icon: TrendingUp },
+                    { text: `${stats?.idleLeads || 0} leads have been idle > 72h`, icon: Clock },
+                    { text: `${stats?.find(s => s.label === 'Pending withdrawals')?.value || 0} withdrawals pending approval`, icon: Banknote },
+                    { text: "Lead volume assessment complete", icon: TrendingUp },
                   ].map((alert, i) => (
                     <div key={i} className="p-3 flex items-start gap-3 hover:bg-slate-50/50 cursor-pointer group">
                        <alert.icon size={14} className="mt-0.5 text-red-400" />
@@ -244,26 +262,23 @@ export default function AdminDashboard() {
             </div>
 
             {/* System Activity Feed */}
-            <div className="bg-card border rounded-md shadow-sm h-[240px] flex flex-col overflow-hidden">
+            <div className="bg-card border rounded-md shadow-sm h-[240px] flex flex-col overflow-hidden border-violet-100">
                <div className="p-3 border-b bg-slate-50/50">
-                  <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-tight">Recent System Activity</h3>
+                  <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-tight">Recent System Events</h3>
                </div>
                <div className="flex-1 overflow-y-auto divide-y">
-                  {[
-                    { actor: "Admin", action: "Approved withdrawal W-8271", time: "2m ago" },
-                    { actor: "Lead", action: "Lead Won by Sarah Smith", time: "15m ago" },
-                    { actor: "System", action: "Tier Upgraded: John Doe → Gold", time: "1h ago" },
-                    { actor: "Admin", action: "Added new agent: Mike Ross", time: "2h ago" },
-                    { actor: "System", action: "Monthly evaluation complete", time: "3h ago" },
-                  ].map((act, i) => (
+                  {commissions?.slice(0, 5).map((c, i) => (
                     <div key={i} className="p-2.5 flex items-center justify-between gap-3 text-[11px]">
                        <div className="flex items-center gap-2 truncate">
-                          <span className="font-bold text-violet-700 bg-violet-50 px-1 rounded">{act.actor}</span>
-                          <span className="truncate text-slate-600 font-medium">{act.action}</span>
+                          <span className="font-bold text-violet-700 bg-violet-50 px-1 rounded">DEAL</span>
+                          <span className="truncate text-slate-600 font-medium">Won by agent: {c.agentId.slice(0, 5)}...</span>
                        </div>
-                       <span className="text-slate-400 shrink-0 font-bold uppercase">{act.time}</span>
+                       <span className="text-slate-400 shrink-0 font-bold uppercase">{formatDistanceToNow(parseISO(c.createdAt))} ago</span>
                     </div>
                   ))}
+                  {(!commissions || commissions.length === 0) && (
+                    <div className="p-10 text-center text-slate-300 italic text-[11px]">No recent events recorded.</div>
+                  )}
                </div>
             </div>
           </div>
