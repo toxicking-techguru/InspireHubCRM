@@ -26,7 +26,7 @@ export default {
           foreground: 'hsl(var(--popover-foreground))',
         },
         primary: {
-          DEFAULT: '#4F46E5', // Vibrant Indigo
+          DEFAULT: '#0891b2', // Vibrant Cyan 600
           foreground: '#FFFFFF',
         },
         secondary: {
@@ -38,8 +38,8 @@ export default {
           foreground: '#64748B',
         },
         accent: {
-          DEFAULT: '#E0E7FF',
-          foreground: '#4F46E5',
+          DEFAULT: '#ECFEFF', // Ultra Light Cyan
+          foreground: '#0891b2',
         },
         destructive: {
           DEFAULT: '#E11D48',
@@ -51,12 +51,12 @@ export default {
         sidebar: {
           DEFAULT: '#F8FAFC',
           foreground: '#1E293B',
-          primary: '#4F46E5',
+          primary: '#0891b2',
           'primary-foreground': '#FFFFFF',
-          accent: '#EEF2FF',
-          'accent-foreground': '#4F46E5',
+          accent: '#ECFEFF',
+          'accent-foreground': '#0891b2',
           border: '#E2E8F0',
-          ring: '#4F46E5',
+          ring: '#0891b2',
         },
       },
       fontSize: {

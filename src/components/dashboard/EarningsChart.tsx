@@ -78,7 +78,7 @@ export function EarningsChart() {
               cursor={{ fill: '#f8fafc' }}
               contentStyle={{ borderRadius: '6px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
             />
-            <Bar dataKey="earnings" fill="#4F46E5" radius={[2, 2, 0, 0]} barSize={24} />
+            <Bar dataKey="earnings" fill="#0891b2" radius={[2, 2, 0, 0]} barSize={24} />
           </BarChart>
         </ResponsiveContainer>
       </div>
