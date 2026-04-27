@@ -28,7 +28,9 @@ import {
   Zap, 
   Clock,
   ArrowUpRight,
-  UserPlus
+  UserPlus,
+  Coins,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -55,7 +57,13 @@ export default function AdminDashboard() {
     const activeLeads = allLeads.filter(l => !['won', 'lost', 'dormant'].includes(l.status)).length;
     const monthStart = startOfMonth(new Date());
     const wonThisMonth = allLeads.filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= monthStart).length;
-    const totalRevenue = allLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+    
+    // Financials
+    const totalGrossRevenue = allLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+    const totalApprovedComms = commissions?.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.amount, 0) || 0;
+    const pendingCommsAmount = commissions?.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0;
+    const netRevenue = totalGrossRevenue - totalApprovedComms;
+
     const pendingWithdrawals = withdrawals?.filter(w => w.status === 'pending').length || 0;
     
     const idleLeadsCount = allLeads.filter(l => {
@@ -64,19 +72,16 @@ export default function AdminDashboard() {
       return (Date.now() - lastTouch) > (72 * 60 * 60 * 1000);
     }).length;
 
-    const newAgentsThisMonth = agents.filter(a => parseISO(a.joinDate) >= monthStart).length;
-    const pendingCommsAmount = commissions?.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0;
-
     return {
       cards: [
-        { label: 'Total agents', value: agents.length, icon: Users },
-        { label: 'Active leads', value: activeLeads, icon: Target },
-        { label: 'Won this month', value: wonThisMonth, icon: TrendingUp },
-        { label: 'Total revenue', value: `$${(totalRevenue / 1000).toFixed(1)}k`, icon: TrendingUp },
-        { label: 'Pending comms', value: `$${(pendingCommsAmount / 1000).toFixed(1)}k`, icon: Banknote },
-        { label: 'Pending withdrawals', value: pendingWithdrawals, isWarning: pendingWithdrawals > 0, icon: Banknote },
-        { label: 'Idle leads', value: idleLeadsCount, icon: AlertCircle },
-        { label: 'New agents', value: newAgentsThisMonth, icon: UserPlus },
+        { label: 'Total agents', value: agents.length, sub: 'Team size', icon: Users },
+        { label: 'Active leads', value: activeLeads, sub: `${idleLeadsCount} idle (>72h)`, icon: Target },
+        { label: 'Won this month', value: wonThisMonth, sub: 'Deals closed', icon: TrendingUp },
+        { label: 'Gross Revenue', value: `$${(totalGrossRevenue / 1000).toFixed(1)}k`, sub: 'Lifetime sales', icon: TrendingUp },
+        { label: 'Paid Comms', value: `$${(totalApprovedComms / 1000).toFixed(1)}k`, sub: 'Approved earnings', icon: Coins },
+        { label: 'Net Revenue', value: `$${(netRevenue / 1000).toFixed(1)}k`, sub: 'Revenue after comms', icon: ShieldCheck },
+        { label: 'Pending Comms', value: `$${(pendingCommsAmount / 1000).toFixed(1)}k`, sub: 'Awaiting validation', icon: Banknote },
+        { label: 'Pending Payouts', value: pendingWithdrawals, sub: 'Withdrawal requests', isWarning: pendingWithdrawals > 0, icon: Banknote },
       ],
       idleLeadsCount,
       pendingWithdrawals
@@ -131,18 +136,21 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {stats ? stats.cards.map((stat, i) => (
             <div key={i} className={cn(
-              "border-[0.5px] rounded-md p-3 shadow-sm flex flex-col justify-between h-[90px]",
-              stat.isWarning ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200" : "bg-slate-50 dark:bg-slate-800"
+              "border-[0.5px] rounded-md p-3 shadow-sm flex flex-col justify-between h-[100px]",
+              stat.isWarning ? "bg-red-50 dark:bg-red-950/20 border-red-200" : "bg-slate-50 dark:bg-slate-800"
             )}>
               <div className="flex justify-between items-start">
                  <p className="text-[11px] font-bold uppercase tracking-tight text-slate-500">{stat.label}</p>
                  <stat.icon size={14} className="text-slate-300" />
               </div>
-              <p className="text-[22px] font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                {stat.value}
-              </p>
+              <div>
+                <p className="text-[22px] font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                  {stat.value}
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium uppercase mt-1">{stat.sub}</p>
+              </div>
             </div>
-          )) : Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[90px] rounded-md" />)}
+          )) : Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[100px] rounded-md" />)}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-4">
