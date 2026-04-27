@@ -35,6 +35,16 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
 
 export default function AdminProductsPage() {
   const { user } = useAuthStore();
@@ -44,6 +54,7 @@ export default function AdminProductsPage() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [productToDeleteId, setProductToDeleteId] = useState<string | null>(null);
 
   // Data Fetching
   const productsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'products'), orderBy('name')) : null, [firestore]);
@@ -88,21 +99,20 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleDeleteProduct = async (e: React.MouseEvent, id: string) => {
+  const requestDelete = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (!firestore || !id) return;
-    
-    // Explicitly use window.confirm for cross-browser consistency
-    if (!window.confirm('Are you sure you want to delete this product and all its resource links? This action cannot be undone.')) {
-      return;
-    }
+    setProductToDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!firestore || !productToDeleteId) return;
     
     try {
-      await deleteDoc(doc(firestore, 'products', id));
-      if (selectedProductId === id) setSelectedProductId(null);
+      await deleteDoc(doc(firestore, 'products', productToDeleteId));
+      if (selectedProductId === productToDeleteId) setSelectedProductId(null);
       toast({ title: "Product Deleted", description: "The item has been removed from the catalog." });
+      setProductToDeleteId(null);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
     }
@@ -160,7 +170,7 @@ export default function AdminProductsPage() {
                     variant="ghost" 
                     size="icon" 
                     className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10"
-                    onClick={(e) => handleDeleteProduct(e, p.id)}
+                    onClick={(e) => requestDelete(e, p.id)}
                    >
                      <Trash2 size={14} />
                    </Button>
@@ -285,6 +295,27 @@ export default function AdminProductsPage() {
            )}
         </div>
       </div>
+
+      {/* Deletion Modal */}
+      <AlertDialog open={!!productToDeleteId} onOpenChange={(open) => !open && setProductToDeleteId(null)}>
+        <AlertDialogContent className="max-w-[400px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600">Remove from Catalog?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px]">
+              This will permanently delete the product and all associated sales materials. This action cannot be reversed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-8 text-[11px] font-bold uppercase">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              className="h-8 text-[11px] font-bold uppercase bg-red-600 hover:bg-red-700"
+              onClick={confirmDelete}
+            >
+              Confirm Deletion
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Shell>
   );
 }
