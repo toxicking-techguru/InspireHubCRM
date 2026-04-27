@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -21,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, parseISO, isSameMonth } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
 export default function TargetsPage() {
   const { user } = useAuthStore();
@@ -74,12 +75,13 @@ export default function TargetsPage() {
 
   // Calculate Actuals for selected month
   const actuals = useMemo(() => {
-    if (!leads) return { created: 0, qualified: 0, won: 0, revenue: 0, activity: 75 }; // activity score mocked for now
+    if (!leads) return { created: 0, qualified: 0, won: 0, revenue: 0, activity: 0 };
     
     const monthStart = startOfMonth(selectedMonth);
     const monthEnd = endOfMonth(selectedMonth);
 
     const monthLeads = leads.filter(l => {
+      if (!l.createdAt) return false;
       const d = parseISO(l.createdAt);
       return d >= monthStart && d <= monthEnd;
     });
@@ -90,11 +92,7 @@ export default function TargetsPage() {
       return d >= monthStart && d <= monthEnd;
     });
 
-    const monthQualified = leads.filter(l => {
-      // For MVP, we'll count leads that are currently qualified and were created this month
-      // In a real app, we'd track status change logs
-      return l.status === 'qualified' && parseISO(l.createdAt) >= monthStart && parseISO(l.createdAt) <= monthEnd;
-    });
+    const monthQualified = monthLeads.filter(l => l.status === 'qualified');
 
     const revenue = monthWon.reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
 
@@ -119,6 +117,8 @@ export default function TargetsPage() {
   const migrationProgress = useMemo(() => {
     if (!nextTier || !actuals) return null;
     const criteria = nextTier.upgradeCriteria;
+    if (!criteria) return null;
+
     const unmet = [];
     if (actuals.created < criteria.leadsTarget) unmet.push('Leads');
     if (actuals.won < criteria.closedTarget) unmet.push('Closed Deals');
@@ -153,7 +153,7 @@ export default function TargetsPage() {
             </Button>
           </div>
           <Badge variant="outline" className="text-[11px] font-bold uppercase tracking-tight py-1 px-3">
-            {currentTarget ? 'Targets Set' : 'Targets Pending'}
+            {targetLoading ? <Loader2 size={12} className="animate-spin" /> : currentTarget ? 'Targets Set' : 'Targets Pending'}
           </Badge>
         </div>
 
@@ -243,7 +243,7 @@ export default function TargetsPage() {
                         <td className="text-slate-600">{h.leadsTarget}</td>
                         <td className="text-slate-600">{h.qualifiedTarget}</td>
                         <td className="text-slate-600">{h.closedTarget}</td>
-                        <td className="text-slate-600">${h.revenueTarget.toLocaleString()}</td>
+                        <td className="text-slate-600">${h.revenueTarget?.toLocaleString()}</td>
                         <td className="text-slate-600">{h.activityScoreTarget}</td>
                         <td>
                           <Badge variant={isAchieved ? "default" : "destructive"} className="text-[10px] h-4 uppercase px-1.5 border-none bg-emerald-100 text-emerald-700">

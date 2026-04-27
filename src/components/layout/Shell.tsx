@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -19,12 +20,12 @@ import {
   Clock,
   BarChart3,
   ArrowUpCircle,
-  AlertTriangle,
   Layers,
   GitBranch,
   ShieldCheck,
   History,
-  Banknote
+  Banknote,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -35,6 +36,14 @@ import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/fire
 import { useAuth, useFirestore } from '@/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, setAuth, logout } = useAuthStore();
@@ -270,7 +279,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <TierBadge tierId={user.tierId} />
                 )}
               </div>
-              <Link href="/settings" className="shrink-0 text-muted-foreground hover:text-primary">
+              <Link href="/admin/settings" className="shrink-0 text-muted-foreground hover:text-primary">
                 <Settings size={14} />
               </Link>
             </div>
@@ -295,12 +304,41 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative h-8 w-8">
-              <Bell size={16} />
-              <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[12px] h-3 px-0.5 bg-destructive rounded-full border border-white text-[8px] text-white font-bold">
-                9+
-              </span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative h-8 w-8">
+                  <Bell size={16} />
+                  <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[12px] h-3 px-0.5 bg-destructive rounded-full border border-white text-[8px] text-white font-bold">
+                    2
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[280px]">
+                <DropdownMenuLabel className="text-[12px]">Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <div className="max-h-[300px] overflow-y-auto">
+                  <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] font-bold text-primary uppercase">New Lead Assigned</span>
+                      <span className="text-[9px] text-slate-400">2m ago</span>
+                    </div>
+                    <p className="text-[12px] text-slate-600">TechFlow Inc. has been assigned to your pipeline.</p>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] font-bold text-amber-600 uppercase">Target Reminder</span>
+                      <span className="text-[9px] text-slate-400">1h ago</span>
+                    </div>
+                    <p className="text-[12px] text-slate-600">You are $500 away from your revenue target this month.</p>
+                  </DropdownMenuItem>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="justify-center text-primary text-[11px] font-bold py-2">
+                  View All Notifications
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="h-4 w-px bg-border mx-1"></div>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 text-muted-foreground">
               <LogOut size={16} />

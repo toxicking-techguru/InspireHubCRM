@@ -14,9 +14,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Product, Lead } from '@/types/crm';
-import { ChevronLeft, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, Loader2, AlertTriangle, CheckCircle2, Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
+
+const COUNTRIES = [
+  "United States", "United Kingdom", "Canada", "Germany", "France", "Japan", "Australia", 
+  "Singapore", "United Arab Emirates", "Saudi Arabia", "India", "South Africa", "Nigeria", 
+  "Kenya", "Brazil", "Mexico", "Italy", "Spain", "Netherlands", "Switzerland"
+];
 
 export default function NewLeadPage() {
   const router = useRouter();
@@ -26,6 +32,8 @@ export default function NewLeadPage() {
 
   const [loading, setLoading] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ id: string; name: string } | null>(null);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [showCountryResults, setShowCountryResults] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -46,16 +54,25 @@ export default function NewLeadPage() {
   const channelsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'channels'), where('active', '==', true), orderBy('name')) : null
   , [firestore]);
-  const { data: allChannels } = useCollection<any>(channelsQuery as any);
+  const { data: allChannels, loading: channelsLoading } = useCollection<any>(channelsQuery as any);
 
   // Group channels for the form
-  const mainChannels = useMemo(() => allChannels?.filter((c: any) => !c.parentId) || [], [allChannels]);
+  const mainChannels = useMemo(() => {
+    if (!allChannels) return [];
+    return allChannels.filter((c: any) => !c.parentId || c.parentId === "" || c.parentId === null);
+  }, [allChannels]);
+
   const subChannels = useMemo(() => {
-    if (!formData.firstContactChannel) return [];
-    // The channel select stores the NAME for the lead, but we need the ID to find children
+    if (!formData.firstContactChannel || !allChannels) return [];
     const parent = mainChannels.find(c => c.name === formData.firstContactChannel);
-    return allChannels?.filter((c: any) => c.parentId === parent?.id) || [];
+    if (!parent) return [];
+    return allChannels.filter((c: any) => c.parentId === parent.id);
   }, [allChannels, mainChannels, formData.firstContactChannel]);
+
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch) return [];
+    return COUNTRIES.filter(c => c.toLowerCase().includes(countrySearch.toLowerCase()));
+  }, [countrySearch]);
 
   const productsQuery = useMemoFirebase(() => 
     firestore ? collection(firestore, 'products') : null
@@ -186,9 +203,41 @@ export default function NewLeadPage() {
                     <Label className="text-[11px] font-bold uppercase text-slate-400">Company Name <span className="text-red-500">*</span></Label>
                     <Input required placeholder="Acme Corp" className="h-9 text-[13px]" value={formData.companyName} onChange={(e) => handleChange('companyName', e.target.value)} />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 relative">
                     <Label className="text-[11px] font-bold uppercase text-slate-400">Country <span className="text-red-500">*</span></Label>
-                    <Input required placeholder="Search country..." className="h-9 text-[13px]" value={formData.businessCountry} onChange={(e) => handleChange('businessCountry', e.target.value)} />
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                      <Input 
+                        required 
+                        placeholder="Search country..." 
+                        className="pl-8 h-9 text-[13px]" 
+                        value={formData.businessCountry} 
+                        onChange={(e) => {
+                          handleChange('businessCountry', e.target.value);
+                          setCountrySearch(e.target.value);
+                          setShowCountryResults(true);
+                        }} 
+                        onFocus={() => setShowCountryResults(true)}
+                        onBlur={() => setTimeout(() => setShowCountryResults(false), 200)}
+                      />
+                    </div>
+                    {showCountryResults && filteredCountries.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {filteredCountries.map(c => (
+                          <div 
+                            key={c} 
+                            className="p-2 text-[12px] hover:bg-slate-50 cursor-pointer"
+                            onMouseDown={() => {
+                              handleChange('businessCountry', c);
+                              setCountrySearch('');
+                              setShowCountryResults(false);
+                            }}
+                          >
+                            {c}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-bold uppercase text-slate-400">Estimated Budget <span className="text-red-500">*</span></Label>
@@ -206,9 +255,12 @@ export default function NewLeadPage() {
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-bold uppercase text-slate-400">Main Source <span className="text-red-500">*</span></Label>
                     <Select required value={formData.firstContactChannel} onValueChange={(val) => handleChange('firstContactChannel', val)}>
-                      <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select channel" /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-[13px]">
+                        <SelectValue placeholder={channelsLoading ? "Loading..." : "Select channel"} />
+                      </SelectTrigger>
                       <SelectContent>
                         {mainChannels.map((c: any) => <SelectItem key={c.id} value={c.name} className="text-[13px]">{c.name}</SelectItem>)}
+                        {!channelsLoading && mainChannels.length === 0 && <div className="p-2 text-[11px] text-muted-foreground">No channels configured</div>}
                       </SelectContent>
                     </Select>
                   </div>
