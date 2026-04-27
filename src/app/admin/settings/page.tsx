@@ -246,7 +246,7 @@ function GeneralSettings({ config, onSave, saving }: any) {
   const [data, setData] = useState({ 
     appName: 'InspireHubCRM', 
     timezone: 'UTC+3', 
-    currency: 'USD', 
+    currency: 'KES', 
     idleThreshold: 72,
     withdrawalDays: 'Fridays'
   });
@@ -256,7 +256,7 @@ function GeneralSettings({ config, onSave, saving }: any) {
       setData({
         appName: config.appName || 'InspireHubCRM',
         timezone: config.timezone || 'UTC+3',
-        currency: config.currency || 'USD',
+        currency: config.currency || 'KES',
         idleThreshold: config.idleThreshold || 72,
         withdrawalDays: config.withdrawalDays || 'Fridays',
       });
