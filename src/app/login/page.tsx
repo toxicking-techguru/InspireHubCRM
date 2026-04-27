@@ -47,7 +47,7 @@ export default function LoginPage() {
     if (e) e.preventDefault();
     if (!auth || !db) return;
 
-    const targetEmail = demoEmail || email;
+    const targetEmail = (demoEmail || email).trim().toLowerCase();
     const targetPass = demoPass || password;
 
     if (!targetEmail || !targetPass) return;
@@ -61,7 +61,12 @@ export default function LoginPage() {
         userCredential = await signInWithEmailAndPassword(auth, targetEmail, targetPass);
       } catch (authErr: any) {
         // 2. If user doesn't exist in Auth, check if they are pre-authorized in Firestore
-        if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/invalid-email') {
+        // error codes: auth/user-not-found, auth/invalid-credential, auth/invalid-email
+        if (
+          authErr.code === 'auth/user-not-found' || 
+          authErr.code === 'auth/invalid-credential' || 
+          authErr.code === 'auth/invalid-email'
+        ) {
           const q = query(collection(db, 'agents'), where('email', '==', targetEmail));
           const snap = await getDocs(q);
           
@@ -72,7 +77,12 @@ export default function LoginPage() {
             const oldId = snap.docs[0].id;
             
             // Migrate Firestore record to match Auth UID
-            await setDoc(doc(db, 'agents', userCredential.user.uid), seededData);
+            await setDoc(doc(db, 'agents', userCredential.user.uid), {
+              ...seededData,
+              email: targetEmail // Ensure normalized email
+            });
+
+            // Delete old record if it was a custom ID (like 'adm' or 'agent_...')
             if (oldId !== userCredential.user.uid) {
               await deleteDoc(doc(db, 'agents', oldId));
             }
@@ -86,7 +96,8 @@ export default function LoginPage() {
                }
             }
           } else {
-            throw new Error("Account not found or not authorized. Please contact your administrator.");
+            // If we are here, either email not in DB or password isn't 12345678
+            throw new Error("Access denied. Please check your credentials or contact your administrator.");
           }
         } else {
           throw authErr;
@@ -98,15 +109,15 @@ export default function LoginPage() {
       if (userDoc.exists()) {
         const agentData = { id: userDoc.id, ...userDoc.data() } as any;
         setGlobalAuth(agentData);
-        toast({ title: "Login Successful", description: `Welcome back, ${agentData.name}` });
+        toast({ title: "Welcome", description: `Signed in as ${agentData.name}` });
       } else {
-        throw new Error("Authorized profile missing from database.");
+        throw new Error("User profile not found in system database.");
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Access Denied",
-        description: error.message || "Invalid credentials."
+        title: "Login Failed",
+        description: error.message || "Invalid email or password."
       });
     } finally {
       setLoading(false);
@@ -120,11 +131,11 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground mb-4 shadow-lg">
             <ShieldCheck size={28} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">InspireHubCRM</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-cyan-950">InspireHubCRM</h1>
           <p className="text-sm text-muted-foreground">Internal Management System</p>
         </div>
 
-        <div className="bg-card border rounded-xl shadow-xl overflow-hidden">
+        <div className="bg-card border rounded-xl shadow-xl overflow-hidden border-cyan-100">
           <form onSubmit={(e) => handleLogin(e)} className="p-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Work Email</Label>
@@ -135,7 +146,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-10"
+                className="h-10 border-cyan-50"
               />
             </div>
             <div className="space-y-1.5">
@@ -149,23 +160,23 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-10"
+                className="h-10 border-cyan-50"
               />
             </div>
-            <Button type="submit" className="w-full h-10 mt-2 font-bold uppercase tracking-tight" disabled={loading}>
+            <Button type="submit" className="w-full h-10 mt-2 font-bold uppercase tracking-tight bg-cyan-600 hover:bg-cyan-700" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" size={18} /> : 'Sign In'}
             </Button>
             
             <div className="mt-4 p-3 bg-cyan-50 rounded-lg flex gap-3 text-cyan-800 text-[11px] leading-tight">
                <Info size={14} className="shrink-0 text-cyan-600" />
-               <p>New staff member? Use the default password <code>12345678</code> for your first login to link your pre-authorized profile.</p>
+               <p>New staff? Use the default password <code>12345678</code> for your first sign-in to activate your account.</p>
             </div>
           </form>
           
-          <div className="bg-slate-50 dark:bg-slate-900 border-t p-4 space-y-3">
+          <div className="bg-slate-50 border-t p-4 space-y-3">
              <div className="flex items-center gap-2">
                 <div className="h-px bg-slate-200 flex-1" />
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Quick Access</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Administrative Access</span>
                 <div className="h-px bg-slate-200 flex-1" />
              </div>
              <Button 
@@ -176,7 +187,6 @@ export default function LoginPage() {
              >
                 <UserCheck size={14} /> Log in as Admin (Demo)
              </Button>
-             <p className="text-[10px] text-muted-foreground text-center uppercase tracking-widest font-semibold opacity-60 mt-1">Secure Authentication Environment</p>
           </div>
         </div>
       </div>
