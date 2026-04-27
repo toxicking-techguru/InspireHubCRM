@@ -172,6 +172,7 @@ export default function LeadDetailPage() {
     }
   };
 
+  if (!user) return null;
   if (leadLoading) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary" /></div></Shell>;
   if (!lead) return <Shell><div className="py-20 text-center text-muted-foreground">Lead not found.</div></Shell>;
 
