@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Product, Tier } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,6 +88,20 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleDeleteProduct = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!firestore) return;
+    if (!confirm('Are you sure you want to delete this product and all its resource links?')) return;
+    
+    try {
+      await deleteDoc(doc(firestore, 'products', id));
+      if (selectedProductId === id) setSelectedProductId(null);
+      toast({ title: "Product Deleted" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
+
   if (!user || user.role !== 'Admin') return null;
 
   return (
@@ -95,7 +109,7 @@ export default function AdminProductsPage() {
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-cyan-100">
         {/* Left Panel: List - Hidden on mobile when product is selected */}
         <div className={cn(
-          "w-full lg:w-[280px] border-r flex flex-col bg-slate-50/30 shrink-0",
+          "w-full lg:w-[320px] border-r flex flex-col bg-slate-50/30 shrink-0",
           selectedProductId && "hidden lg:flex"
         )}>
            <div className="p-3 border-b space-y-3">
@@ -123,12 +137,12 @@ export default function AdminProductsPage() {
                   key={p.id} 
                   onClick={() => setSelectedProductId(p.id)}
                   className={cn(
-                    "p-3 border-b cursor-pointer transition-colors hover:bg-cyan-50/50 flex flex-col gap-1.5",
+                    "p-3 border-b cursor-pointer transition-colors hover:bg-cyan-50/50 flex flex-col gap-1.5 group relative",
                     selectedProductId === p.id ? "bg-cyan-50 border-r-2 border-r-cyan-600 shadow-sm" : ""
                   )}
                 >
                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-bold truncate pr-2 text-slate-800">{p.name}</span>
+                      <span className="text-[13px] font-bold truncate pr-8 text-slate-800">{p.name}</span>
                       <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-cyan-100 text-cyan-600 bg-white">
                          {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
                       </Badge>
@@ -136,6 +150,14 @@ export default function AdminProductsPage() {
                    <div className="flex items-center justify-between">
                       <span className="text-[10px] text-slate-400 font-medium uppercase">Required Rank: {tiers?.find(t => t.id === p.tierRequired)?.rankLabel || 'Entry'}</span>
                    </div>
+                   <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-300 hover:text-red-500 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => handleDeleteProduct(e, p.id)}
+                   >
+                     <Trash2 size={12} />
+                   </Button>
                 </div>
               ))}
            </div>
@@ -198,13 +220,15 @@ export default function AdminProductsPage() {
                          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 space-y-3">
                             <h3 className="text-[11px] font-bold text-slate-600 uppercase flex items-center gap-2"><Code size={14} /> Commission Logic</h3>
                             <div className="space-y-2">
-                               {Object.entries(selectedProduct.commissionStructure || {}).map(([key, val], i) => (
-                                 <div key={i} className="flex justify-between text-[11px]">
-                                    <span className="text-slate-400 capitalize">{key}:</span>
-                                    <span className="font-bold text-slate-700">{typeof val === 'number' ? `${val}%` : val}</span>
-                                 </div>
-                               ))}
-                               <Button variant="outline" size="sm" className="w-full h-7 text-[10px] uppercase font-bold border-cyan-100 text-cyan-600">Edit JSON Map</Button>
+                               <div className="flex justify-between text-[11px]">
+                                  <span className="text-slate-400">Tier Percentage:</span>
+                                  <span className="font-bold text-slate-700">
+                                    {tiers?.find(t => t.id === selectedProduct.tierRequired)?.commissionPct || 0}%
+                                  </span>
+                               </div>
+                               <p className="text-[10px] text-slate-400 italic leading-tight">
+                                  This rate is derived from the configured Tier setup.
+                               </p>
                             </div>
                          </div>
                       </div>
