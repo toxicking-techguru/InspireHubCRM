@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { format, parseISO } from 'date-fns';
 import { User, Shield, Phone, Mail, Globe, Calendar } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
