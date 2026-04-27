@@ -16,7 +16,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  History
+  History as HistoryIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -216,7 +216,7 @@ export default function TargetsPage() {
         {/* History Table */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 border-b pb-1">
-            <History className="text-slate-400" size={16} />
+            <HistoryIcon className="text-slate-400" size={16} />
             <h2 className="text-[14px] font-bold text-slate-800">Target History</h2>
           </div>
           <div className="bg-card border-[0.5px] rounded-md shadow-sm overflow-hidden">

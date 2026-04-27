@@ -23,7 +23,7 @@ import {
   Layers,
   GitBranch,
   ShieldCheck,
-  History,
+  History as HistoryIcon,
   Banknote,
   AlertTriangle
 } from 'lucide-react';
@@ -135,7 +135,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       { label: 'Withdrawals', icon: Banknote, href: '/admin/withdrawals', sub: 'Approve/reject queue', badge: pendingWithdrawals },
       { label: 'Reports', icon: BarChart3, href: '/admin/reports', sub: 'System-wide analytics' },
       { label: 'Targets', icon: Target, href: '/admin/targets', sub: 'Set team targets' },
-      { label: 'Audit log', icon: History, href: '/admin/audit', sub: 'All system actions' },
+      { label: 'Audit log', icon: HistoryIcon, href: '/admin/audit', sub: 'All system actions' },
       { label: 'Settings', icon: Settings, href: '/admin/settings', sub: 'System config' },
     ]}
   ];

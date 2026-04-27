@@ -50,24 +50,28 @@ export default function NewLeadPage() {
     initialNote: '',
   });
 
-  // Fetch dynamic channels from Firestore
+  // Fetch dynamic channels from Firestore - Removed sorting/filtering to avoid index issues in MVP
   const channelsQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'channels'), where('active', '==', true), orderBy('name')) : null
+    firestore ? collection(firestore, 'channels') : null
   , [firestore]);
-  const { data: allChannels, loading: channelsLoading } = useCollection<any>(channelsQuery as any);
+  const { data: allChannelsRaw, loading: channelsLoading } = useCollection<any>(channelsQuery as any);
 
-  // Group channels for the form
+  // Group channels for the form in memory
   const mainChannels = useMemo(() => {
-    if (!allChannels) return [];
-    return allChannels.filter((c: any) => !c.parentId || c.parentId === "" || c.parentId === null);
-  }, [allChannels]);
+    if (!allChannelsRaw) return [];
+    return allChannelsRaw
+      .filter((c: any) => c.active !== false && (!c.parentId || c.parentId === ""))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allChannelsRaw]);
 
   const subChannels = useMemo(() => {
-    if (!formData.firstContactChannel || !allChannels) return [];
+    if (!formData.firstContactChannel || !allChannelsRaw) return [];
     const parent = mainChannels.find(c => c.name === formData.firstContactChannel);
     if (!parent) return [];
-    return allChannels.filter((c: any) => c.parentId === parent.id);
-  }, [allChannels, mainChannels, formData.firstContactChannel]);
+    return allChannelsRaw
+      .filter((c: any) => c.active !== false && c.parentId === parent.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allChannelsRaw, mainChannels, formData.firstContactChannel]);
 
   const filteredCountries = useMemo(() => {
     if (!countrySearch) return [];
