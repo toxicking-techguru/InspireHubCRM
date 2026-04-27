@@ -1,17 +1,18 @@
+
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { 
-  Settings, 
+  Settings as SettingsIcon, 
   Bell, 
   Clock, 
   ShieldCheck, 
@@ -55,7 +56,7 @@ export default function AdminSettingsPage() {
   if (!user || user.role !== 'Admin') return null;
 
   const tabs = [
-    { id: 'general', label: 'General', icon: Settings },
+    { id: 'general', label: 'General', icon: SettingsIcon },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'cron', label: 'Cron Jobs', icon: Clock },
     { id: 'roles', label: 'Roles & Perms', icon: ShieldCheck },
@@ -90,13 +91,20 @@ export default function AdminSettingsPage() {
            </div>
 
            {/* Content */}
-           <div className="flex-1 bg-card border rounded-md shadow-sm">
-              <div className="p-6">
-                 {activeTab === 'general' && <GeneralSettings config={config} onSave={handleSave} saving={isSaving} />}
-                 {activeTab === 'notifications' && <NotificationSettings config={config} onSave={handleSave} saving={isSaving} />}
-                 {activeTab === 'cron' && <CronSettings />}
-                 {activeTab === 'roles' && <RoleMatrix />}
-              </div>
+           <div className="flex-1 bg-card border rounded-md shadow-sm min-h-[400px]">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 className="animate-spin text-violet-600 mb-2" />
+                  <p className="text-xs text-muted-foreground">Fetching configuration...</p>
+                </div>
+              ) : (
+                <div className="p-6">
+                   {activeTab === 'general' && <GeneralSettings config={config} onSave={handleSave} saving={isSaving} />}
+                   {activeTab === 'notifications' && <NotificationSettings config={config} onSave={handleSave} saving={isSaving} />}
+                   {activeTab === 'cron' && <CronSettings />}
+                   {activeTab === 'roles' && <RoleMatrix />}
+                </div>
+              )}
            </div>
         </div>
       </div>
@@ -105,7 +113,24 @@ export default function AdminSettingsPage() {
 }
 
 function GeneralSettings({ config, onSave, saving }: any) {
-  const [data, setData] = useState(config || { appName: 'InspireHubCRM', timezone: 'UTC+3', currency: 'USD', idleThreshold: 72 });
+  const [data, setData] = useState({ 
+    appName: 'InspireHubCRM', 
+    timezone: 'UTC+3', 
+    currency: 'USD', 
+    idleThreshold: 72 
+  });
+
+  // Sync state when config loads
+  useEffect(() => {
+    if (config) {
+      setData({
+        appName: config.appName || 'InspireHubCRM',
+        timezone: config.timezone || 'UTC+3',
+        currency: config.currency || 'USD',
+        idleThreshold: config.idleThreshold || 72,
+      });
+    }
+  }, [config]);
   
   return (
     <div className="space-y-6 max-w-[500px]">
@@ -133,7 +158,7 @@ function GeneralSettings({ config, onSave, saving }: any) {
           <div className="space-y-1.5">
              <Label className="text-[11px] font-bold uppercase text-slate-400">Idle Lead Threshold (Hours)</Label>
              <div className="flex items-center gap-3">
-                <Input type="number" className="h-9 w-24 text-[13px]" value={data.idleThreshold} onChange={(e) => setData({...data, idleThreshold: parseInt(e.target.value)})} />
+                <Input type="number" className="h-9 w-24 text-[13px]" value={data.idleThreshold} onChange={(e) => setData({...data, idleThreshold: parseInt(e.target.value) || 0})} />
                 <span className="text-[12px] text-slate-500">Leads with no activity for this period will flag as "Idle".</span>
              </div>
           </div>
