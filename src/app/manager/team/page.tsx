@@ -348,7 +348,7 @@ export default function ManagerTeamPage() {
                 </div>
                 
                 <div className="bg-amber-50 p-3 rounded-md border border-amber-100 text-[11px] text-amber-800 leading-tight">
-                   <b>Temporary Password:</b> The new agent will use <code>12345678</code> for their initial login to create their account credentials.
+                   <b>Temporary Password:</b> The new agent will use <code>password123</code> for their initial login to create their account credentials.
                 </div>
              </div>
           </form>

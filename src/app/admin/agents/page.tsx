@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -18,7 +19,8 @@ import {
   CheckCircle2,
   XCircle,
   Edit2,
-  ShieldAlert
+  ShieldAlert,
+  Info
 } from 'lucide-react';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
@@ -342,6 +344,13 @@ export default function AdminAgentsPage() {
                      </div>
                    )}
                 </div>
+
+                {!editingAgent && (
+                  <div className="bg-cyan-50 p-3 rounded-lg flex gap-3 text-cyan-800 text-[11px] leading-tight border border-cyan-100">
+                    <Info size={14} className="shrink-0 text-cyan-600" />
+                    <p><b>Temporary Password:</b> The new staff member will use <code>password123</code> for their initial login to establish their account.</p>
+                  </div>
+                )}
              </div>
           </form>
 
