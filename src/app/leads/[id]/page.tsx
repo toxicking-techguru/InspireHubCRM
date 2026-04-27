@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -18,7 +19,7 @@ import {
   Mail, 
   Globe, 
   Clock, 
-  History, 
+  History as HistoryIcon, 
   Calendar as CalendarIcon,
   CheckCircle2,
   AlertCircle,
@@ -104,6 +105,7 @@ export default function LeadDetailPage() {
       const now = new Date().toISOString();
       const activityData = {
         leadId: id as string,
+        clientName: lead.clientName,
         agentId: user.id,
         agentName: user.name,
         type,
@@ -328,7 +330,7 @@ export default function LeadDetailPage() {
           <Card className="rounded-none border-[0.5px] shadow-none h-full">
             <CardHeader className="p-3 border-b bg-slate-50/30 flex flex-row items-center justify-between">
               <CardTitle className="text-[12px] uppercase font-bold text-slate-500">Activity Timeline</CardTitle>
-              <History size={14} className="text-slate-400" />
+              <HistoryIcon size={14} className="text-slate-400" />
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y overflow-y-auto max-h-[800px]">

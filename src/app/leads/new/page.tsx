@@ -50,7 +50,7 @@ export default function NewLeadPage() {
     initialNote: '',
   });
 
-  // Fetch dynamic channels from Firestore - Removed sorting/filtering to avoid index issues in MVP
+  // Fetch dynamic channels from Firestore
   const channelsQuery = useMemoFirebase(() => 
     firestore ? collection(firestore, 'channels') : null
   , [firestore]);
@@ -107,9 +107,10 @@ export default function NewLeadPage() {
     setLoading(true);
 
     try {
+      const clientName = `${formData.firstName} ${formData.lastName}`.trim();
       const leadData = {
         agentId: user.id,
-        clientName: `${formData.firstName} ${formData.lastName}`.trim(),
+        clientName,
         clientEmail: formData.clientEmail,
         clientPhone: formData.clientPhone,
         companyName: formData.companyName,
@@ -129,6 +130,7 @@ export default function NewLeadPage() {
       if (formData.initialNote.trim()) {
         await addDoc(collection(firestore, 'leads', docRef.id, 'activities'), {
           leadId: docRef.id,
+          clientName: clientName,
           agentId: user.id,
           agentName: user.name,
           type: 'Call made',

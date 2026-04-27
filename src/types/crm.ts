@@ -98,6 +98,7 @@ export interface Product {
 export interface LeadActivity {
   id: string;
   leadId: string;
+  clientName?: string;
   agentId: string;
   agentName?: string;
   type: ActivityType;

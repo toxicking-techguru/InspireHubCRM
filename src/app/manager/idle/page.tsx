@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -16,7 +17,7 @@ import {
   Loader2, 
   ChevronDown, 
   ChevronUp, 
-  History, 
+  History as HistoryIcon, 
   RefreshCcw,
   UserPlus,
   Moon
@@ -92,6 +93,7 @@ export default function ManagerIdleLeadsPage() {
     try {
       const activityData = {
         leadId: lead.id,
+        clientName: lead.clientName,
         agentId: user.id,
         agentName: user.name,
         type: quickType,
