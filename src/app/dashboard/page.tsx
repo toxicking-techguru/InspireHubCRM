@@ -32,12 +32,17 @@ export default function DashboardPage() {
   const firestore = useFirestore();
 
   useEffect(() => {
-    if (!isAuthenticated) router.push('/login');
-  }, [isAuthenticated, router]);
+    if (!isAuthenticated) {
+      router.push('/login');
+    } else if (user?.role === 'Admin') {
+      router.push('/admin/dashboard');
+    } else if (user?.role === 'Manager') {
+      router.push('/manager/dashboard');
+    }
+  }, [isAuthenticated, user, router]);
 
   const currentMonthStr = format(new Date(), 'yyyy-MM');
 
-  // Fetch all leads and filter in memory to avoid index requirements
   const leadsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'leads');
@@ -47,12 +52,11 @@ export default function DashboardPage() {
   const leads = useMemo(() => {
     if (!rawLeads || !user) return [];
     return rawLeads
-      .filter(l => user.role !== 'Agent' || l.agentId === user.id)
+      .filter(l => l.agentId === user.id)
       .sort((a, b) => (b.lastActivityAt || b.createdAt).localeCompare(a.lastActivityAt || a.createdAt))
       .slice(0, 10);
-  }, [rawLeads, user?.id, user?.role]);
+  }, [rawLeads, user?.id]);
 
-  // Fetch all activities and filter in memory to bypass COLLECTION_GROUP index requirement
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collectionGroup(firestore, 'activities');
@@ -103,16 +107,13 @@ export default function DashboardPage() {
     const lTarget = currentTarget?.leadsTarget || 10;
     const wTarget = currentTarget?.closedTarget || 2;
 
-    const leadsCount = monthLeads.length;
-    const winsCount = monthWins.length;
-
-    const lp = Math.min(Math.round((leadsCount / lTarget) * 100), 100);
-    const wp = Math.min(Math.round((winsCount / wTarget) * 100), 100);
+    const lp = Math.min(Math.round((monthLeads.length / lTarget) * 100), 100);
+    const wp = Math.min(Math.round((monthWins.length / wTarget) * 100), 100);
     const op = Math.round((lp + wp) / 2);
 
     return { 
-      leadsCount, 
-      winsCount, 
+      leadsCount: monthLeads.length, 
+      winsCount: monthWins.length, 
       leadsTarget: lTarget, 
       winsTarget: wTarget,
       leadsPercent: lp, 
@@ -131,15 +132,24 @@ export default function DashboardPage() {
     }
   }, [user?.tierId]);
 
-  if (!user) return null;
+  if (!user || user.role !== 'Agent') {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="animate-spin text-primary" size={32} />
+          <p className="text-sm font-medium text-slate-400">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Shell>
       <div className="flex flex-col gap-6">
         <AgentStats />
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid lg:grid-cols-10 gap-6">
+          <div className="lg:col-span-7 space-y-6">
             <div className="bg-card border rounded-md shadow-sm overflow-hidden">
               <div className="p-3 border-b flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-2">
@@ -188,7 +198,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             <div className="bg-card border rounded-md shadow-sm overflow-hidden flex flex-col">
                <div className={cn("p-5 border-b flex items-center justify-between", tierUI.bg)}>
                   <div className="space-y-1">
@@ -244,8 +254,8 @@ export default function DashboardPage() {
               <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Pipeline Distribution</h3>
               <div className="space-y-4">
                 {['new', 'qualified', 'proposal', 'won'].map((stage) => {
-                  const count = rawLeads?.filter(l => l.status === stage && (user.role !== 'Agent' || l.agentId === user.id)).length || 0;
-                  const total = rawLeads?.filter(l => (user.role !== 'Agent' || l.agentId === user.id)).length || 1;
+                  const count = rawLeads?.filter(l => l.status === stage && l.agentId === user.id).length || 0;
+                  const total = rawLeads?.filter(l => l.agentId === user.id).length || 1;
                   const pct = Math.round((count / total) * 100);
                   return (
                     <div key={stage} className="space-y-1.5">
@@ -303,9 +313,6 @@ export default function DashboardPage() {
                 <Activity size={24} className="opacity-10 mb-2" />
                 <p className="text-[10px] font-medium uppercase">Awaiting activity</p>
               </div>
-            ))}
-            {activitiesLoading && recentActivities.length === 0 && Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-slate-50 animate-pulse rounded-md h-[140px]" />
             ))}
           </div>
         </div>

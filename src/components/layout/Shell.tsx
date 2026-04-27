@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from 'link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
@@ -24,7 +24,8 @@ import {
   ShieldCheck,
   History as HistoryIcon,
   Banknote,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -56,7 +57,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isManager = user?.role === 'Manager';
   const isAdmin = user?.role === 'Admin';
 
-  // Listen for pending withdrawals if admin
   useEffect(() => {
     if (!db || !isAdmin) return;
     const q = query(collection(db, 'withdrawals'), where('status', '==', 'pending'));
@@ -75,8 +75,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
       if (!user && pathname !== '/login') {
         router.push('/login');
       } else if (user) {
-        if (pathname.startsWith('/admin') && !isAdmin) router.push('/dashboard');
-        if (pathname.startsWith('/manager') && !isManager) router.push('/dashboard');
+        // Strict Role-Based Path Guard and Auto-Redirect
+        if (pathname === '/dashboard' && isAdmin) {
+          router.push('/admin/dashboard');
+        } else if (pathname === '/dashboard' && isManager) {
+          router.push('/manager/dashboard');
+        } else if (pathname.startsWith('/admin') && !isAdmin) {
+          router.push('/dashboard');
+        } else if (pathname.startsWith('/manager') && !isManager) {
+          router.push('/dashboard');
+        }
       }
     }
   }, [pathname, user, isInitializing, isAdmin, isManager, router]);
@@ -299,14 +307,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       <span className="text-[9px] text-slate-400">2m ago</span>
                     </div>
                     <p className="text-[12px] text-slate-600">TechFlow Inc. has been assigned to your pipeline.</p>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-[11px] font-bold text-amber-600 uppercase">Target Reminder</span>
-                      <span className="text-[9px] text-slate-400">1h ago</span>
-                    </div>
-                    <p className="text-[12px] text-slate-600">You are $500 away from your revenue target this month.</p>
                   </DropdownMenuItem>
                 </div>
                 <DropdownMenuSeparator />

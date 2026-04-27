@@ -28,42 +28,39 @@ export default function LoginPage() {
   const [email, setEmail] = useState('admin@nexus.com');
   const [password, setPassword] = useState('password');
   const [loading, setLoading] = useState(false);
-  const { setAuth: setGlobalAuth, isAuthenticated } = useAuthStore();
+  const { setAuth: setGlobalAuth, isAuthenticated, user: currentUser } = useAuthStore();
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
   const db = useFirestore();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
+    if (isAuthenticated && currentUser) {
+      if (currentUser.role === 'Admin') router.push('/admin/dashboard');
+      else if (currentUser.role === 'Manager') router.push('/manager/dashboard');
+      else router.push('/dashboard');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, currentUser, router]);
 
   // Helper to ensure Firestore profile exists and matches Auth UID
   const syncUserSession = async (uid: string, userEmail: string) => {
     if (!db) return null;
 
-    // 1. Try direct UID lookup
     let userDoc = await getDoc(doc(db, 'agents', uid));
     
     if (!userDoc.exists()) {
-      // 2. If UID lookup fails, check if a seeded record exists with this email but wrong ID
       const q = query(collection(db, 'agents'), where('email', '==', userEmail));
       const snap = await getDocs(q);
       
       if (!snap.empty) {
         const seededData = snap.docs[0].data();
         const oldId = snap.docs[0].id;
-        
-        // Migrate seeded data to correct UID
         await setDoc(doc(db, 'agents', uid), seededData);
         if (oldId !== uid) {
           await deleteDoc(doc(db, 'agents', oldId));
         }
         userDoc = await getDoc(doc(db, 'agents', uid));
       } else {
-        // 3. If no record at all, create a default Agent profile
         const isDefaultAdmin = userEmail === 'admin@nexus.com';
         const isDefaultManager = userEmail === 'manager@nexus.com';
         
@@ -79,8 +76,6 @@ export default function LoginPage() {
           joinDate: new Date().toISOString()
         };
         await setDoc(doc(db, 'agents', uid), userData);
-        
-        // Initialize wallet
         await setDoc(doc(db, 'wallets', uid), {
           agentId: uid,
           totalEarned: 0,
@@ -88,7 +83,6 @@ export default function LoginPage() {
           withdrawable: 0,
           withdrawn: 0
         });
-        
         userDoc = await getDoc(doc(db, 'agents', uid));
       }
     }
@@ -108,7 +102,11 @@ export default function LoginPage() {
       if (agentData) {
         setGlobalAuth(agentData);
         toast({ title: "Login Successful", description: `Welcome back, ${agentData.name}` });
-        router.push('/dashboard');
+        
+        // Immediate role-based redirect
+        if (agentData.role === 'Admin') router.push('/admin/dashboard');
+        else if (agentData.role === 'Manager') router.push('/manager/dashboard');
+        else router.push('/dashboard');
       } else {
         throw new Error("Failed to sync account data.");
       }
@@ -135,7 +133,6 @@ export default function LoginPage() {
         const cred = await signInWithEmailAndPassword(auth, devEmail, devPassword);
         uid = cred.user.uid;
       } catch (err: any) {
-        // If sign in fails, try to create
         const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
         uid = cred.user.uid;
       }
@@ -144,14 +141,14 @@ export default function LoginPage() {
       if (agentData) {
         setGlobalAuth(agentData);
         toast({ title: "Welcome", description: `Signed in as ${role}.` });
-        router.push('/dashboard');
+        
+        // Immediate role-based redirect
+        if (agentData.role === 'Admin') router.push('/admin/dashboard');
+        else if (agentData.role === 'Manager') router.push('/manager/dashboard');
+        else router.push('/dashboard');
       }
     } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: "Access Error",
-        description: err.message
-      });
+      toast({ variant: "destructive", title: "Access Error", description: err.message });
       setLoading(false);
     }
   };
@@ -225,10 +222,6 @@ export default function LoginPage() {
               >
                 Admin
               </button>
-            </div>
-            <div className="mt-3 flex items-center justify-center gap-1 text-[9px] text-muted-foreground">
-              <AlertCircle size={10} />
-              <span>Auto-registers missing profiles after seed.</span>
             </div>
           </div>
         </div>
