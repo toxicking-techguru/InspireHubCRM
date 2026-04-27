@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, deleteDoc, writeBatch, collectionGroup, query } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,11 +25,23 @@ import {
   Play,
   CheckCircle2,
   XCircle,
-  Calendar
+  Calendar,
+  Trash2,
+  ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
 
 export default function AdminSettingsPage() {
   const { user } = useAuthStore();
@@ -62,6 +74,7 @@ export default function AdminSettingsPage() {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'cron', label: 'Cron Jobs', icon: Clock },
     { id: 'roles', label: 'Roles & Perms', icon: ShieldCheck },
+    { id: 'danger', label: 'Danger Zone', icon: ShieldAlert },
   ];
 
   return (
@@ -81,10 +94,12 @@ export default function AdminSettingsPage() {
                      onClick={() => setActiveTab(tab.id)}
                      className={cn(
                        "w-full flex items-center gap-3 px-3 h-9 rounded-[6px] text-[13px] transition-colors",
-                       activeTab === tab.id ? "bg-cyan-50 text-cyan-700 font-bold" : "text-sidebar-foreground hover:bg-slate-50"
+                       activeTab === tab.id 
+                        ? (tab.id === 'danger' ? "bg-red-50 text-red-700 font-bold" : "bg-cyan-50 text-cyan-700 font-bold")
+                        : "text-sidebar-foreground hover:bg-slate-50"
                      )}
                    >
-                      <tab.icon size={14} className={activeTab === tab.id ? "text-cyan-600" : "text-slate-400"} />
+                      <tab.icon size={14} className={activeTab === tab.id ? (tab.id === 'danger' ? "text-red-600" : "text-cyan-600") : "text-slate-400"} />
                       {tab.label}
                    </button>
                  ))}
@@ -103,12 +118,127 @@ export default function AdminSettingsPage() {
                    {activeTab === 'notifications' && <NotificationSettings config={config} onSave={handleSave} saving={isSaving} />}
                    {activeTab === 'cron' && <CronSettings />}
                    {activeTab === 'roles' && <RoleMatrix />}
+                   {activeTab === 'danger' && <DangerZone user={user} />}
                 </div>
               )}
            </div>
         </div>
       </div>
     </Shell>
+  );
+}
+
+function DangerZone({ user }: { user: any }) {
+  const [isPurgeDialogOpen, setIsPurgeDialogOpen] = useState(false);
+  const [purgeInput, setPurgeInput] = useState('');
+  const [isPurging, setIsPurging] = useState(false);
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const handlePurgeAll = async () => {
+    if (!firestore || !user || purgeInput !== 'PRODUCTION') return;
+    setIsPurging(true);
+    try {
+      const collectionsToPurge = [
+        'leads', 'wallets', 'commissions', 'withdrawals', 
+        'tiers', 'targets', 'channels', 'products', 'audit_logs'
+      ];
+
+      // 1. Purge all Lead Activities (Subcollections)
+      const activitySnap = await getDocs(collectionGroup(firestore, 'activities'));
+      for (const d of activitySnap.docs) {
+        await deleteDoc(d.ref);
+      }
+
+      // 2. Purge other primary collections
+      for (const colName of collectionsToPurge) {
+        const snap = await getDocs(collection(firestore, colName));
+        for (const d of snap.docs) {
+          await deleteDoc(d.ref);
+        }
+      }
+
+      // 3. Purge all agents EXCEPT the current user
+      const agentSnap = await getDocs(collection(firestore, 'agents'));
+      for (const d of agentSnap.docs) {
+        if (d.id !== user.id) {
+          await deleteDoc(d.ref);
+        }
+      }
+
+      toast({ 
+        title: "System Purge Complete", 
+        description: "All demo records removed. System is now ready for production." 
+      });
+      setIsPurgeDialogOpen(false);
+      setPurgeInput('');
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Purge Failed", description: e.message });
+    } finally {
+      setIsPurging(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-red-50 border border-red-100 p-4 rounded-md flex items-start gap-4 text-red-800">
+        <ShieldAlert size={20} className="shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <h4 className="font-bold text-[14px]">System Reset & Production Handover</h4>
+          <p className="text-[12px] opacity-80 leading-relaxed">
+            These actions are IRREVERSIBLE. Purging the system will delete all leads, activities, commissions, and team records across the entire global organization. 
+          </p>
+        </div>
+      </div>
+
+      <div className="border rounded-md divide-y overflow-hidden">
+         <div className="p-4 flex items-center justify-between gap-10 hover:bg-slate-50/50 transition-colors">
+            <div className="space-y-1">
+               <h5 className="text-[13px] font-bold text-slate-800">Purge All Data</h5>
+               <p className="text-[11px] text-slate-500">Deletes every record in the system to prepare for production launch. Your own admin profile is preserved.</p>
+            </div>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              className="font-bold uppercase tracking-tight h-8 text-[11px] px-6"
+              onClick={() => setIsPurgeDialogOpen(true)}
+            >
+              Wipe Everything
+            </Button>
+         </div>
+      </div>
+
+      <AlertDialog open={isPurgeDialogOpen} onOpenChange={setIsPurgeDialogOpen}>
+        <AlertDialogContent className="max-w-[400px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600">CRITICAL ACTION</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs space-y-2">
+              <p>You are about to wipe the entire CRM database. This will remove all history, financial records, and team assignments.</p>
+              <p className="font-bold">To continue, type "PRODUCTION" in the box below:</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Input 
+              value={purgeInput} 
+              onChange={(e) => setPurgeInput(e.target.value.toUpperCase())}
+              placeholder="Type here..."
+              className="h-9 text-center font-bold tracking-widest"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-8 text-[11px] font-bold uppercase" disabled={isPurging}>Cancel</AlertDialogCancel>
+            <Button 
+              variant="destructive" 
+              className="h-8 text-[11px] font-bold uppercase px-6"
+              disabled={purgeInput !== 'PRODUCTION' || isPurging}
+              onClick={handlePurgeAll}
+            >
+              {isPurging ? <Loader2 className="animate-spin" size={14} /> : 'Confirm Wipe'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 
@@ -172,7 +302,7 @@ function GeneralSettings({ config, onSave, saving }: any) {
             <div className="space-y-1.5">
                <Label className="text-[11px] font-bold uppercase text-slate-400">Withdrawal Allowed Window</Label>
                <Select value={data.withdrawalDays} onValueChange={(v) => setData({...data, withdrawalDays: v})}>
-                 <SelectTrigger className="h-9 text-[13px] bg-white">
+                 <SelectTrigger className="h-9 text-[13px] bg-white border-cyan-100">
                     <SelectValue placeholder="Select window..." />
                  </SelectTrigger>
                  <SelectContent>
@@ -207,7 +337,7 @@ function NotificationSettings({ config, onSave, saving }: any) {
                   <p className="text-[11px] text-slate-500">{item.desc}</p>
                   <div className="pt-2">
                      <Label className="text-[10px] font-bold uppercase text-slate-400">Template Text</Label>
-                     <Textarea className="h-16 text-[12px] mt-1 bg-white resize-none" defaultValue="Hi {name}, a new {event} occurred on {date}." />
+                     <Textarea className="h-16 text-[12px] mt-1 bg-white resize-none border-cyan-50" defaultValue="Hi {name}, a new {event} occurred on {date}." />
                   </div>
                </div>
                <Switch className="data-[state=checked]:bg-cyan-600 scale-90" defaultChecked />
