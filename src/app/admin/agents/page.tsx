@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -18,7 +17,8 @@ import {
   Wallet as WalletIcon,
   CheckCircle2,
   XCircle,
-  Edit2
+  Edit2,
+  ShieldAlert
 } from 'lucide-react';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function AdminAgentsPage() {
   const { user } = useAuthStore();
@@ -71,6 +72,10 @@ export default function AdminAgentsPage() {
   });
 
   const handleEdit = (agent: Agent) => {
+    if (agent.role === 'Admin') {
+      toast({ variant: "destructive", title: "Access Denied", description: "Admin profiles cannot be modified from the agent directory." });
+      return;
+    }
     setEditingAgent(agent);
     setFormData({
       name: agent.name,
@@ -106,8 +111,8 @@ export default function AdminAgentsPage() {
       };
       await setDoc(doc(firestore, 'agents', agentId), finalData, { merge: true });
       
-      // Ensure wallet exists for new agents
-      if (!editingAgent) {
+      // Ensure wallet exists ONLY for Agents
+      if (!editingAgent && formData.role === 'Agent') {
         await setDoc(doc(firestore, 'wallets', agentId), {
           agentId,
           totalEarned: 0,
@@ -117,7 +122,7 @@ export default function AdminAgentsPage() {
         });
       }
 
-      toast({ title: editingAgent ? "Agent Updated" : "Agent Created", description: `${formData.name} record saved.` });
+      toast({ title: editingAgent ? "Staff Updated" : "Staff Registered", description: `${formData.name} record saved.` });
       setIsDrawerOpen(false);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Operation Failed", description: err.message });
@@ -133,7 +138,7 @@ export default function AdminAgentsPage() {
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="h-11 flex items-center justify-between gap-4">
-          <h1 className="text-[16px] font-bold shrink-0 text-cyan-950">Agent Onboarding & Mgmt</h1>
+          <h1 className="text-[16px] font-bold shrink-0 text-cyan-950">Team Directory & Onboarding</h1>
           <div className="flex-1 max-w-[280px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
@@ -148,7 +153,7 @@ export default function AdminAgentsPage() {
               <Download size={14} /> Export CSV
             </Button>
             <Button size="sm" className="h-8 text-[12px] bg-cyan-600 hover:bg-cyan-700 gap-2 shadow-md" onClick={handleAdd}>
-              <UserPlus size={14} /> Add Agent
+              <UserPlus size={14} /> Add Team Member
             </Button>
           </div>
         </div>
@@ -165,10 +170,10 @@ export default function AdminAgentsPage() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-slate-50/80 border-b h-9">
-                    <th className="px-3 text-left w-[180px]">Agent Name</th>
+                    <th className="px-3 text-left w-[180px]">Person</th>
                     <th className="text-left w-[140px]">Manager</th>
                     <th className="text-center w-[90px]">Tier</th>
-                    <th className="text-left w-[120px]">Region / Territory</th>
+                    <th className="text-left w-[120px]">Role / Permission</th>
                     <th className="text-center w-[100px]">Status</th>
                     <th className="text-left w-[110px]">Join Date</th>
                     <th className="text-right w-[100px]">Wallet</th>
@@ -179,11 +184,17 @@ export default function AdminAgentsPage() {
                   {filteredAgents.map((agent) => {
                     const manager = managers?.find(m => m.id === agent.managerId);
                     const wallet = wallets?.find(w => w.agentId === agent.id);
+                    const isAgent = agent.role === 'Agent';
+                    const isAdmin = agent.role === 'Admin';
+                    
                     return (
-                      <tr key={agent.id} className="h-10 hover:bg-cyan-50/30 transition-colors group">
+                      <tr key={agent.id} className={cn("h-10 hover:bg-cyan-50/30 transition-colors group", isAdmin && "bg-slate-50/50")}>
                         <td className="px-3">
                            <div className="flex flex-col">
-                             <span className="font-bold text-slate-800">{agent.name}</span>
+                             <div className="flex items-center gap-1.5">
+                               <span className="font-bold text-slate-800">{agent.name}</span>
+                               {isAdmin && <ShieldAlert size={12} className="text-cyan-600" />}
+                             </div>
                              <span className="text-[10px] text-slate-400 font-medium">{agent.email}</span>
                            </div>
                         </td>
@@ -195,8 +206,10 @@ export default function AdminAgentsPage() {
                              <span className="text-slate-600 truncate">{manager?.name || '--'}</span>
                           </div>
                         </td>
-                        <td className="text-center"><TierBadge tierId={agent.tierId} /></td>
-                        <td className="text-slate-500">{agent.region}</td>
+                        <td className="text-center">
+                          {isAgent ? <TierBadge tierId={agent.tierId} /> : <span className="text-[10px] font-bold text-slate-400">N/A</span>}
+                        </td>
+                        <td className="text-slate-500 font-medium">{agent.role}</td>
                         <td className="text-center">
                           <div className="flex items-center justify-center gap-1.5">
                              {agent.status === 'active' ? <CheckCircle2 size={12} className="text-emerald-500" /> : <XCircle size={12} className="text-slate-300" />}
@@ -206,28 +219,34 @@ export default function AdminAgentsPage() {
                         <td className="text-slate-400 font-medium">
                           {format(parseISO(agent.joinDate), 'MMM d, yyyy')}
                         </td>
-                        <td className="text-right font-bold text-cyan-700">
-                          <div className="flex items-center justify-end gap-1">
-                             <WalletIcon size={12} className="text-slate-300" />
-                             ${(wallet?.withdrawable || 0).toLocaleString()}
-                          </div>
+                        <td className="text-right">
+                          {isAgent ? (
+                            <div className="flex items-center justify-end gap-1 font-bold text-cyan-700">
+                               <WalletIcon size={12} className="text-slate-300" />
+                               ${(wallet?.withdrawable || 0).toLocaleString()}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300">--</span>
+                          )}
                         </td>
                         <td className="px-3 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-cyan-600" onClick={() => handleEdit(agent)}>
-                              <Edit2 size={14} />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500">
-                              <MoreVertical size={14} />
-                            </Button>
-                          </div>
+                          {!isAdmin && (
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-cyan-600" onClick={() => handleEdit(agent)}>
+                                <Edit2 size={14} />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500">
+                                <MoreVertical size={14} />
+                              </Button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
                   })}
                   {filteredAgents.length === 0 && (
                     <tr className="h-20">
-                      <td colSpan={8} className="text-center text-muted-foreground italic">No users found matching query.</td>
+                      <td colSpan={8} className="text-center text-muted-foreground italic">No team members found matching query.</td>
                     </tr>
                   )}
                 </tbody>
@@ -243,7 +262,7 @@ export default function AdminAgentsPage() {
           <SheetHeader className="p-4 border-b bg-cyan-50">
              <SheetTitle className="text-[16px] font-bold flex items-center gap-2">
                <UserPlus className="text-cyan-600" size={18} />
-               {editingAgent ? 'Edit Agent Profile' : 'Register New Agent'}
+               {editingAgent ? 'Edit Staff Profile' : 'Register New Staff'}
              </SheetTitle>
           </SheetHeader>
           
@@ -256,7 +275,7 @@ export default function AdminAgentsPage() {
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
                       <Label className="text-[11px] font-bold uppercase text-slate-400">Email</Label>
-                      <Input required type="email" className="h-9 text-[13px]" placeholder="agent@nexus.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                      <Input required type="email" className="h-9 text-[13px]" placeholder="user@nexus.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
                    </div>
                    <div className="space-y-1.5">
                       <Label className="text-[11px] font-bold uppercase text-slate-400">Phone</Label>
@@ -271,7 +290,7 @@ export default function AdminAgentsPage() {
                 <div className="pt-4 border-t space-y-4">
                    <h3 className="text-[12px] font-bold text-cyan-700">Assignment & Permissions</h3>
                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">Manager</Label>
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Reporting Manager</Label>
                       <Select value={formData.managerId} onValueChange={(v) => setFormData({...formData, managerId: v})}>
                          <SelectTrigger className="h-9 text-[13px]">
                             <SelectValue placeholder="No Manager assigned" />
@@ -284,17 +303,6 @@ export default function AdminAgentsPage() {
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] font-bold uppercase text-slate-400">Force Tier</Label>
-                        <Select value={formData.tierId} onValueChange={(v) => setFormData({...formData, tierId: v})}>
-                           <SelectTrigger className="h-9 text-[13px]">
-                              <SelectValue />
-                           </SelectTrigger>
-                           <SelectContent>
-                              {tiers?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                           </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
                         <Label className="text-[11px] font-bold uppercase text-slate-400">System Role</Label>
                         <Select value={formData.role} onValueChange={(v) => setFormData({...formData, role: v as Role})}>
                            <SelectTrigger className="h-9 text-[13px]">
@@ -305,20 +313,34 @@ export default function AdminAgentsPage() {
                            </SelectContent>
                         </Select>
                       </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-bold uppercase text-slate-400">User Status</Label>
+                        <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v as UserStatus})}>
+                           <SelectTrigger className="h-9 text-[13px]">
+                              <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                              <SelectItem value="suspended">Suspended</SelectItem>
+                           </SelectContent>
+                        </Select>
+                      </div>
                    </div>
-                   <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">User Status</Label>
-                      <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v as UserStatus})}>
-                         <SelectTrigger className="h-9 text-[13px]">
-                            <SelectValue />
-                         </SelectTrigger>
-                         <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="inactive">Inactive (Deactivated)</SelectItem>
-                            <SelectItem value="suspended">Suspended (Locked)</SelectItem>
-                         </SelectContent>
-                      </Select>
-                   </div>
+                   
+                   {formData.role === 'Agent' && (
+                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                        <Label className="text-[11px] font-bold uppercase text-slate-400">Performance Tier</Label>
+                        <Select value={formData.tierId} onValueChange={(v) => setFormData({...formData, tierId: v})}>
+                           <SelectTrigger className="h-9 text-[13px]">
+                              <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                              {tiers?.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.rankLabel})</SelectItem>)}
+                           </SelectContent>
+                        </Select>
+                     </div>
+                   )}
                 </div>
              </div>
           </form>
