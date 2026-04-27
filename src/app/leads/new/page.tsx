@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -156,6 +155,8 @@ export default function NewLeadPage() {
       return updated;
     });
   };
+
+  if (!user) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin" /></div></Shell>;
 
   return (
     <Shell>

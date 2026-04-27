@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -31,8 +30,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -46,40 +45,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { user, setAuth, logout } = useAuthStore();
+  const { user, isInitializing, logout } = useAuthStore();
   const pathname = usePathname();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [initializing, setInitializing] = useState(true);
   const [pendingWithdrawals, setPendingWithdrawals] = useState(0);
   const auth = useAuth();
   const db = useFirestore();
 
   const isManager = user?.role === 'Manager';
   const isAdmin = user?.role === 'Admin';
-  const isAgent = user?.role === 'Agent';
-
-  useEffect(() => {
-    if (!auth || !db) return;
-
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        if (!user) {
-          const userDoc = await getDoc(doc(db, 'agents', fbUser.uid));
-          if (userDoc.exists()) {
-            setAuth({ id: userDoc.id, ...userDoc.data() } as any);
-          }
-        }
-      } else {
-        if (pathname !== '/login') {
-          router.push('/login');
-        }
-      }
-      setInitializing(false);
-    });
-
-    return () => unsubscribe();
-  }, [pathname, router, setAuth, user, auth, db]);
 
   // Listen for pending withdrawals if admin
   useEffect(() => {
@@ -96,11 +71,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (!initializing && user) {
-      if (pathname.startsWith('/admin') && !isAdmin) router.push('/dashboard');
-      if (pathname.startsWith('/manager') && !isManager) router.push('/dashboard');
+    if (!isInitializing) {
+      if (!user && pathname !== '/login') {
+        router.push('/login');
+      } else if (user) {
+        if (pathname.startsWith('/admin') && !isAdmin) router.push('/dashboard');
+        if (pathname.startsWith('/manager') && !isManager) router.push('/dashboard');
+      }
     }
-  }, [pathname, user, initializing, isAdmin, isManager, router]);
+  }, [pathname, user, isInitializing, isAdmin, isManager, router]);
 
   const agentNav = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
@@ -158,14 +137,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
         icon: "text-indigo-600"
       };
 
-  if (initializing) {
+  if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
           <div className={cn("w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white shadow-lg", isAdmin ? "bg-violet-600" : isManager ? "bg-cyan-600" : "bg-primary")}>
              <Zap size={24} />
           </div>
-          <p className="text-xs font-medium text-slate-400">Initializing InspireHubCRM...</p>
+          <p className="text-xs font-medium text-slate-400">Restoring InspireHubCRM session...</p>
         </div>
       </div>
     );
