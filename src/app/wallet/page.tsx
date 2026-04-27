@@ -45,6 +45,12 @@ export default function WalletPage() {
 
   const { data: wallet, loading: walletLoading } = useDoc<Wallet>(walletRef as any);
 
+  const configRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'system', 'config');
+  }, [firestore]);
+  const { data: config } = useDoc<any>(configRef as any);
+
   const commissionsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -189,7 +195,7 @@ export default function WalletPage() {
 
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg flex items-start gap-3 text-[12px] text-amber-800">
                <Clock size={16} className="shrink-0 mt-0.5" />
-               <p>Withdrawal requests are processed every Friday. Transfers to non-local banks may take up to 3 business days to reflect.</p>
+               <p>Withdrawal requests are processed <b>{config?.withdrawalDays === 'All Days' ? 'daily' : config?.withdrawalDays ? `every ${config.withdrawalDays}` : 'every Friday'}</b>. Transfers to non-local banks may take up to 3 business days to reflect.</p>
             </div>
           </div>
 
