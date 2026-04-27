@@ -1,11 +1,13 @@
+
 "use client"
 
 import React from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import { Lead, Wallet as WalletType } from '@/types/crm';
+import { Lead, Wallet as WalletType, Commission } from '@/types/crm';
 import { Skeleton } from '@/components/ui/skeleton';
+import { startOfMonth, parseISO } from 'date-fns';
 
 export function AgentStats() {
   const { user } = useAuthStore();
@@ -29,21 +31,34 @@ export function AgentStats() {
   
   const { data: wallet, loading: walletLoading } = useDoc<WalletType>(walletRef as any);
 
+  // Fetch commissions to calculate "Earnings this month" dynamically
+  const commissionsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'commissions'), where('agentId', '==', user.id));
+  }, [firestore, user?.id]);
+  const { data: commissions } = useCollection<Commission>(commissionsQuery as any);
+
   const stats = React.useMemo(() => {
     if (!leads) return [];
     
     const myLeads = leads.length;
     const qualified = leads.filter(l => l.status === 'qualified').length;
-    const wonThisMonth = leads.filter(l => l.status === 'won').length; // Simplify to total for demo
-    const earnings = wallet?.totalEarned || 0;
+    const wonTotal = leads.filter(l => l.status === 'won').length;
+
+    // Monthly Earnings Calculation
+    const monthStart = startOfMonth(new Date());
+    const monthlyEarnings = commissions?.reduce((sum, c) => {
+      const cDate = parseISO(c.createdAt);
+      return cDate >= monthStart ? sum + c.amount : sum;
+    }, 0) || 0;
 
     return [
-      { label: 'My leads', value: myLeads.toString() },
-      { label: 'Qualified', value: qualified.toString() },
-      { label: 'Won this month', value: wonThisMonth.toString() },
-      { label: 'Earnings this month', value: `$${earnings.toLocaleString()}` },
+      { label: 'My total leads', value: myLeads.toString() },
+      { label: 'Qualified leads', value: qualified.toString() },
+      { label: 'Wins (Lifetime)', value: wonTotal.toString() },
+      { label: 'Earnings this month', value: `$${monthlyEarnings.toLocaleString()}` },
     ];
-  }, [leads, wallet]);
+  }, [leads, commissions]);
 
   if (leadsLoading || walletLoading) {
     return (
