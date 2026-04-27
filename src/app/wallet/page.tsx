@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { doc, collection, query, where, orderBy, limit, addDoc } from 'firebase/firestore';
+import { doc, collection, query, where, orderBy, limit, writeBatch, increment } from 'firebase/firestore';
 import { 
   ArrowUpRight, 
   Loader2, 
@@ -93,7 +93,11 @@ export default function WalletPage() {
 
     setIsSubmitting(true);
     try {
-      await addDoc(collection(firestore, 'withdrawals'), {
+      const batch = writeBatch(firestore);
+      const withdrawalRef = doc(collection(firestore, 'withdrawals'));
+      
+      // 1. Create the withdrawal request
+      batch.set(withdrawalRef, {
         agentId: user.id,
         amount: requestAmount,
         status: 'pending',
@@ -101,11 +105,18 @@ export default function WalletPage() {
         bankDetails: { bankName, accountName, accountNumber }
       });
 
+      // 2. Deduct from wallet immediately
+      batch.update(doc(firestore, 'wallets', user.id), {
+        withdrawable: increment(-requestAmount)
+      });
+
+      await batch.commit();
+
       setAmount('');
       setBankName('');
       setAccountName('');
       setAccountNumber('');
-      toast({ title: "Request Submitted", description: "Your payout request is now in the verification queue." });
+      toast({ title: "Request Submitted", description: `Funds deducted and payout is now pending verification.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Request Failed", description: error.message });
     } finally {

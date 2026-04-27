@@ -72,13 +72,13 @@ export default function AdminWithdrawalsPage() {
         reference: paymentRef
       });
       
+      // We only increment 'withdrawn' because 'withdrawable' was already decremented at request time
       batch.update(walletRef, {
-        withdrawable: increment(-withdrawal.amount),
         withdrawn: increment(withdrawal.amount)
       });
       
       await batch.commit();
-      toast({ title: "Payment Disbursed", description: `Wallet for agent has been updated successfully.` });
+      toast({ title: "Payment Disbursed", description: `Transaction marked as paid and wallet totals updated.` });
       setProcessingId(null);
       setPaymentRef('');
     } catch (e: any) {
@@ -92,13 +92,25 @@ export default function AdminWithdrawalsPage() {
     if (!firestore || !rejectReason.trim()) return;
     setIsActioning(true);
     try {
-      await updateDoc(doc(firestore, 'withdrawals', withdrawal.id), {
+      const batch = writeBatch(firestore);
+      const wRef = doc(firestore, 'withdrawals', withdrawal.id);
+      const walletRef = doc(firestore, 'wallets', withdrawal.agentId);
+
+      // 1. Mark request as rejected
+      batch.update(wRef, {
         status: 'rejected',
         processedAt: new Date().toISOString(),
         processedBy: user?.name,
         rejectionReason: rejectReason
       });
-      toast({ title: "Request Rejected", description: "Agent will be notified with reason." });
+
+      // 2. Restore funds to the agent's withdrawable balance
+      batch.update(walletRef, {
+        withdrawable: increment(withdrawal.amount)
+      });
+
+      await batch.commit();
+      toast({ title: "Request Rejected", description: "Funds have been returned to the agent's balance." });
       setProcessingId(null);
       setRejectReason('');
     } catch (e: any) {
