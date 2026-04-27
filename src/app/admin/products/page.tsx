@@ -1,11 +1,10 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { Product, Tier } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,17 +21,15 @@ import {
   FileText, 
   FileCode, 
   HelpCircle, 
-  Download, 
   Trash2, 
   Save, 
   Loader2, 
-  ChevronRight, 
   ExternalLink, 
   PlayCircle, 
-  AlertCircle, 
   BookOpen, 
   Settings2, 
-  Code 
+  Code,
+  ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -95,9 +92,12 @@ export default function AdminProductsPage() {
 
   return (
     <Shell>
-      <div className="flex h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-cyan-100">
-        {/* Left Panel: List */}
-        <div className="w-[280px] border-r flex flex-col bg-slate-50/30">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-cyan-100">
+        {/* Left Panel: List - Hidden on mobile when product is selected */}
+        <div className={cn(
+          "w-full lg:w-[280px] border-r flex flex-col bg-slate-50/30 shrink-0",
+          selectedProductId && "hidden lg:flex"
+        )}>
            <div className="p-3 border-b space-y-3">
               <div className="flex items-center justify-between">
                  <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-500">Catalog</h2>
@@ -142,12 +142,21 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Right Panel: Detail */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-white">
+        <div className={cn(
+          "flex-1 flex flex-col overflow-hidden bg-white",
+          !selectedProductId && "hidden lg:flex"
+        )}>
            {selectedProduct ? (
              <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                   <div className="flex items-start justify-between gap-8">
-                      <div className="flex-1 space-y-4">
+                <div className="p-3 border-b lg:hidden flex items-center">
+                  <Button variant="ghost" size="sm" className="h-8 gap-2 text-[12px]" onClick={() => setSelectedProductId(null)}>
+                    <ChevronLeft size={16} /> Back to Catalog
+                  </Button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
+                   <div className="flex flex-col lg:flex-row items-start justify-between gap-6 lg:gap-8">
+                      <div className="flex-1 w-full space-y-4">
                          <div className="space-y-1">
                             <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Product Title</Label>
                             <Input 
@@ -166,7 +175,7 @@ export default function AdminProductsPage() {
                             />
                          </div>
                       </div>
-                      <div className="w-[240px] space-y-4">
+                      <div className="w-full lg:w-[240px] space-y-4">
                          <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-100 space-y-4">
                             <h3 className="text-[11px] font-bold text-cyan-700 uppercase flex items-center gap-2"><Settings2 size={14} /> Access Control</h3>
                             <div className="space-y-1.5">
@@ -201,9 +210,9 @@ export default function AdminProductsPage() {
                       </div>
                    </div>
 
-                   <div className="pt-6 border-t">
+                   <div className="pt-6 border-t overflow-x-auto">
                       <Tabs defaultValue="scripts" className="w-full">
-                         <TabsList className="bg-slate-100 p-0.5 rounded-md h-9 gap-1">
+                         <TabsList className="bg-slate-100 p-0.5 rounded-md h-9 gap-1 flex w-max lg:w-auto">
                             <TabsTrigger value="scripts" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><FileCode size={14} /> Scripts</TabsTrigger>
                             <TabsTrigger value="docs" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><FileText size={14} /> Docs</TabsTrigger>
                             <TabsTrigger value="videos" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><Video size={14} /> Videos</TabsTrigger>
@@ -238,7 +247,7 @@ export default function AdminProductsPage() {
                 </div>
              </div>
            ) : (
-             <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
+             <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-8 text-center">
                 <Package size={64} className="mb-4 opacity-10" />
                 <p className="text-[15px] font-bold">Catalog Administration</p>
                 <p className="text-[12px]">Select a product from the left to configure access and materials.</p>
@@ -280,7 +289,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
 
   return (
     <div className="space-y-4">
-       <div className="flex items-center justify-between">
+       <div className="flex items-center justify-between gap-2">
           <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Repository: {type}</h4>
           <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-cyan-600 border-cyan-100" onClick={() => setIsAdding(!isAdding)}>
              {isAdding ? 'Cancel' : `+ Add ${type.slice(0, -1)}`}
@@ -288,11 +297,11 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
        </div>
 
        {isAdding && (
-         <form onSubmit={handleAdd} className="p-3 bg-cyan-50/50 border border-cyan-100 rounded-md grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-1">
-            <div className="col-span-1">
+         <form onSubmit={handleAdd} className="p-3 bg-cyan-50/50 border border-cyan-100 rounded-md flex flex-col lg:grid lg:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
+            <div className="lg:col-span-1">
                <Input required placeholder="Display Name..." className="h-8 text-[12px] bg-white border-cyan-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
             </div>
-            <div className="col-span-2">
+            <div className="lg:col-span-2">
                <Input required placeholder="HTTPS URL or File Resource..." className="h-8 text-[12px] bg-white border-cyan-100" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
             </div>
             <Button type="submit" className="h-8 bg-cyan-600 text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
@@ -300,54 +309,56 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
        )}
 
        <div className="border rounded-md overflow-hidden">
-          <table className="w-full text-[13px]">
-             <thead>
-                <tr className="bg-slate-50/80 border-b h-8 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">
-                   <th className="px-3 text-left w-10"></th>
-                   <th className="text-left">Resource Name</th>
-                   <th className="text-left w-[120px]">Date Linked</th>
-                   <th className="text-right px-3 w-[100px]">Actions</th>
-                </tr>
-             </thead>
-             <tbody className="divide-y bg-white">
-                {items.map(item => (
-                  <tr key={item.id} className="h-10 hover:bg-slate-50 group">
-                     <td className="px-3 text-slate-400">
-                        {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'manuals' ? <BookOpen size={14} className="text-emerald-500" /> : type === 'scripts' ? <FileCode size={14} className="text-blue-500" /> : <FileText size={14} className="text-cyan-500" />}
-                     </td>
-                     <td className="font-medium truncate max-w-[300px]">
-                        <div className="flex flex-col">
-                           <span className="text-slate-800">{item.name}</span>
-                           <span className="text-[10px] text-slate-400 font-mono truncate">{item.url}</span>
-                        </div>
-                     </td>
-                     <td className="text-slate-400 text-[11px] font-medium">
-                        {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : '--'}
-                     </td>
-                     <td className="px-3 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-cyan-600 transition-colors">
-                              <ExternalLink size={14} />
-                           </a>
-                           <TooltipProvider>
-                              <Tooltip>
-                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500" onClick={() => handleDelete(item.id)}>
-                                       <Trash2 size={14} />
-                                    </Button>
-                                 </TooltipTrigger>
-                                 <TooltipContent className="bg-red-500 text-white text-[10px] border-none">Delete permanently?</TooltipContent>
-                              </Tooltip>
-                           </TooltipProvider>
-                        </div>
-                     </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+               <thead>
+                  <tr className="bg-slate-50/80 border-b h-8 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">
+                     <th className="px-3 text-left w-10"></th>
+                     <th className="text-left">Resource Name</th>
+                     <th className="text-left w-[120px]">Date Linked</th>
+                     <th className="text-right px-3 w-[100px]">Actions</th>
                   </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr className="h-20 text-center"><td colSpan={4} className="text-slate-400 italic text-[12px]">No materials uploaded for this product category.</td></tr>
-                )}
-             </tbody>
-          </table>
+               </thead>
+               <tbody className="divide-y bg-white">
+                  {items.map(item => (
+                    <tr key={item.id} className="h-10 hover:bg-slate-50 group">
+                       <td className="px-3 text-slate-400">
+                          {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'manuals' ? <BookOpen size={14} className="text-emerald-500" /> : type === 'scripts' ? <FileCode size={14} className="text-blue-500" /> : <FileText size={14} className="text-cyan-500" />}
+                       </td>
+                       <td className="font-medium truncate max-w-[150px] lg:max-w-[300px]">
+                          <div className="flex flex-col">
+                             <span className="text-slate-800 truncate">{item.name}</span>
+                             <span className="text-[10px] text-slate-400 font-mono truncate">{item.url}</span>
+                          </div>
+                       </td>
+                       <td className="text-slate-400 text-[11px] font-medium">
+                          {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : '--'}
+                       </td>
+                       <td className="px-3 text-right">
+                          <div className="flex items-center justify-end gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                             <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-cyan-600 transition-colors">
+                                <ExternalLink size={14} />
+                             </a>
+                             <TooltipProvider>
+                                <Tooltip>
+                                   <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500" onClick={() => handleDelete(item.id)}>
+                                         <Trash2 size={14} />
+                                      </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent className="bg-red-500 text-white text-[10px] border-none">Delete permanently?</TooltipContent>
+                                </Tooltip>
+                             </TooltipProvider>
+                          </div>
+                       </td>
+                    </tr>
+                  ))}
+                  {items.length === 0 && (
+                    <tr className="h-20 text-center"><td colSpan={4} className="text-slate-400 italic text-[12px]">No materials uploaded for this product category.</td></tr>
+                  )}
+               </tbody>
+            </table>
+          </div>
        </div>
     </div>
   );

@@ -26,7 +26,8 @@ import {
   Banknote,
   AlertTriangle,
   Loader2,
-  Coins
+  Coins,
+  Menu
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -37,6 +38,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +53,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [pendingWithdrawals, setPendingWithdrawals] = useState(0);
   const [pendingCommissions, setPendingCommissions] = useState(0);
   const auth = useAuth();
@@ -62,11 +65,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!db || !isAdmin) return;
     
-    // Listen for pending withdrawals
     const qW = query(collection(db, 'withdrawals'), where('status', '==', 'pending'));
     const unsubW = onSnapshot(qW, (snap) => setPendingWithdrawals(snap.size));
     
-    // Listen for pending commissions
     const qC = query(collection(db, 'commissions'), where('status', '==', 'pending'));
     const unsubC = onSnapshot(qC, (snap) => setPendingCommissions(snap.size));
 
@@ -147,6 +148,66 @@ export function Shell({ children }: { children: React.ReactNode }) {
     icon: "text-cyan-600"
   };
 
+  const NavItems = () => (
+    <div className="space-y-4 py-2">
+      {isAdmin ? (
+        adminNav.map((section, idx) => (
+          <div key={idx} className="space-y-1">
+            <p className="text-[10px] font-bold uppercase text-slate-400 px-3 mb-1">{section.section}</p>
+            {section.items.map((item) => {
+              const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href));
+              return (
+                <Link 
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px] relative",
+                    isActive ? themeClasses.active : "text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
+                    {item.sub && <span className="text-[9px] text-slate-400 truncate font-normal">{item.sub}</span>}
+                  </div>
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[9px] font-bold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))
+      ) : (
+        <div className="space-y-1">
+          {(isManager ? managerNav : agentNav).map((item) => {
+            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            return (
+              <Link 
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px]",
+                  isActive ? themeClasses.active : "text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
+                  {(item as any).sub && <span className="text-[9px] text-slate-400 truncate font-normal">{(item as any).sub}</span>}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -165,6 +226,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Desktop Sidebar */}
       <aside className={cn(
         "hidden md:flex flex-col border-r bg-sidebar transition-all duration-300 ease-in-out z-30 sticky top-0 h-screen",
         isCollapsed ? "w-[48px]" : "w-[200px]"
@@ -285,14 +347,48 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 pb-[60px] md:pb-0">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
         <header className="h-[48px] border-b bg-card sticky top-0 z-20 flex items-center px-4 justify-between">
-          <div className="text-[12px] font-medium text-muted-foreground hidden md:block">
-            InspireHubCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/').slice(-1)[0] || 'Dashboard'}</span>
-          </div>
-          <div className="md:hidden flex items-center gap-2">
-             <Zap size={16} className="text-primary" />
-             <span className="text-[13px] font-bold">InspireHubCRM</span>
+          <div className="flex items-center gap-3">
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden h-8 w-8">
+                  <Menu size={20} />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-[240px] flex flex-col h-full">
+                <SheetHeader className="p-4 border-b bg-slate-50 flex-row items-center gap-2 space-y-0">
+                   <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white shadow">
+                     <Zap size={18} />
+                   </div>
+                   <SheetTitle className="text-[15px] font-bold">InspireHubCRM</SheetTitle>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto p-2">
+                   <NavItems />
+                </div>
+                <div className="p-4 border-t bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-xs">
+                      {user.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold truncate">{user.name}</p>
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{user.role}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 text-slate-400"><LogOut size={16} /></Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <div className="text-[12px] font-medium text-muted-foreground hidden md:block">
+              InspireHubCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/').slice(-1)[0] || 'Dashboard'}</span>
+            </div>
+            <div className="md:hidden flex items-center gap-2">
+               <Zap size={16} className="text-primary" />
+               <span className="text-[13px] font-bold">InspireHubCRM</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -336,18 +432,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
-
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[56px] bg-background border-t z-40 flex items-center justify-around px-2">
-        {(isAdmin ? adminNav[0].items.slice(0, 5) : (isManager ? managerNav : agentNav).slice(0, 5)).map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center flex-1 gap-1 h-full", isActive ? "text-primary" : "text-muted-foreground")}>
-              <item.icon size={18} />
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
     </div>
   );
 }
