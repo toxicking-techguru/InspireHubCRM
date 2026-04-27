@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -258,7 +259,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <TierBadge tierId={user.tierId} />
                 )}
               </div>
-              <Link href="/admin/settings" className="shrink-0 text-muted-foreground hover:text-primary">
+              <Link 
+                href={isAdmin ? "/admin/settings" : "/settings"} 
+                className="shrink-0 text-muted-foreground hover:text-primary"
+              >
                 <Settings size={14} />
               </Link>
             </div>

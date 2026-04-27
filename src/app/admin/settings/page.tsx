@@ -53,7 +53,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  if (!user || user.role !== 'Admin') return null;
+  if (!user) return null;
 
   const tabs = [
     { id: 'general', label: 'General', icon: SettingsIcon },
@@ -71,7 +71,6 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="flex gap-6 items-start">
-           {/* Sub-nav */}
            <div className="w-[200px] bg-card border rounded-md overflow-hidden shrink-0 shadow-sm">
               <div className="p-2 space-y-0.5">
                  {tabs.map(tab => (
@@ -80,7 +79,7 @@ export default function AdminSettingsPage() {
                      onClick={() => setActiveTab(tab.id)}
                      className={cn(
                        "w-full flex items-center gap-3 px-3 h-9 rounded-[6px] text-[13px] transition-colors",
-                       activeTab === tab.id ? "bg-violet-50 text-violet-700 font-bold" : "text-slate-500 hover:bg-slate-50"
+                       activeTab === tab.id ? "bg-violet-50 text-violet-700 font-bold" : "text-sidebar-foreground hover:bg-slate-50"
                      )}
                    >
                       <tab.icon size={14} className={activeTab === tab.id ? "text-violet-600" : "text-slate-400"} />
@@ -90,7 +89,6 @@ export default function AdminSettingsPage() {
               </div>
            </div>
 
-           {/* Content */}
            <div className="flex-1 bg-card border rounded-md shadow-sm min-h-[400px]">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20">
@@ -120,7 +118,6 @@ function GeneralSettings({ config, onSave, saving }: any) {
     idleThreshold: 72 
   });
 
-  // Sync state when config loads
   useEffect(() => {
     if (config) {
       setData({
