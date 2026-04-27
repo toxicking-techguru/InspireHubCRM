@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { format, subMonths, parseISO, startOfMonth } from 'date-fns';
+import { format, subMonths, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +75,30 @@ export default function ManagerTargetsPage() {
     );
   }, [firestore, selectedAgentId]);
   const { data: history } = useCollection<Target>(historyQuery as any);
+
+  // Fetch leads for progress calculation
+  const leadsQuery = useMemoFirebase(() => {
+    if (!firestore || !selectedAgentId) return null;
+    return query(collection(firestore, 'leads'), where('agentId', '==', selectedAgentId));
+  }, [firestore, selectedAgentId]);
+  const { data: leads } = useCollection<Lead>(leadsQuery as any);
+
+  const actuals = useMemo(() => {
+    if (!leads) return { leadsCount: 0, revenue: 0 };
+    const mStart = startOfMonth(selectedMonth);
+    const mEnd = endOfMonth(selectedMonth);
+
+    const monthLeads = leads.filter(l => {
+      const d = parseISO(l.createdAt);
+      return d >= mStart && d <= mEnd;
+    });
+
+    const monthRev = leads
+      .filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= mStart && parseISO(l.wonAt) <= mEnd)
+      .reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+
+    return { leadsCount: monthLeads.length, revenue: monthRev };
+  }, [leads, selectedMonth]);
 
   // Auto-fill form if target exists
   React.useEffect(() => {
@@ -191,7 +215,7 @@ export default function ManagerTargetsPage() {
                       </thead>
                       <tbody className="divide-y">
                         {history?.map((h, i) => (
-                          <tr key={i} className="h-9 hover:bg-slate-50/50">
+                          <tr key={i} className="h-9 hover:bg-slate-50/50 transition-colors">
                             <td className="px-3 font-medium">{format(parseISO(h.month + '-01'), 'MMM yyyy')}</td>
                             <td className="text-center">{h.leadsTarget}</td>
                             <td className="text-center">{h.qualifiedTarget}</td>
@@ -217,15 +241,15 @@ export default function ManagerTargetsPage() {
                      </div>
                      <div>
                         <p className="text-[14px] font-bold">{agents?.find(a => a.id === selectedAgentId)?.name}</p>
-                        <Badge variant="outline" className="text-[9px] h-3.5 bg-white border-cyan-200">Current Targets</Badge>
+                        <Badge variant="outline" className="text-[9px] h-3.5 bg-white border-cyan-200">Current Progress</Badge>
                      </div>
                   </div>
                   <div className="space-y-4">
                      {[
-                       { label: 'Leads Progress', val: 7, target: formData.leadsTarget },
-                       { label: 'Revenue Progress', val: 3200, target: formData.revenueTarget, isCurrency: true },
+                       { label: 'Leads Progress', val: actuals.leadsCount, target: formData.leadsTarget },
+                       { label: 'Revenue Progress', val: actuals.revenue, target: formData.revenueTarget, isCurrency: true },
                      ].map((p, i) => {
-                       const pct = Math.min(Math.round((p.val / p.target) * 100), 100);
+                       const pct = p.target > 0 ? Math.min(Math.round((p.val / p.target) * 100), 100) : 0;
                        return (
                          <div key={i} className="space-y-1.5">
                             <div className="flex justify-between text-[11px] font-bold">
@@ -233,7 +257,7 @@ export default function ManagerTargetsPage() {
                                <span className="text-cyan-700">{pct}%</span>
                             </div>
                             <div className="h-1.5 w-full bg-white rounded-full overflow-hidden">
-                               <div className="h-full bg-cyan-600" style={{ width: `${pct}%` }}></div>
+                               <div className="h-full bg-cyan-600 transition-all duration-700" style={{ width: `${pct}%` }}></div>
                             </div>
                             <p className="text-[10px] text-slate-400 text-right">
                               {p.isCurrency ? `$${p.val.toLocaleString()}` : p.val} / {p.isCurrency ? `$${p.target.toLocaleString()}` : p.target}
