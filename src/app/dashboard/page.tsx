@@ -23,6 +23,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Lead, LeadActivity, Tier, Target as AgentTarget } from '@/types/crm';
@@ -54,23 +55,19 @@ export default function DashboardPage() {
   const { data: leads } = useCollection<Lead>(priorityLeadsQuery);
 
   // Recent Activities across all leads
+  // Using collectionGroup for cross-lead activity feed
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // We fetch recent activities for the agent across the collectionGroup
-    // For MVP dashboard, we'll fetch them from the leads we already have or a collectionGroup if available
-    // But since activities are subcollections, collectionGroup is more robust if we have names
-    // However, keeping it simple: just list some recent ones.
+    const { collectionGroup } = require('firebase/firestore');
     return query(
-      collection(firestore, 'leads', leads?.[0]?.id || 'dummy', 'activities'),
+      collectionGroup(firestore, 'activities'),
+      where('agentId', '==', user.id),
       orderBy('createdAt', 'desc'),
       limit(4)
     );
-  }, [firestore, user?.id, leads]);
+  }, [firestore, user?.id]);
   
-  // Note: For a true "Recent Activities" feed across ALL leads, 
-  // you'd typically use a collectionGroup query. 
-  // For this UX rearrangement, I'll optimize the display logic.
-  const { data: recentActivities } = useCollection<LeadActivity>(activitiesQuery);
+  const { data: recentActivities } = useCollection<LeadActivity>(activitiesQuery as any);
 
   // Monthly Target
   const targetQuery = useMemoFirebase(() => {
@@ -93,7 +90,7 @@ export default function DashboardPage() {
 
   // Dynamic Progress Calculation
   const progressMetrics = useMemo(() => {
-    if (!leads) return { leadsCount: 0, winsCount: 0, leadsPercent: 0, winsPercent: 0, overallPercent: 0 };
+    if (!leads) return { leadsCount: 0, winsCount: 0, leadsPercent: 0, winsPercent: 0, overallPercent: 0, leadsTarget: 10, winsTarget: 2 };
     
     const monthStart = startOfMonth(new Date());
     const monthLeads = leads.filter(l => parseISO(l.createdAt) >= monthStart);
@@ -161,7 +158,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {leads?.slice(0, 5).map((lead, idx) => (
+                    {leads?.slice(0, 5).map((lead) => (
                       <tr key={lead.id} className="h-11 hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 font-bold text-slate-700">{lead.clientName}</td>
                         <td>
@@ -269,7 +266,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Activity Grid - Now Horizontal */}
+        {/* Recent Activity Grid - Horizontal Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <Clock size={16} className="text-slate-400" />
@@ -277,7 +274,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recentActivities?.slice(0, 4).map(activity => (
+            {recentActivities?.map(activity => (
               <div key={activity.id} className="bg-card border rounded-md p-4 shadow-sm hover:shadow-md transition-shadow relative">
                 <div className="flex items-start justify-between mb-2">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
