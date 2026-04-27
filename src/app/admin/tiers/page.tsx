@@ -1,11 +1,10 @@
-
 "use client"
 
 import React, { useMemo, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { Tier, Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,12 +24,14 @@ import {
   Edit2,
   Trophy,
   Zap,
-  BarChart2
+  BarChart2,
+  Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { TIERS as DEFAULT_TIERS } from '@/lib/mock-data';
 
 export default function AdminTiersPage() {
   const { user } = useAuthStore();
@@ -39,9 +40,16 @@ export default function AdminTiersPage() {
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
-  const tiersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null, [firestore]);
-  const { data: tiers, loading } = useCollection<Tier>(tiersQuery as any);
+  // Naked query first to ensure we see data if index is missing, then sort in memory
+  const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
+  const { data: rawTiers, loading } = useCollection<Tier>(tiersQuery as any);
+
+  const tiers = useMemo(() => {
+    if (!rawTiers) return [];
+    return [...rawTiers].sort((a, b) => a.rankLevel - b.rankLevel);
+  }, [rawTiers]);
 
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
   const { data: agents } = useCollection<Agent>(agentsQuery as any);
@@ -51,6 +59,21 @@ export default function AdminTiersPage() {
   const handleStartEdit = (tier: Tier) => {
     setEditingId(tier.id);
     setEditValues(tier);
+  };
+
+  const handleInitialize = async () => {
+    if (!firestore) return;
+    setIsInitializing(true);
+    try {
+      for (const t of DEFAULT_TIERS) {
+        await setDoc(doc(firestore, 'tiers', t.id), t);
+      }
+      toast({ title: "Tiers Initialized", description: "Default sales hierarchy has been restored." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Setup Failed", description: e.message });
+    } finally {
+      setIsInitializing(false);
+    }
   };
 
   const handleSave = async (id: string) => {
@@ -87,9 +110,21 @@ export default function AdminTiersPage() {
             <p className="text-[12px] text-muted-foreground mt-0.5">Define rank levels, commission rates, and qualitative upgrade targets.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="h-6 border-violet-200 text-violet-700 font-bold">4 LEVELS CONFIGURED</Badge>
+            <Badge variant="outline" className="h-6 border-violet-200 text-violet-700 font-bold">{tiers.length} LEVELS CONFIGURED</Badge>
           </div>
         </div>
+
+        {!loading && tiers.length === 0 && (
+          <div className="py-20 border-[0.5px] border-dashed border-violet-200 rounded-lg flex flex-col items-center justify-center text-slate-400 bg-slate-50/30">
+             <Database size={48} className="mb-4 text-violet-100" />
+             <p className="text-[15px] font-bold text-slate-600">No Tier Records Found</p>
+             <p className="text-[12px] mb-6">The system hierarchy must be initialized before you can manage agents.</p>
+             <Button className="bg-violet-600 hover:bg-violet-700 font-bold uppercase text-[11px]" disabled={isInitializing} onClick={handleInitialize}>
+               {isInitializing ? <Loader2 size={14} className="animate-spin mr-2" /> : <Plus size={14} className="mr-2" />}
+               Initialize Default Tiers
+             </Button>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {loading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[400px] rounded-lg" />) : 

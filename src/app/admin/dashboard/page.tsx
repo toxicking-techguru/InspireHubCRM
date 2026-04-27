@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useMemo, useState } from 'react';
@@ -36,7 +35,7 @@ export default function AdminDashboard() {
   const firestore = useFirestore();
   const [revenueTimeframe, setRevenueTimeframe] = useState<'weekly' | 'monthly'>('monthly');
 
-  // Global Data
+  // Global Data - Removed strict limits for dashboard summary calculation
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
   const { data: agents, loading: agentsLoading } = useCollection<Agent>(agentsQuery as any);
 
@@ -46,7 +45,7 @@ export default function AdminDashboard() {
   const withdrawalsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'withdrawals') : null, [firestore]);
   const { data: withdrawals } = useCollection<Withdrawal>(withdrawalsQuery as any);
 
-  const commissionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'commissions'), orderBy('createdAt', 'desc'), limit(10)) : null, [firestore]);
+  const commissionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'commissions') : null, [firestore]);
   const { data: commissions } = useCollection<Commission>(commissionsQuery as any);
 
   const stats = useMemo(() => {
@@ -111,7 +110,10 @@ export default function AdminDashboard() {
   const tierDistribution = useMemo(() => {
     if (!agents) return [];
     const counts = { t1: 0, t2: 0, t3: 0, t4: 0 };
-    agents.forEach(a => { counts[a.tierId as keyof typeof counts] = (counts[a.tierId as keyof typeof counts] || 0) + 1 });
+    agents.forEach(a => { 
+      const tid = a.tierId as keyof typeof counts;
+      counts[tid] = (counts[tid] || 0) + 1 
+    });
     return [
       { name: 'Silver', count: counts.t1, fill: '#94a3b8' },
       { name: 'Gold', count: counts.t2, fill: '#fbbf24' },
@@ -275,7 +277,7 @@ export default function AdminDashboard() {
                   <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-tight">Recent Deals Won</h3>
                </div>
                <div className="flex-1 overflow-y-auto divide-y">
-                  {commissions?.map((c, i) => (
+                  {commissions?.filter(c => c.status === 'approved').slice(0, 10).map((c, i) => (
                     <div key={i} className="p-2.5 flex items-center justify-between gap-3 text-[11px]">
                        <div className="flex items-center gap-2 truncate">
                           <span className="font-bold text-violet-700 bg-violet-50 px-1 rounded">WON</span>
