@@ -27,7 +27,9 @@ import {
   AlertTriangle,
   Loader2,
   Coins,
-  Menu
+  Menu,
+  PlusCircle,
+  Home
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -141,6 +143,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
       { label: 'Settings', icon: Settings, href: '/admin/settings', sub: 'System config' },
     ]}
   ];
+
+  // Mobile Bottom Nav Items
+  const mobileNavItems = React.useMemo(() => {
+    if (isAdmin) return [
+      { label: 'Home', icon: Home, href: '/admin/dashboard' },
+      { label: 'Agents', icon: Users, href: '/admin/agents' },
+      { label: 'Finance', icon: Coins, href: '/admin/commissions', badge: pendingCommissions + pendingWithdrawals },
+      { label: 'Leads', icon: Target, href: '/admin/leads' },
+    ];
+    if (isManager) return [
+      { label: 'Home', icon: Home, href: '/manager/dashboard' },
+      { label: 'Team', icon: Users, href: '/manager/team' },
+      { label: 'Idle', icon: AlertTriangle, href: '/manager/idle' },
+      { label: 'Leads', icon: Target, href: '/manager/leads' },
+    ];
+    return [
+      { label: 'Home', icon: Home, href: '/dashboard' },
+      { label: 'Leads', icon: Users, href: '/leads' },
+      { label: 'Add', icon: PlusCircle, href: '/leads/new' },
+      { label: 'Wallet', icon: Wallet, href: '/wallet' },
+    ];
+  }, [isAdmin, isManager, pendingCommissions, pendingWithdrawals]);
 
   const themeClasses = {
     active: "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-l-2 border-cyan-600",
@@ -348,7 +372,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         <header className="h-[48px] border-b bg-card sticky top-0 z-20 flex items-center px-4 justify-between">
           <div className="flex items-center gap-3">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -431,6 +455,31 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {children}
           </div>
         </main>
+
+        {/* Mobile Bottom Nav */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t flex items-center justify-around px-2 z-40 shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
+           {mobileNavItems.map((item) => {
+             const isActive = pathname === item.href || (item.href !== '/dashboard' && item.href !== '/admin/dashboard' && item.href !== '/manager/dashboard' && pathname.startsWith(item.href));
+             return (
+               <Link 
+                 key={item.href}
+                 href={item.href} 
+                 className={cn(
+                   "flex flex-col items-center gap-1 min-w-[64px] relative",
+                   isActive ? "text-primary" : "text-slate-400"
+                 )}
+               >
+                 <item.icon size={20} className={cn(isActive && "animate-in zoom-in-50")} />
+                 <span className="text-[10px] font-bold uppercase tracking-tight">{item.label}</span>
+                 {item.badge && item.badge > 0 && (
+                    <span className="absolute top-0 right-3 bg-red-500 text-white text-[8px] font-bold h-3.5 min-w-[14px] px-1 rounded-full flex items-center justify-center border border-white">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
+               </Link>
+             );
+           })}
+        </nav>
       </div>
     </div>
   );
