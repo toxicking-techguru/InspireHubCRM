@@ -5,17 +5,15 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, where, orderBy, limit } from 'firebase/firestore';
+import { collectionGroup, query, where, orderBy } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
-import { format, isPast, isToday, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { 
   Search, 
   Filter, 
   Calendar, 
-  CheckCircle2, 
   Clock, 
   FileText, 
-  ExternalLink,
   Loader2,
   AlertCircle
 } from 'lucide-react';
@@ -51,7 +49,8 @@ export default function ActivitiesPage() {
     return activities.filter(a => 
       a.nextActionDate && 
       a.nextActionDate <= today && 
-      a.outcomeStatus !== 'Success' // Only show pending actions
+      a.outcomeStatus !== 'Success' &&
+      a.outcomeStatus !== 'Closed won'
     ).sort((a, b) => a.nextActionDate.localeCompare(b.nextActionDate));
   }, [activities]);
 
@@ -60,10 +59,11 @@ export default function ActivitiesPage() {
     if (!activities) return [];
     return activities.filter(a => {
       const search = searchTerm.toLowerCase();
+      const leadName = a.clientName || 'Unknown Lead';
       return (
         a.type.toLowerCase().includes(search) ||
         a.remark.toLowerCase().includes(search) ||
-        (a as any).clientName?.toLowerCase().includes(search)
+        leadName.toLowerCase().includes(search)
       );
     });
   }, [activities, searchTerm]);
@@ -102,7 +102,7 @@ export default function ActivitiesPage() {
                       <tr key={action.id} className="h-9 hover:bg-slate-50/50 transition-colors">
                         <td className="px-3">
                           <Link href={`/leads/${action.leadId}`} className="text-primary font-bold hover:underline">
-                            {(action as any).clientName || 'Unknown Lead'}
+                            {action.clientName || 'Unknown Lead'}
                           </Link>
                         </td>
                         <td className="text-slate-600">{action.nextActionType}</td>
@@ -213,7 +213,7 @@ export default function ActivitiesPage() {
                         </td>
                         <td>
                           <Link href={`/leads/${activity.leadId}`} className="text-primary font-bold hover:underline">
-                            {(activity as any).clientName || 'Unknown'}
+                            {activity.clientName || 'Unknown Lead'}
                           </Link>
                         </td>
                         <td>
@@ -240,7 +240,7 @@ export default function ActivitiesPage() {
                         </td>
                         <td className="px-3 text-right">
                           {activity.fileUrl && (
-                            <a href={activity.fileUrl} target="_blank" className="text-slate-400 hover:text-primary transition-colors">
+                            <a href={activity.fileUrl} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-primary transition-colors">
                               <FileText size={14} />
                             </a>
                           )}

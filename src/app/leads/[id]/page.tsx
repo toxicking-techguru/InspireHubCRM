@@ -5,9 +5,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, collection, addDoc, updateDoc, query, orderBy, where, getDocs, limit, getDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, addDoc, updateDoc, query, orderBy, getDoc } from 'firebase/firestore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Lead, LeadActivity, Product, LeadStatus, ActivityType, Tier } from '@/types/crm';
+import { Lead, LeadActivity, LeadStatus, ActivityType, Tier } from '@/types/crm';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,6 @@ import {
   Paperclip,
   Activity,
   Zap,
-  FileCheck,
   ExternalLink
 } from 'lucide-react';
 import { 
@@ -105,7 +104,7 @@ export default function LeadDetailPage() {
       const now = new Date().toISOString();
       const activityData = {
         leadId: id as string,
-        clientName: lead.clientName,
+        clientName: lead.clientName, // Essential for Activity Logs
         agentId: user.id,
         agentName: user.name,
         type,
@@ -362,6 +361,7 @@ export default function LeadDetailPage() {
                           <a 
                             href={activity.fileUrl} 
                             target="_blank" 
+                            rel="noopener noreferrer"
                             className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-primary hover:underline font-medium"
                           >
                             <Paperclip size={12} /> View Attached Document <ExternalLink size={10} />
