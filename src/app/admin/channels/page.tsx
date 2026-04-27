@@ -91,8 +91,8 @@ export default function AdminChannelsPage() {
     <Shell>
       <div className="space-y-4">
         <div>
-           <h1 className="text-[18px] font-bold flex items-center gap-2 text-violet-900">
-              <GitBranch className="text-violet-600" size={20} /> Lead Acquisition Channels
+           <h1 className="text-[18px] font-bold flex items-center gap-2 text-cyan-900">
+              <GitBranch className="text-cyan-600" size={20} /> Lead Acquisition Channels
            </h1>
            <p className="text-[12px] text-muted-foreground mt-0.5">Define the hierarchical source tree used in lead registration forms.</p>
         </div>
@@ -108,7 +108,7 @@ export default function AdminChannelsPage() {
               <div className="bg-white border rounded-md shadow-sm overflow-hidden flex flex-col flex-1">
                  <form onSubmit={handleAddMain} className="p-3 border-b bg-slate-50/50 flex gap-2">
                     <Input placeholder="Add main source..." className="h-8 text-[12px]" value={newChannelName} onChange={(e) => setNewChannelName(e.target.value)} />
-                    <Button size="icon" className="h-8 w-8 shrink-0 bg-violet-600"><Plus size={16} /></Button>
+                    <Button size="icon" className="h-8 w-8 shrink-0 bg-cyan-600"><Plus size={16} /></Button>
                  </form>
                  
                  <div className="flex-1 overflow-y-auto">
@@ -120,7 +120,7 @@ export default function AdminChannelsPage() {
                         onClick={() => setSelectedMainId(item.id)}
                         className={cn(
                           "group p-3 border-b flex items-center justify-between cursor-pointer transition-all hover:bg-slate-50",
-                          selectedMainId === item.id ? "bg-violet-50 border-r-2 border-r-violet-600" : "",
+                          selectedMainId === item.id ? "bg-cyan-50 border-r-2 border-r-cyan-600" : "",
                           !item.active && "opacity-50"
                         )}
                       >
@@ -140,8 +140,8 @@ export default function AdminChannelsPage() {
                             )}
                          </div>
                          <div className="flex items-center gap-1.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Switch className="scale-75 data-[state=checked]:bg-violet-600" checked={item.active} onClick={(e) => { e.stopPropagation(); handleToggleActive(item.id, item.active); }} />
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-violet-600" onClick={(e) => { e.stopPropagation(); handleStartEdit(item); }}>
+                            <Switch className="scale-75 data-[state=checked]:bg-cyan-600" checked={item.active} onClick={(e) => { e.stopPropagation(); handleToggleActive(item.id, item.active); }} />
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-cyan-600" onClick={(e) => { e.stopPropagation(); handleStartEdit(item); }}>
                                <Edit2 size={14} />
                             </Button>
                             <TooltipProvider>
@@ -177,7 +177,7 @@ export default function AdminChannelsPage() {
                     <>
                        <form onSubmit={handleAddSub} className="p-3 border-b bg-slate-50/50 flex gap-2">
                           <Input placeholder="Add sub-source detail..." className="h-8 text-[12px]" value={newSubChannelName} onChange={(e) => setNewSubChannelName(e.target.value)} />
-                          <Button size="icon" className="h-8 w-8 shrink-0 bg-violet-600"><Plus size={16} /></Button>
+                          <Button size="icon" className="h-8 w-8 shrink-0 bg-cyan-600"><Plus size={16} /></Button>
                        </form>
                        <div className="flex-1 overflow-y-auto">
                           {subChannels.map(item => (
@@ -204,8 +204,8 @@ export default function AdminChannelsPage() {
                                    )}
                                 </div>
                                 <div className="flex items-center gap-1.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                   <Switch className="scale-75 data-[state=checked]:bg-violet-600" checked={item.active} onClick={() => handleToggleActive(item.id, item.active)} />
-                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-violet-600" onClick={() => handleStartEdit(item)}>
+                                   <Switch className="scale-75 data-[state=checked]:bg-cyan-600" checked={item.active} onClick={() => handleToggleActive(item.id, item.active)} />
+                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-cyan-600" onClick={() => handleStartEdit(item)}>
                                       <Edit2 size={14} />
                                    </Button>
                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-200 hover:text-red-500 disabled:opacity-20" disabled={item.usageCount > 0} onClick={() => handleDelete(item.id, item.usageCount)}>
@@ -232,4 +232,3 @@ export default function AdminChannelsPage() {
     </Shell>
   );
 }
-

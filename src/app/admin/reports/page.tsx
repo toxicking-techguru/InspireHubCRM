@@ -20,7 +20,7 @@ import { format, subMonths, startOfMonth, parseISO, endOfMonth } from 'date-fns'
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
-const COLORS = ['#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'];
+const COLORS = ['#0891b2', '#0e7490', '#155e75', '#164e63', '#22d3ee', '#67e8f9'];
 
 export default function AdminReportsPage() {
   const { user } = useAuthStore();
@@ -101,14 +101,14 @@ export default function AdminReportsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-bold text-violet-900 flex items-center gap-2">
-              <BarChart3 size={20} className="text-violet-600" /> Global Analytics Engine
+            <h1 className="text-[18px] font-bold text-cyan-900 flex items-center gap-2">
+              <BarChart3 size={20} className="text-cyan-600" /> Global Analytics Engine
             </h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">System-wide performance monitoring and data aggregation.</p>
           </div>
           <div className="flex items-center gap-2">
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="h-8 w-[160px] text-[12px] bg-white border-violet-100">
+              <SelectTrigger className="h-8 w-[160px] text-[12px] bg-white border-cyan-100">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -118,7 +118,7 @@ export default function AdminReportsPage() {
                 <SelectItem value="1y">Last 12 Months</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" className="h-8 gap-2 border-violet-200 text-violet-700" onClick={() => toast({ title: "Report Exported" })}>
+            <Button variant="outline" size="sm" className="h-8 gap-2 border-cyan-200 text-cyan-700" onClick={() => toast({ title: "Report Exported" })}>
               <Download size={14} /> Export Global Data
             </Button>
           </div>
@@ -130,7 +130,7 @@ export default function AdminReportsPage() {
               <TabsTrigger 
                 key={t} 
                 value={t.toLowerCase().replace(' ', '')} 
-                className="text-[12px] h-full rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:bg-transparent data-[state=active]:text-violet-700 shadow-none font-bold uppercase tracking-tight"
+                className="text-[12px] h-full rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none font-bold uppercase tracking-tight"
               >
                 {t}
               </TabsTrigger>
@@ -145,17 +145,17 @@ export default function AdminReportsPage() {
                    { label: 'Deals Closed', value: leads?.filter(l => l.status === 'won').length || 0, icon: Target },
                    { label: 'Total Database', value: leads?.length || 0, icon: Users },
                  ].map((m, i) => (
-                   <div key={i} className="bg-white border rounded-md p-4 shadow-sm border-violet-50">
+                   <div key={i} className="bg-white border rounded-md p-4 shadow-sm border-cyan-50">
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[11px] font-bold text-slate-400 uppercase">{m.label}</span>
-                        <m.icon size={14} className="text-violet-200" />
+                        <m.icon size={14} className="text-cyan-200" />
                       </div>
-                      <p className="text-[24px] font-bold text-violet-900 leading-none">{m.value}</p>
+                      <p className="text-[24px] font-bold text-cyan-900 leading-none">{m.value}</p>
                    </div>
                  ))}
               </div>
 
-              <div className="bg-white border rounded-md p-6 shadow-sm border-violet-50 h-[360px]">
+              <div className="bg-white border rounded-md p-6 shadow-sm border-cyan-50 h-[360px]">
                  <h3 className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-6">Revenue Trend (System-Wide)</h3>
                  <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={revenueData}>
@@ -163,18 +163,18 @@ export default function AdminReportsPage() {
                        <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} />
                        <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} tickFormatter={v => `$${v/1000}k`} />
                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                       <Line type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} activeDot={{ r: 6 }} />
+                       <Line type="monotone" dataKey="revenue" stroke="#0891b2" strokeWidth={3} dot={{ r: 4, fill: '#0891b2' }} activeDot={{ r: 6 }} />
                     </LineChart>
                  </ResponsiveContainer>
               </div>
             </TabsContent>
 
             <TabsContent value="teamperformance" className="m-0 space-y-4">
-               <div className="bg-card border rounded-md overflow-hidden border-violet-100 shadow-sm">
+               <div className="bg-card border rounded-md overflow-hidden border-cyan-100 shadow-sm">
                   <table className="w-full text-[13px]">
                      <thead>
                         <tr className="bg-slate-50 h-10 border-b">
-                           <th className="px-4 text-left">Unit Leader / Manager</th>
+                           <th className="px-4 text-left">Unit Leader / Staff Member</th>
                            <th className="text-center">Team Wins</th>
                            <th className="text-right">Team Revenue</th>
                            <th className="text-center px-4">Avg. Conversion</th>
@@ -182,17 +182,17 @@ export default function AdminReportsPage() {
                      </thead>
                      <tbody className="divide-y">
                         {managerPerformance.map((m, i) => (
-                          <tr key={i} className="h-11 hover:bg-violet-50/30 transition-colors">
+                          <tr key={i} className="h-11 hover:bg-cyan-50/30 transition-colors">
                              <td className="px-4 font-bold text-slate-800">{m.name}</td>
                              <td className="text-center font-medium text-slate-600">{m.won}</td>
-                             <td className="text-right font-bold text-violet-700">${m.revenue.toLocaleString()}</td>
+                             <td className="text-right font-bold text-cyan-700">${m.revenue.toLocaleString()}</td>
                              <td className="text-center px-4">
-                                <Badge variant="outline" className="h-4 text-[10px] border-violet-100 text-violet-700 font-bold">{m.conversion}%</Badge>
+                                <Badge variant="outline" className="h-4 text-[10px] border-cyan-100 text-cyan-700 font-bold">{m.conversion}%</Badge>
                              </td>
                           </tr>
                         ))}
                         {managerPerformance.length === 0 && (
-                          <tr className="h-40"><td colSpan={4} className="text-center text-slate-300 italic">No manager data available for current range.</td></tr>
+                          <tr className="h-40"><td colSpan={4} className="text-center text-slate-300 italic">No staff data available for current range.</td></tr>
                         )}
                      </tbody>
                   </table>
@@ -224,7 +224,7 @@ export default function AdminReportsPage() {
                                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                                 <span className="text-[13px] font-medium text-slate-700">{s.name}</span>
                              </div>
-                             <span className="text-[13px] font-bold text-violet-700">{s.value}</span>
+                             <span className="text-[13px] font-bold text-cyan-700">{s.value}</span>
                           </div>
                         ))}
                      </div>

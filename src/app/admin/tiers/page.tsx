@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useMemo, useState } from 'react';
@@ -95,8 +96,8 @@ export default function AdminTiersPage() {
   const colorConfig: Record<string, string> = {
     t1: 'border-l-slate-400 bg-slate-50/30',
     t2: 'border-l-amber-400 bg-amber-50/30',
-    t3: 'border-l-blue-400 bg-blue-50/30',
-    t4: 'border-l-purple-400 bg-purple-50/30',
+    t3: 'border-l-cyan-400 bg-cyan-50/10',
+    t4: 'border-l-cyan-700 bg-cyan-50/20',
   };
 
   return (
@@ -104,22 +105,22 @@ export default function AdminTiersPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-bold flex items-center gap-2 text-violet-900">
-               <Layers className="text-violet-600" size={20} /> Sales Tiers Configuration
+            <h1 className="text-[18px] font-bold flex items-center gap-2 text-cyan-900">
+               <Layers className="text-cyan-600" size={20} /> Sales Tiers Configuration
             </h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">Define rank levels, commission rates, and qualitative upgrade targets.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="h-6 border-violet-200 text-violet-700 font-bold">{tiers.length} LEVELS CONFIGURED</Badge>
+            <Badge variant="outline" className="h-6 border-cyan-200 text-cyan-700 font-bold">{tiers.length} LEVELS CONFIGURED</Badge>
           </div>
         </div>
 
         {!loading && tiers.length === 0 && (
-          <div className="py-20 border-[0.5px] border-dashed border-violet-200 rounded-lg flex flex-col items-center justify-center text-slate-400 bg-slate-50/30">
-             <Database size={48} className="mb-4 text-violet-100" />
+          <div className="py-20 border-[0.5px] border-dashed border-cyan-200 rounded-lg flex flex-col items-center justify-center text-slate-400 bg-slate-50/30">
+             <Database size={48} className="mb-4 text-cyan-100" />
              <p className="text-[15px] font-bold text-slate-600">No Tier Records Found</p>
              <p className="text-[12px] mb-6">The system hierarchy must be initialized before you can manage agents.</p>
-             <Button className="bg-violet-600 hover:bg-violet-700 font-bold uppercase text-[11px]" disabled={isInitializing} onClick={handleInitialize}>
+             <Button className="bg-cyan-600 hover:bg-cyan-700 font-bold uppercase text-[11px]" disabled={isInitializing} onClick={handleInitialize}>
                {isInitializing ? <Loader2 size={14} className="animate-spin mr-2" /> : <Plus size={14} className="mr-2" />}
                Initialize Default Tiers
              </Button>
@@ -135,8 +136,8 @@ export default function AdminTiersPage() {
               return (
                 <div key={tier.id} className={cn(
                   "bg-card border rounded-lg shadow-sm flex flex-col transition-all border-l-4",
-                  colorConfig[tier.id] || "border-l-violet-400",
-                  isEditing && "ring-1 ring-violet-500 shadow-md scale-[1.02]"
+                  colorConfig[tier.id] || "border-l-cyan-400",
+                  isEditing && "ring-1 ring-cyan-500 shadow-md scale-[1.02]"
                 )}>
                   <div className="p-4 border-b flex justify-between items-start">
                      <div>
@@ -145,15 +146,15 @@ export default function AdminTiersPage() {
                            <Badge variant="secondary" className="text-[9px] h-3.5 px-1 bg-slate-100">{tier.rankLabel?.toUpperCase() || 'LEVEL'}</Badge>
                         </div>
                         <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                          {tierAgents.length} Agents Assigned
+                          {tierAgents.length} Users Assigned
                         </p>
                      </div>
                      {isEditing ? (
-                       <Button size="sm" className="h-7 bg-violet-600 hover:bg-violet-700 px-2 gap-1 text-[10px] font-bold uppercase" onClick={() => handleSave(tier.id)} disabled={savingId === tier.id}>
+                       <Button size="sm" className="h-7 bg-cyan-600 hover:bg-cyan-700 px-2 gap-1 text-[10px] font-bold uppercase" onClick={() => handleSave(tier.id)} disabled={savingId === tier.id}>
                           {savingId === tier.id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
                        </Button>
                      ) : (
-                       <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-400 hover:text-violet-600" onClick={() => handleStartEdit(tier)}>
+                       <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-400 hover:text-cyan-600" onClick={() => handleStartEdit(tier)}>
                           <Edit2 size={14} />
                        </Button>
                      )}
@@ -186,7 +187,7 @@ export default function AdminTiersPage() {
                            </div>
                            {isEditing ? (
                              <Input 
-                               className="h-7 w-[120px] text-right text-[11px] p-1 border-violet-100" 
+                               className="h-7 w-[120px] text-right text-[11px] p-1 border-cyan-100" 
                                value={editValues.productLimitLabel} 
                                onChange={(e) => setEditValues({...editValues, productLimitLabel: e.target.value})}
                                placeholder="e.g. Few Products"
@@ -202,13 +203,13 @@ export default function AdminTiersPage() {
                            </div>
                            {isEditing ? (
                              <Input 
-                               className="h-7 w-[120px] text-right text-[11px] p-1 border-violet-100" 
+                               className="h-7 w-[120px] text-right text-[11px] p-1 border-cyan-100" 
                                value={editValues.upgradeTargetLabel} 
                                onChange={(e) => setEditValues({...editValues, upgradeTargetLabel: e.target.value})}
                                placeholder="e.g. Monthly sales"
                              />
                            ) : (
-                             <span className="text-[12px] font-bold text-violet-700 text-right max-w-[100px] truncate">{tier.upgradeTargetLabel || 'N/A'}</span>
+                             <span className="text-[12px] font-bold text-cyan-700 text-right max-w-[100px] truncate">{tier.upgradeTargetLabel || 'N/A'}</span>
                            )}
                         </div>
                      </div>
@@ -228,7 +229,7 @@ export default function AdminTiersPage() {
                                 {isEditing ? (
                                   <Input 
                                     type="number" 
-                                    className="h-6 w-16 text-right text-[11px] p-1 border-violet-100" 
+                                    className="h-6 w-16 text-right text-[11px] p-1 border-cyan-100" 
                                     value={(editValues as any).upgradeCriteria?.[item.key]} 
                                     onChange={(e) => {
                                       const newVal = parseFloat(e.target.value);
@@ -250,7 +251,7 @@ export default function AdminTiersPage() {
                   </div>
 
                   <div className="p-3 bg-slate-50 mt-auto rounded-b-lg border-t flex justify-center">
-                     <Link href={`/admin/agents?tier=${tier.id}`} className="text-[10px] font-bold text-slate-400 hover:text-violet-600 uppercase flex items-center gap-1">
+                     <Link href={`/admin/agents?tier=${tier.id}`} className="text-[10px] font-bold text-slate-400 hover:text-cyan-600 uppercase flex items-center gap-1">
                         View Team in Tier <ChevronRight size={10} />
                      </Link>
                   </div>

@@ -25,14 +25,14 @@ import {
   Download, 
   Trash2, 
   Save, 
-  Loader2,
-  ChevronRight,
-  ExternalLink,
-  PlayCircle,
-  AlertCircle,
-  BookOpen,
-  Settings2,
-  Code
+  Loader2, 
+  ChevronRight, 
+  ExternalLink, 
+  PlayCircle, 
+  AlertCircle, 
+  BookOpen, 
+  Settings2, 
+  Code 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -95,13 +95,13 @@ export default function AdminProductsPage() {
 
   return (
     <Shell>
-      <div className="flex h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-violet-100">
+      <div className="flex h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-cyan-100">
         {/* Left Panel: List */}
         <div className="w-[280px] border-r flex flex-col bg-slate-50/30">
            <div className="p-3 border-b space-y-3">
               <div className="flex items-center justify-between">
                  <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-500">Catalog</h2>
-                 <Button size="icon" variant="ghost" className="h-7 w-7 text-violet-600 hover:bg-violet-50" onClick={handleAddProduct}>
+                 <Button size="icon" variant="ghost" className="h-7 w-7 text-cyan-600 hover:bg-cyan-50" onClick={handleAddProduct}>
                     <Plus size={16} />
                  </Button>
               </div>
@@ -109,7 +109,7 @@ export default function AdminProductsPage() {
                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                  <Input 
                    placeholder="Search products..." 
-                   className="pl-8 h-8 text-[12px] bg-white border-violet-50" 
+                   className="pl-8 h-8 text-[12px] bg-white border-cyan-50" 
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
                  />
@@ -123,13 +123,13 @@ export default function AdminProductsPage() {
                   key={p.id} 
                   onClick={() => setSelectedProductId(p.id)}
                   className={cn(
-                    "p-3 border-b cursor-pointer transition-colors hover:bg-violet-50/50 flex flex-col gap-1.5",
-                    selectedProductId === p.id ? "bg-violet-50 border-r-2 border-r-violet-600 shadow-sm" : ""
+                    "p-3 border-b cursor-pointer transition-colors hover:bg-cyan-50/50 flex flex-col gap-1.5",
+                    selectedProductId === p.id ? "bg-cyan-50 border-r-2 border-r-cyan-600 shadow-sm" : ""
                   )}
                 >
                    <div className="flex items-center justify-between">
                       <span className="text-[13px] font-bold truncate pr-2 text-slate-800">{p.name}</span>
-                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-violet-100 text-violet-600 bg-white">
+                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-cyan-100 text-cyan-600 bg-white">
                          {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
                       </Badge>
                    </div>
@@ -167,12 +167,12 @@ export default function AdminProductsPage() {
                          </div>
                       </div>
                       <div className="w-[240px] space-y-4">
-                         <div className="p-4 bg-violet-50 rounded-lg border border-violet-100 space-y-4">
-                            <h3 className="text-[11px] font-bold text-violet-700 uppercase flex items-center gap-2"><Settings2 size={14} /> Access Control</h3>
+                         <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-100 space-y-4">
+                            <h3 className="text-[11px] font-bold text-cyan-700 uppercase flex items-center gap-2"><Settings2 size={14} /> Access Control</h3>
                             <div className="space-y-1.5">
                                <Label className="text-[10px] font-bold text-slate-500 uppercase">Min. Tier Required</Label>
                                <Select value={selectedProduct.tierRequired} onValueChange={(v) => handleUpdateProduct({ tierRequired: v })}>
-                                  <SelectTrigger className="h-8 text-[12px] bg-white border-violet-100">
+                                  <SelectTrigger className="h-8 text-[12px] bg-white border-cyan-100">
                                      <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -182,7 +182,7 @@ export default function AdminProductsPage() {
                             </div>
                             <div className="pt-2 flex items-center justify-between">
                                <Label className="text-[10px] font-bold text-slate-500 uppercase">Listing Status</Label>
-                               <Switch className="scale-75 data-[state=checked]:bg-violet-600" defaultChecked />
+                               <Switch className="scale-75 data-[state=checked]:bg-cyan-600" defaultChecked />
                             </div>
                          </div>
                          
@@ -195,7 +195,7 @@ export default function AdminProductsPage() {
                                     <span className="font-bold text-slate-700">{typeof val === 'number' ? `${val}%` : val}</span>
                                  </div>
                                ))}
-                               <Button variant="outline" size="sm" className="w-full h-7 text-[10px] uppercase font-bold border-violet-100 text-violet-600">Edit JSON Map</Button>
+                               <Button variant="outline" size="sm" className="w-full h-7 text-[10px] uppercase font-bold border-cyan-100 text-cyan-600">Edit JSON Map</Button>
                             </div>
                          </div>
                       </div>
@@ -204,11 +204,11 @@ export default function AdminProductsPage() {
                    <div className="pt-6 border-t">
                       <Tabs defaultValue="scripts" className="w-full">
                          <TabsList className="bg-slate-100 p-0.5 rounded-md h-9 gap-1">
-                            <TabsTrigger value="scripts" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><FileCode size={14} /> Scripts</TabsTrigger>
-                            <TabsTrigger value="docs" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><FileText size={14} /> Docs</TabsTrigger>
-                            <TabsTrigger value="videos" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><Video size={14} /> Videos</TabsTrigger>
-                            <TabsTrigger value="manuals" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><BookOpen size={14} /> Manuals</TabsTrigger>
-                            <TabsTrigger value="faqs" className="text-[11px] px-3 gap-2 data-[state=active]:text-violet-700"><HelpCircle size={14} /> FAQs</TabsTrigger>
+                            <TabsTrigger value="scripts" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><FileCode size={14} /> Scripts</TabsTrigger>
+                            <TabsTrigger value="docs" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><FileText size={14} /> Docs</TabsTrigger>
+                            <TabsTrigger value="videos" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><Video size={14} /> Videos</TabsTrigger>
+                            <TabsTrigger value="manuals" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><BookOpen size={14} /> Manuals</TabsTrigger>
+                            <TabsTrigger value="faqs" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><HelpCircle size={14} /> FAQs</TabsTrigger>
                          </TabsList>
                          
                          <div className="mt-4">
@@ -232,7 +232,7 @@ export default function AdminProductsPage() {
                    </div>
                 </div>
                 <div className="p-4 border-t bg-slate-50/50 flex justify-end">
-                    <Button size="sm" className="bg-violet-600 hover:bg-violet-700 gap-2 h-8 px-6 font-bold uppercase text-[11px]" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
+                    <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 gap-2 h-8 px-6 font-bold uppercase text-[11px]" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
                        {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Commit All Changes
                     </Button>
                 </div>
@@ -282,20 +282,20 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
     <div className="space-y-4">
        <div className="flex items-center justify-between">
           <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Repository: {type}</h4>
-          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-violet-600 border-violet-100" onClick={() => setIsAdding(!isAdding)}>
+          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-cyan-600 border-cyan-100" onClick={() => setIsAdding(!isAdding)}>
              {isAdding ? 'Cancel' : `+ Add ${type.slice(0, -1)}`}
           </Button>
        </div>
 
        {isAdding && (
-         <form onSubmit={handleAdd} className="p-3 bg-violet-50/50 border border-violet-100 rounded-md grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-1">
+         <form onSubmit={handleAdd} className="p-3 bg-cyan-50/50 border border-cyan-100 rounded-md grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-1">
             <div className="col-span-1">
-               <Input required placeholder="Display Name..." className="h-8 text-[12px] bg-white border-violet-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+               <Input required placeholder="Display Name..." className="h-8 text-[12px] bg-white border-cyan-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
             </div>
             <div className="col-span-2">
-               <Input required placeholder="HTTPS URL or File Resource..." className="h-8 text-[12px] bg-white border-violet-100" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
+               <Input required placeholder="HTTPS URL or File Resource..." className="h-8 text-[12px] bg-white border-cyan-100" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
             </div>
-            <Button type="submit" className="h-8 bg-violet-600 text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
+            <Button type="submit" className="h-8 bg-cyan-600 text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
          </form>
        )}
 
@@ -313,7 +313,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
                 {items.map(item => (
                   <tr key={item.id} className="h-10 hover:bg-slate-50 group">
                      <td className="px-3 text-slate-400">
-                        {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'manuals' ? <BookOpen size={14} className="text-emerald-500" /> : type === 'scripts' ? <FileCode size={14} className="text-blue-500" /> : <FileText size={14} className="text-violet-500" />}
+                        {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'manuals' ? <BookOpen size={14} className="text-emerald-500" /> : type === 'scripts' ? <FileCode size={14} className="text-blue-500" /> : <FileText size={14} className="text-cyan-500" />}
                      </td>
                      <td className="font-medium truncate max-w-[300px]">
                         <div className="flex flex-col">
@@ -326,7 +326,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
                      </td>
                      <td className="px-3 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-violet-600 transition-colors">
+                           <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-cyan-600 transition-colors">
                               <ExternalLink size={14} />
                            </a>
                            <TooltipProvider>

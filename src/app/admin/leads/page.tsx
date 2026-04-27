@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -142,37 +143,37 @@ export default function AdminAllLeadsPage() {
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="h-11 flex items-center justify-between gap-4">
-          <h1 className="text-[16px] font-bold text-violet-900">System-Wide Leads</h1>
+          <h1 className="text-[16px] font-bold text-cyan-900">System-Wide Leads</h1>
           <div className="flex-1 max-w-[280px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
               placeholder="Search leads, email or agent..." 
-              className="pl-8 h-8 text-[13px] border-violet-100" 
+              className="pl-8 h-8 text-[13px] border-cyan-100" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex items-center gap-2">
             {selectedLeads.length > 0 && (
-              <Button size="sm" className="h-8 text-[12px] bg-violet-600 hover:bg-violet-700 gap-2 shadow-md" onClick={() => setIsReassignModalOpen(true)}>
+              <Button size="sm" className="h-8 text-[12px] bg-cyan-600 hover:bg-cyan-700 gap-2 shadow-md" onClick={() => setIsReassignModalOpen(true)}>
                 <UserPlus size={14} /> Reassign ({selectedLeads.length})
               </Button>
             )}
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-violet-200 text-violet-700" onClick={() => setShowFilters(!showFilters)}>
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-cyan-200 text-cyan-700" onClick={() => setShowFilters(!showFilters)}>
               <Filter size={14} /> {showFilters ? 'Hide Filters' : 'Filters'}
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-violet-200 text-violet-700" onClick={exportCSV}>
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-cyan-200 text-cyan-700" onClick={exportCSV}>
               <Download size={14} /> Export CSV
             </Button>
           </div>
         </div>
 
         {showFilters && (
-          <div className="bg-violet-50/50 p-3 rounded-md border border-violet-100 grid md:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
+          <div className="bg-cyan-50/50 p-3 rounded-md border border-cyan-100 grid md:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-slate-400">Agent</label>
               <select className="w-full h-8 bg-white border rounded text-[12px] px-2">
-                <option>All Agents</option>
+                <option>All Staff</option>
                 {allAgents?.map(a => <option key={a.id}>{a.name}</option>)}
               </select>
             </div>
@@ -191,16 +192,16 @@ export default function AdminAllLeadsPage() {
               </div>
             </div>
             <div className="flex items-end">
-              <Button variant="ghost" size="sm" className="h-8 w-full text-[11px] text-violet-600 hover:bg-violet-100" onClick={() => setShowFilters(false)}>Close Filters</Button>
+              <Button variant="ghost" size="sm" className="h-8 w-full text-[11px] text-cyan-600 hover:bg-cyan-100" onClick={() => setShowFilters(false)}>Close Filters</Button>
             </div>
           </div>
         )}
 
         {/* Table */}
-        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-violet-100">
+        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-cyan-100">
           {leadsLoading ? (
             <div className="py-20 flex flex-col items-center">
-              <Loader2 className="animate-spin text-violet-600 mb-2" />
+              <Loader2 className="animate-spin text-cyan-600 mb-2" />
               <p className="text-[13px] text-muted-foreground">Loading system lead database...</p>
             </div>
           ) : (
@@ -232,7 +233,7 @@ export default function AdminAllLeadsPage() {
                     const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
                     
                     return (
-                      <tr key={lead.id} className={cn("h-10 hover:bg-violet-50/30 group transition-colors", isIdle && "bg-amber-50/30")}>
+                      <tr key={lead.id} className={cn("h-10 hover:bg-cyan-50/30 group transition-colors", isIdle && "bg-amber-50/30")}>
                         <td className="px-3">
                           <Checkbox 
                             checked={selectedLeads.includes(lead.id)}
@@ -247,7 +248,7 @@ export default function AdminAllLeadsPage() {
                         </td>
                         <td>
                           <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded bg-violet-100 text-violet-700 flex items-center justify-center text-[9px] font-bold">
+                            <div className="w-5 h-5 rounded bg-cyan-100 text-cyan-700 flex items-center justify-center text-[9px] font-bold">
                               {agent?.name.split(' ').map(n => n[0]).join('') || '??'}
                             </div>
                             <span className="text-slate-600 truncate">{agent?.name || 'Unassigned'}</span>
@@ -271,7 +272,7 @@ export default function AdminAllLeadsPage() {
                         </td>
                         <td className="px-3 text-right">
                           <Link href={`/leads/${lead.id}`}>
-                            <Button variant="ghost" size="sm" className="h-7 text-violet-600 hover:text-violet-700 hover:bg-violet-100 text-[11px] font-bold uppercase tracking-tight">View</Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100 text-[11px] font-bold uppercase tracking-tight">View</Button>
                           </Link>
                         </td>
                       </tr>
@@ -303,13 +304,13 @@ export default function AdminAllLeadsPage() {
       <Dialog open={isReassignModalOpen} onOpenChange={setIsReassignModalOpen}>
         <DialogContent className="max-w-[400px]">
           <DialogHeader>
-            <DialogTitle className="text-violet-900">Reassign {selectedLeads.length} Leads</DialogTitle>
+            <DialogTitle className="text-cyan-900">Reassign {selectedLeads.length} Leads</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
              <div className="space-y-1.5">
-               <label className="text-[12px] font-bold text-slate-500 uppercase">Target System Agent</label>
+               <label className="text-[12px] font-bold text-slate-500 uppercase">Target System User</label>
                <Select value={targetAgentId} onValueChange={setTargetAgentId}>
-                 <SelectTrigger className="h-9 text-[13px] border-violet-100">
+                 <SelectTrigger className="h-9 text-[13px] border-cyan-100">
                    <SelectValue placeholder="Select new owner..." />
                  </SelectTrigger>
                  <SelectContent>
@@ -321,14 +322,14 @@ export default function AdminAllLeadsPage() {
                  </SelectContent>
                </Select>
              </div>
-             <div className="text-[12px] text-violet-700 flex items-start gap-2 bg-violet-50 p-3 rounded border border-violet-100">
+             <div className="text-[12px] text-cyan-700 flex items-start gap-2 bg-cyan-50 p-3 rounded border border-cyan-100">
                 <AlertCircle size={14} className="shrink-0 mt-0.5" />
                 <span>Administrative reassignment will update ownership for all selected records. This event will be logged in the system audit trail.</span>
              </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setIsReassignModalOpen(false)}>Cancel</Button>
-            <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={handleBulkReassign} disabled={!targetAgentId || isProcessing}>
+            <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700" onClick={handleBulkReassign} disabled={!targetAgentId || isProcessing}>
               {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Transfer Ownership'}
             </Button>
           </DialogFooter>

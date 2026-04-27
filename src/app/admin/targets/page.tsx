@@ -37,7 +37,7 @@ export default function AdminTargetsPage() {
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
 
-  // Admin sees ALL agents
+  // Admin sees ALL potential sales contributors (Agents, Managers, Admins)
   const agentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'agents'), orderBy('name'));
@@ -102,7 +102,7 @@ export default function AdminTargetsPage() {
         ...formData,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "Targets Set", description: `Global quota updated for ${monthStr}` });
+      toast({ title: "Targets Set", description: `Performance quota updated for ${monthStr}` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update Failed", description: e.message });
     } finally {
@@ -117,15 +117,15 @@ export default function AdminTargetsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-bold text-violet-900 flex items-center gap-2">
-               <ShieldCheck className="text-violet-600" size={20} /> Quota Administration
+            <h1 className="text-[18px] font-bold text-cyan-900 flex items-center gap-2">
+               <ShieldCheck className="text-cyan-600" size={20} /> Quota Administration
             </h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">Define system-wide performance targets for any sales representative.</p>
           </div>
           <div className="flex items-center gap-2">
              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-               <SelectTrigger className="h-9 w-[240px] text-[12px] bg-white border-violet-100">
-                 <SelectValue placeholder="Search agent to assign targets..." />
+               <SelectTrigger className="h-9 w-[240px] text-[12px] bg-white border-cyan-100">
+                 <SelectValue placeholder="Search person to assign targets..." />
                </SelectTrigger>
                <SelectContent>
                  {agents?.map(a => (
@@ -153,9 +153,9 @@ export default function AdminTargetsPage() {
         {selectedAgentId ? (
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
-               <div className="bg-card border border-violet-100 rounded-md shadow-sm overflow-hidden">
-                  <div className="p-3 border-b bg-violet-50/50">
-                    <h2 className="text-[13px] font-bold uppercase tracking-tight text-violet-700">Configure Monthly Quota</h2>
+               <div className="bg-card border border-cyan-100 rounded-md shadow-sm overflow-hidden">
+                  <div className="p-3 border-b bg-cyan-50/50">
+                    <h2 className="text-[13px] font-bold uppercase tracking-tight text-cyan-700">Configure Monthly Quota</h2>
                   </div>
                   <div className="p-4 grid md:grid-cols-3 gap-5">
                      {[
@@ -169,14 +169,14 @@ export default function AdminTargetsPage() {
                           <Label className="text-[11px] font-bold uppercase text-slate-400 tracking-tight">{field.label}</Label>
                           <Input 
                             type="number" 
-                            className="h-8 text-[13px] border-violet-50 focus-visible:ring-violet-600" 
+                            className="h-8 text-[13px] border-cyan-50 focus-visible:ring-cyan-600" 
                             value={(formData as any)[field.id]}
                             onChange={(e) => setFormData({...formData, [field.id]: parseFloat(e.target.value)})}
                           />
                        </div>
                      ))}
                      <div className="flex items-end">
-                        <Button className="w-full h-8 bg-violet-600 hover:bg-violet-700 gap-2 text-[12px] font-bold uppercase" onClick={handleSave} disabled={saving}>
+                        <Button className="w-full h-8 bg-cyan-600 hover:bg-cyan-700 gap-2 text-[12px] font-bold uppercase" onClick={handleSave} disabled={saving}>
                           {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Commit Targets
                         </Button>
                      </div>
@@ -185,7 +185,7 @@ export default function AdminTargetsPage() {
 
                <div className="space-y-2">
                   <h3 className="text-[14px] font-bold flex items-center gap-2 text-slate-700">
-                    <History size={16} className="text-violet-400" /> Historical Assignments
+                    <History size={16} className="text-cyan-400" /> Historical Assignments
                   </h3>
                   <div className="bg-card border rounded-md shadow-sm overflow-hidden">
                     <table className="w-full text-[13px]">
@@ -205,13 +205,13 @@ export default function AdminTargetsPage() {
                             <td className="px-3 font-bold text-slate-700">{format(parseISO(h.month + '-01'), 'MMMM yyyy')}</td>
                             <td className="text-center text-slate-600">{h.leadsTarget}</td>
                             <td className="text-center text-slate-600">{h.qualifiedTarget}</td>
-                            <td className="text-center font-bold text-violet-700">{h.closedTarget}</td>
+                            <td className="text-center font-bold text-cyan-700">{h.closedTarget}</td>
                             <td className="text-right font-medium">${h.revenueTarget.toLocaleString()}</td>
                             <td className="text-right px-3 text-slate-500">{h.activityScoreTarget}%</td>
                           </tr>
                         ))}
                         {(!history || history.length === 0) && (
-                          <tr className="h-24"><td colSpan={6} className="text-center text-slate-300 italic text-[12px]">No historical targets defined for this agent.</td></tr>
+                          <tr className="h-24"><td colSpan={6} className="text-center text-slate-300 italic text-[12px]">No historical targets defined for this profile.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -220,48 +220,48 @@ export default function AdminTargetsPage() {
             </div>
 
             <div className="space-y-4">
-               <div className="bg-violet-50 border border-violet-100 rounded-md p-5 shadow-inner">
+               <div className="bg-cyan-50 border border-cyan-100 rounded-md p-5 shadow-inner">
                   <div className="flex items-center gap-4 mb-6">
-                     <div className="w-12 h-12 rounded-full bg-white border border-violet-100 text-violet-600 flex items-center justify-center font-bold text-lg shadow-sm">
+                     <div className="w-12 h-12 rounded-full bg-white border border-cyan-100 text-cyan-600 flex items-center justify-center font-bold text-lg shadow-sm">
                        {agents?.find(a => a.id === selectedAgentId)?.name[0]}
                      </div>
                      <div>
-                        <p className="text-[15px] font-bold text-violet-900">{agents?.find(a => a.id === selectedAgentId)?.name}</p>
+                        <p className="text-[15px] font-bold text-cyan-900">{agents?.find(a => a.id === selectedAgentId)?.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                           <Badge variant="outline" className="text-[9px] h-4 bg-white border-violet-200 text-violet-700 uppercase tracking-tighter">Current Quota</Badge>
+                           <Badge variant="outline" className="text-[9px] h-4 bg-white border-cyan-200 text-cyan-700 uppercase tracking-tighter">Current Quota</Badge>
                            <span className="text-[10px] text-slate-400 font-bold uppercase">{monthStr}</span>
                         </div>
                      </div>
                   </div>
                   <div className="space-y-5">
-                     <div className="p-3 bg-white/60 rounded border border-violet-100/50 text-[12px] space-y-2">
+                     <div className="p-3 bg-white/60 rounded border border-cyan-100/50 text-[12px] space-y-2">
                         <div className="flex justify-between">
                            <span className="text-slate-500">Leads Goal:</span>
-                           <b className="text-violet-700">{formData.leadsTarget}</b>
+                           <b className="text-cyan-700">{formData.leadsTarget}</b>
                         </div>
                         <div className="flex justify-between">
                            <span className="text-slate-500">Wins Goal:</span>
-                           <b className="text-violet-700">{formData.closedTarget}</b>
+                           <b className="text-cyan-700">{formData.closedTarget}</b>
                         </div>
                         <div className="flex justify-between">
                            <span className="text-slate-500">Revenue Goal:</span>
-                           <b className="text-violet-700">${formData.revenueTarget.toLocaleString()}</b>
+                           <b className="text-cyan-700">${formData.revenueTarget.toLocaleString()}</b>
                         </div>
                      </div>
-                     <p className="text-[11px] text-violet-600 leading-tight italic">
-                        Targets set here are immediately visible to the agent and their manager. Monthly tier evaluations are based on these benchmarks.
+                     <p className="text-[11px] text-cyan-600 leading-tight italic">
+                        Targets set here are immediately visible to the user and their manager. Monthly performance evaluations are based on these benchmarks.
                      </p>
                   </div>
                </div>
             </div>
           </div>
         ) : (
-          <div className="py-40 border-[0.5px] border-dashed border-violet-200 rounded-lg flex flex-col items-center justify-center text-slate-300 bg-slate-50/30">
+          <div className="py-40 border-[0.5px] border-dashed border-cyan-200 rounded-lg flex flex-col items-center justify-center text-slate-300 bg-slate-50/30">
              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
-                <TargetIcon size={32} className="text-violet-100" />
+                <TargetIcon size={32} className="text-cyan-100" />
              </div>
-             <p className="text-[15px] font-bold text-slate-400">Select an agent profile</p>
-             <p className="text-[12px] text-slate-400">Select a team member from the dropdown to manage their performance benchmarks.</p>
+             <p className="text-[15px] font-bold text-slate-400">Select a team member</p>
+             <p className="text-[12px] text-slate-400">Choose a staff member from the dropdown to manage their performance benchmarks.</p>
           </div>
         )}
       </div>
