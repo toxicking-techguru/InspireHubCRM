@@ -89,16 +89,22 @@ export default function AdminProductsPage() {
   };
 
   const handleDeleteProduct = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (!firestore) return;
-    if (!confirm('Are you sure you want to delete this product and all its resource links?')) return;
+    
+    if (!firestore || !id) return;
+    
+    // Explicitly use window.confirm for cross-browser consistency
+    if (!window.confirm('Are you sure you want to delete this product and all its resource links? This action cannot be undone.')) {
+      return;
+    }
     
     try {
       await deleteDoc(doc(firestore, 'products', id));
       if (selectedProductId === id) setSelectedProductId(null);
-      toast({ title: "Product Deleted" });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Error", description: e.message });
+      toast({ title: "Product Deleted", description: "The item has been removed from the catalog." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
     }
   };
 
@@ -142,21 +148,21 @@ export default function AdminProductsPage() {
                   )}
                 >
                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-bold truncate pr-8 text-slate-800">{p.name}</span>
-                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-cyan-100 text-cyan-600 bg-white">
+                      <span className="text-[13px] font-bold truncate pr-10 text-slate-800">{p.name}</span>
+                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-cyan-100 text-cyan-600 bg-white shrink-0">
                          {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
                       </Badge>
                    </div>
                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-medium uppercase">Required Rank: {tiers?.find(t => t.id === p.tierRequired)?.rankLabel || 'Entry'}</span>
+                      <span className="text-[10px] text-slate-400 font-medium uppercase truncate pr-8">Required Rank: {tiers?.find(t => t.id === p.tierRequired)?.rankLabel || 'Entry'}</span>
                    </div>
                    <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-300 hover:text-red-500 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10"
                     onClick={(e) => handleDeleteProduct(e, p.id)}
                    >
-                     <Trash2 size={12} />
+                     <Trash2 size={14} />
                    </Button>
                 </div>
               ))}
@@ -227,7 +233,7 @@ export default function AdminProductsPage() {
                                   </span>
                                </div>
                                <p className="text-[10px] text-slate-400 italic leading-tight">
-                                  This rate is derived from the configured Tier setup.
+                                  This rate is derived dynamically from the configured Tier setup.
                                </p>
                             </div>
                          </div>
