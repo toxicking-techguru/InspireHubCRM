@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -30,9 +29,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function WalletPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
+
+  const currencySymbol = config?.currency === 'USD' ? '$' : config?.currency === 'GBP' ? '£' : 'KES ';
 
   // Form State
   const [amount, setAmount] = useState('');
@@ -47,12 +48,6 @@ export default function WalletPage() {
   }, [firestore, user?.id]);
 
   const { data: wallet, loading: walletLoading } = useDoc<Wallet>(walletRef as any);
-
-  const configRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return doc(firestore, 'system', 'config');
-  }, [firestore]);
-  const { data: config } = useDoc<any>(configRef as any);
 
   const commissionsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -149,7 +144,7 @@ export default function WalletPage() {
             <div key={i} className={cn("border-[0.5px] rounded-md p-3 shadow-sm", item.color)}>
               <p className="text-[11px] font-bold uppercase tracking-tight text-slate-400 mb-1">{item.label}</p>
               <p className="text-[20px] font-bold text-slate-900 leading-tight">
-                ${item.value.toLocaleString()}
+                {currencySymbol}{item.value.toLocaleString()}
               </p>
             </div>
           ))}
@@ -169,7 +164,7 @@ export default function WalletPage() {
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-bold text-slate-400 uppercase">Amount to Withdraw</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{currencySymbol}</span>
                       <Input 
                         type="number" 
                         placeholder="0.00" 
@@ -179,7 +174,7 @@ export default function WalletPage() {
                         required
                       />
                     </div>
-                    <p className="text-[10px] text-slate-400 font-medium">Available for transfer: ${withdrawableBalance.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400 font-medium">Available for transfer: {currencySymbol}{withdrawableBalance.toLocaleString()}</p>
                   </div>
 
                   <div className="space-y-3 pt-2">
@@ -240,7 +235,7 @@ export default function WalletPage() {
                         return (
                           <tr key={w.id} className="h-11 hover:bg-slate-50/30 transition-colors">
                             <td className="px-4 text-slate-500">{format(parseISO(w.requestedAt), 'MMM d, yyyy')}</td>
-                            <td className="font-bold text-slate-700">${w.amount.toLocaleString()}</td>
+                            <td className="font-bold text-slate-700">{currencySymbol}{w.amount.toLocaleString()}</td>
                             <td>
                               <Badge variant="outline" className={cn(
                                 "text-[10px] uppercase h-4 px-1.5 font-bold border-none",
@@ -310,8 +305,8 @@ export default function WalletPage() {
                       ) : commissions?.map((c) => (
                         <tr key={c.id} className="h-10 hover:bg-slate-50/30 transition-colors">
                           <td className="px-4 font-medium text-slate-700">{c.clientName || 'Private Lead'}</td>
-                          <td className="text-slate-500">${c.dealAmount?.toLocaleString()}</td>
-                          <td className="text-right font-bold text-cyan-700">${c.amount.toLocaleString()}</td>
+                          <td className="text-slate-500">{currencySymbol}{c.dealAmount?.toLocaleString()}</td>
+                          <td className="text-right font-bold text-cyan-700">{currencySymbol}{c.amount.toLocaleString()}</td>
                           <td className="px-4 text-right">
                              <Badge variant="outline" className={cn(
                                "text-[9px] uppercase h-3.5 px-1.5 font-bold border-none",
@@ -336,4 +331,3 @@ export default function WalletPage() {
     </Shell>
   );
 }
-

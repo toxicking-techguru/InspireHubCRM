@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -271,6 +270,12 @@ function GeneralSettings({ config, onSave, saving }: any) {
     { label: 'Weekends Only', value: 'Weekends Only' },
   ];
 
+  const currencyOptions = [
+    { label: 'Kenyan Shilling (KES)', value: 'KES' },
+    { label: 'US Dollar (USD)', value: 'USD' },
+    { label: 'British Pound (GBP)', value: 'GBP' },
+  ];
+
   return (
     <div className="space-y-6 max-w-[500px]">
        <div className="space-y-4">
@@ -288,10 +293,19 @@ function GeneralSettings({ config, onSave, saving }: any) {
              </div>
              <div className="space-y-1.5">
                 <Label className="text-[11px] font-bold uppercase text-slate-400">Base Currency</Label>
-                <div className="relative">
-                   <DollarSign size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                   <Input className="h-9 pl-8 text-[13px]" value={data.currency} onChange={(e) => setData({...data, currency: e.target.value})} />
-                </div>
+                <Select value={data.currency} onValueChange={(v) => setData({...data, currency: v})}>
+                  <SelectTrigger className="h-9 bg-white border-cyan-100 pl-8 relative">
+                     <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                        <DollarSign size={14} />
+                     </div>
+                     <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                     {currencyOptions.map(opt => (
+                       <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                     ))}
+                  </SelectContent>
+                </Select>
              </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

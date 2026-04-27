@@ -1,4 +1,3 @@
-
 "use client"
 
 import React from 'react';
@@ -10,8 +9,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { startOfMonth, parseISO } from 'date-fns';
 
 export function AgentStats() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
+
+  const currencySymbol = config?.currency === 'USD' ? '$' : config?.currency === 'GBP' ? '£' : 'KES ';
 
   const leadsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -56,9 +57,9 @@ export function AgentStats() {
       { label: 'My total leads', value: myLeads.toString() },
       { label: 'Qualified leads', value: qualified.toString() },
       { label: 'Wins (Lifetime)', value: wonTotal.toString() },
-      { label: 'Earnings this month', value: `$${monthlyEarnings.toLocaleString()}` },
+      { label: 'Earnings this month', value: `${currencySymbol}${monthlyEarnings.toLocaleString()}` },
     ];
-  }, [leads, commissions]);
+  }, [leads, commissions, currencySymbol]);
 
   if (leadsLoading || walletLoading) {
     return (

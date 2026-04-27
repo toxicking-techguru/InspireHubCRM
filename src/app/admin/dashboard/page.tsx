@@ -33,9 +33,11 @@ import {
 } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const [revenueTimeframe, setRevenueTimeframe] = useState<'weekly' | 'monthly'>('monthly');
+
+  const currencySymbol = config?.currency === 'USD' ? '$' : config?.currency === 'GBP' ? '£' : 'KES ';
 
   // Global Data
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
@@ -79,16 +81,16 @@ export default function AdminDashboard() {
         { label: 'Total agents', value: activeAgentsCount, sub: 'Excluding Oversighters', icon: Users },
         { label: 'Active leads', value: activeLeads, sub: `${idleLeadsCount} idle (>72h)`, icon: Target },
         { label: 'Won this month', value: wonThisMonth, sub: 'Deals closed', icon: TrendingUp },
-        { label: 'Gross Revenue', value: `$${(totalGrossRevenue / 1000).toFixed(1)}k`, sub: 'Lifetime sales', icon: TrendingUp },
-        { label: 'Paid Comms', value: `$${(totalApprovedComms / 1000).toFixed(1)}k`, sub: 'Approved earnings', icon: Coins },
-        { label: 'Net Revenue', value: `$${(netRevenue / 1000).toFixed(1)}k`, sub: 'Revenue after comms', icon: ShieldCheck },
-        { label: 'Pending Comms', value: `$${(pendingCommsAmount / 1000).toFixed(1)}k`, sub: 'Awaiting validation', icon: Banknote },
+        { label: 'Gross Revenue', value: `${currencySymbol}${(totalGrossRevenue / 1000).toFixed(1)}k`, sub: 'Lifetime sales', icon: TrendingUp },
+        { label: 'Paid Comms', value: `${currencySymbol}${(totalApprovedComms / 1000).toFixed(1)}k`, sub: 'Approved earnings', icon: Coins },
+        { label: 'Net Revenue', value: `${currencySymbol}${(netRevenue / 1000).toFixed(1)}k`, sub: 'Revenue after comms', icon: ShieldCheck },
+        { label: 'Pending Comms', value: `${currencySymbol}${(pendingCommsAmount / 1000).toFixed(1)}k`, sub: 'Awaiting validation', icon: Banknote },
         { label: 'Pending Payouts', value: pendingWithdrawals, sub: 'Withdrawal requests', isWarning: pendingWithdrawals > 0, icon: Banknote },
       ],
       idleLeadsCount,
       pendingWithdrawals
     };
-  }, [allLeads, agents, withdrawals, commissions, leadsLoading, agentsLoading]);
+  }, [allLeads, agents, withdrawals, commissions, leadsLoading, agentsLoading, currencySymbol]);
 
   const performanceData = useMemo(() => {
     if (!agents || !allLeads) return [];
@@ -224,7 +226,7 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="text-center">{p.won}</td>
-                        <td className="text-right font-medium text-cyan-700">${p.revenue.toLocaleString()}</td>
+                        <td className="text-right font-medium text-cyan-700">{currencySymbol}{p.revenue.toLocaleString()}</td>
                         <td className="text-center">
                           <Badge variant="outline" className="text-[9px] h-4 font-bold border-cyan-100 text-cyan-700">{p.conversion}%</Badge>
                         </td>

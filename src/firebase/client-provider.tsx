@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { initializeFirebase } from './index';
 import { FirebaseProvider } from './provider';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc } from 'firebase/firestore';
+import { Firestore, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { Auth, onAuthStateChanged } from 'firebase/auth';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -14,14 +14,21 @@ export const FirebaseClientProvider: React.FC<{ children: React.ReactNode }> = (
     firestore: Firestore;
     auth: Auth;
   } | null>(null);
-  const { setAuth, setInitializing } = useAuthStore();
+  const { setAuth, setConfig, setInitializing } = useAuthStore();
 
   useEffect(() => {
     const instances = initializeFirebase();
     setFirebase(instances);
 
+    // Global Config Listener
+    const configUnsub = onSnapshot(doc(instances.firestore, 'system', 'config'), (snap) => {
+      if (snap.exists()) {
+        setConfig(snap.data() as any);
+      }
+    });
+
     // Global Auth State Listener
-    const unsubscribe = onAuthStateChanged(instances.auth, async (fbUser) => {
+    const authUnsubscribe = onAuthStateChanged(instances.auth, async (fbUser) => {
       if (fbUser) {
         try {
           const userDoc = await getDoc(doc(instances.firestore, 'agents', fbUser.uid));
@@ -39,8 +46,11 @@ export const FirebaseClientProvider: React.FC<{ children: React.ReactNode }> = (
       }
     });
 
-    return () => unsubscribe();
-  }, [setAuth, setInitializing]);
+    return () => {
+      authUnsubscribe();
+      configUnsub();
+    };
+  }, [setAuth, setConfig, setInitializing]);
 
   if (!firebase) {
     return null; 
