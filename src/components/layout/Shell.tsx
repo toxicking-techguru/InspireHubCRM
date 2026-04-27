@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -75,7 +76,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       if (!user && pathname !== '/login') {
         router.push('/login');
       } else if (user) {
-        // Strict Role-Based Path Guard and Auto-Redirect
         if (pathname === '/dashboard' && isAdmin) {
           router.push('/admin/dashboard');
         } else if (pathname === '/dashboard' && isManager) {
@@ -127,13 +127,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     ]}
   ];
 
-  const themeClasses = isAdmin 
-    ? {
-        active: "bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-l-2 border-violet-600",
-        hover: "hover:bg-slate-50 dark:hover:bg-slate-800/50",
-        icon: "text-violet-600"
-      }
-    : {
+  const themeClasses = {
         active: "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-l-2 border-cyan-600",
         hover: "hover:bg-slate-50 dark:hover:bg-slate-800/50",
         icon: "text-cyan-600"
@@ -143,7 +137,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
-          <div className={cn("w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white shadow-lg", isAdmin ? "bg-violet-600" : "bg-primary")}>
+          <div className="w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white shadow-lg bg-primary">
              <Zap size={24} />
           </div>
           <p className="text-xs font-medium text-slate-400">Restoring InspireHubCRM session...</p>
@@ -163,7 +157,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       )}>
         <div className="h-12 border-b flex items-center px-3 justify-between overflow-hidden bg-sidebar shrink-0">
           <div className="flex items-center gap-2">
-            <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0 shadow-sm", isAdmin ? "bg-violet-600" : "bg-primary")}>
+            <div className="w-6 h-6 rounded flex items-center justify-center shrink-0 shadow-sm bg-primary">
               <Zap size={14} className="text-white" />
             </div>
             {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate tracking-tight">InspireHubCRM</span>}
@@ -253,7 +247,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-bold truncate leading-tight">{user.name}</p>
                 {isAdmin ? (
-                  <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-[9px] h-3.5 px-1.5 font-bold uppercase tracking-tight">Admin</Badge>
+                  <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[9px] h-3.5 px-1.5 font-bold uppercase tracking-tight">Admin</Badge>
                 ) : isManager ? (
                    <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[9px] h-3.5 px-1.5 font-bold uppercase tracking-tight">Manager</Badge>
                 ) : (
@@ -283,7 +277,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             InspireHubCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/').slice(-1)[0] || 'Dashboard'}</span>
           </div>
           <div className="md:hidden flex items-center gap-2">
-             <Zap size={16} className={isAdmin ? "text-violet-600" : "text-primary"} />
+             <Zap size={16} className="text-primary" />
              <span className="text-[13px] font-bold">InspireHubCRM</span>
           </div>
 
@@ -333,7 +327,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {(isAdmin ? adminNav[0].items.slice(0, 5) : (isManager ? managerNav : agentNav).slice(0, 5)).map((item) => {
           const isActive = pathname === item.href;
           return (
-            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center flex-1 gap-1 h-full", isActive ? (isAdmin ? "text-violet-600" : "text-primary") : "text-muted-foreground")}>
+            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center flex-1 gap-1 h-full", isActive ? "text-primary" : "text-muted-foreground")}>
               <item.icon size={18} />
               <span className="text-[10px] font-medium">{item.label}</span>
             </Link>

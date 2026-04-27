@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function AdminSettingsPage() {
   const { user } = useAuthStore();
@@ -54,7 +55,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  if (!user) return null;
+  if (!user || user.role !== 'Admin') return null;
 
   const tabs = [
     { id: 'general', label: 'General', icon: SettingsIcon },
@@ -67,7 +68,7 @@ export default function AdminSettingsPage() {
     <Shell>
       <div className="space-y-4">
         <div>
-           <h1 className="text-[18px] font-bold text-violet-900">System Configuration</h1>
+           <h1 className="text-[18px] font-bold text-cyan-950">System Configuration</h1>
            <p className="text-[12px] text-muted-foreground mt-0.5">Control global variables, background tasks, and automated triggers.</p>
         </div>
 
@@ -80,10 +81,10 @@ export default function AdminSettingsPage() {
                      onClick={() => setActiveTab(tab.id)}
                      className={cn(
                        "w-full flex items-center gap-3 px-3 h-9 rounded-[6px] text-[13px] transition-colors",
-                       activeTab === tab.id ? "bg-violet-50 text-violet-700 font-bold" : "text-sidebar-foreground hover:bg-slate-50"
+                       activeTab === tab.id ? "bg-cyan-50 text-cyan-700 font-bold" : "text-sidebar-foreground hover:bg-slate-50"
                      )}
                    >
-                      <tab.icon size={14} className={activeTab === tab.id ? "text-violet-600" : "text-slate-400"} />
+                      <tab.icon size={14} className={activeTab === tab.id ? "text-cyan-600" : "text-slate-400"} />
                       {tab.label}
                    </button>
                  ))}
@@ -93,7 +94,7 @@ export default function AdminSettingsPage() {
            <div className="flex-1 bg-card border rounded-md shadow-sm min-h-[400px]">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20">
-                  <Loader2 className="animate-spin text-violet-600 mb-2" />
+                  <Loader2 className="animate-spin text-cyan-600 mb-2" />
                   <p className="text-xs text-muted-foreground">Fetching configuration...</p>
                 </div>
               ) : (
@@ -132,6 +133,14 @@ function GeneralSettings({ config, onSave, saving }: any) {
     }
   }, [config]);
   
+  const withdrawalOptions = [
+    { label: 'All Days (Active Window)', value: 'All Days' },
+    { label: 'Every Friday', value: 'Fridays' },
+    { label: 'Mondays & Thursdays', value: 'Mondays & Thursdays' },
+    { label: 'First of Month', value: 'First of Month' },
+    { label: 'Weekends Only', value: 'Weekends Only' },
+  ];
+
   return (
     <div className="space-y-6 max-w-[500px]">
        <div className="space-y-4">
@@ -161,15 +170,21 @@ function GeneralSettings({ config, onSave, saving }: any) {
                <Input type="number" className="h-9 text-[13px]" value={data.idleThreshold} onChange={(e) => setData({...data, idleThreshold: parseInt(e.target.value) || 0})} />
             </div>
             <div className="space-y-1.5">
-               <Label className="text-[11px] font-bold uppercase text-slate-400">Withdrawal Allowed Days</Label>
-               <div className="relative">
-                  <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <Input className="h-9 pl-8 text-[13px]" placeholder="e.g. Fridays, Mondays" value={data.withdrawalDays} onChange={(e) => setData({...data, withdrawalDays: e.target.value})} />
-               </div>
+               <Label className="text-[11px] font-bold uppercase text-slate-400">Withdrawal Allowed Window</Label>
+               <Select value={data.withdrawalDays} onValueChange={(v) => setData({...data, withdrawalDays: v})}>
+                 <SelectTrigger className="h-9 text-[13px] bg-white">
+                    <SelectValue placeholder="Select window..." />
+                 </SelectTrigger>
+                 <SelectContent>
+                    {withdrawalOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                 </SelectContent>
+               </Select>
             </div>
           </div>
        </div>
-       <Button className="bg-violet-600 hover:bg-violet-700 h-9 px-8 gap-2 font-bold uppercase text-[11px]" disabled={saving} onClick={() => onSave(data)}>
+       <Button className="bg-cyan-600 hover:bg-cyan-700 h-9 px-8 gap-2 font-bold uppercase text-[11px]" disabled={saving} onClick={() => onSave(data)}>
           {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Save General Config
        </Button>
     </div>
@@ -195,11 +210,11 @@ function NotificationSettings({ config, onSave, saving }: any) {
                      <Textarea className="h-16 text-[12px] mt-1 bg-white resize-none" defaultValue="Hi {name}, a new {event} occurred on {date}." />
                   </div>
                </div>
-               <Switch className="data-[state=checked]:bg-violet-600 scale-90" defaultChecked />
+               <Switch className="data-[state=checked]:bg-cyan-600 scale-90" defaultChecked />
             </div>
           ))}
        </div>
-       <Button className="bg-violet-600 hover:bg-violet-700 h-9 px-8 gap-2 font-bold uppercase text-[11px]">
+       <Button className="bg-cyan-600 hover:bg-cyan-700 h-9 px-8 gap-2 font-bold uppercase text-[11px]">
           Save Notification Logic
        </Button>
     </div>
@@ -236,9 +251,9 @@ function CronSettings() {
                      <td className="px-3 font-bold">{job.name}</td>
                      <td className="font-mono text-[11px] text-slate-400">{job.cron}</td>
                      <td className="text-slate-500">{job.last}</td>
-                     <td className="text-violet-600 font-medium">{job.next}</td>
+                     <td className="text-cyan-600 font-medium">{job.next}</td>
                      <td className="px-3 text-right">
-                        <Button variant="ghost" size="sm" className="h-7 text-violet-600 gap-1.5 text-[11px] uppercase font-bold">
+                        <Button variant="ghost" size="sm" className="h-7 text-cyan-600 gap-1.5 text-[11px] uppercase font-bold">
                            <Play size={12} /> Trigger
                         </Button>
                      </td>

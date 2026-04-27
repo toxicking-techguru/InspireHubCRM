@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useMemo, useState } from 'react';
@@ -35,7 +36,7 @@ export default function AdminDashboard() {
   const firestore = useFirestore();
   const [revenueTimeframe, setRevenueTimeframe] = useState<'weekly' | 'monthly'>('monthly');
 
-  // Global Data - Removed strict limits for dashboard summary calculation
+  // Global Data
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
   const { data: agents, loading: agentsLoading } = useCollection<Agent>(agentsQuery as any);
 
@@ -117,8 +118,8 @@ export default function AdminDashboard() {
     return [
       { name: 'Silver', count: counts.t1, fill: '#94a3b8' },
       { name: 'Gold', count: counts.t2, fill: '#fbbf24' },
-      { name: 'Diamond', count: counts.t3, fill: '#3b82f6' },
-      { name: 'Platinum', count: counts.t4, fill: '#a855f7' },
+      { name: 'Diamond', count: counts.t3, fill: '#0891b2' },
+      { name: 'Platinum', count: counts.t4, fill: '#0e7490' },
     ];
   }, [agents]);
 
@@ -127,7 +128,6 @@ export default function AdminDashboard() {
   return (
     <Shell>
       <div className="space-y-4">
-        {/* Metric Cards Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {stats ? stats.cards.map((stat, i) => (
             <div key={i} className={cn(
@@ -147,17 +147,16 @@ export default function AdminDashboard() {
 
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
-            {/* Revenue Chart */}
-            <div className="bg-card border rounded-md p-4 shadow-sm border-violet-100">
+            <div className="bg-card border rounded-md p-4 shadow-sm border-cyan-100">
                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[13px] font-bold uppercase tracking-wider text-slate-500">Global Revenue Growth</h3>
                   <div className="flex bg-slate-100 p-0.5 rounded-md">
                     <button 
-                      className={cn("px-3 py-1 text-[10px] font-bold rounded-md transition-all", revenueTimeframe === 'weekly' ? "bg-white shadow-sm text-violet-700" : "text-slate-500")}
+                      className={cn("px-3 py-1 text-[10px] font-bold rounded-md transition-all", revenueTimeframe === 'weekly' ? "bg-white shadow-sm text-cyan-700" : "text-slate-500")}
                       onClick={() => setRevenueTimeframe('weekly')}
                     >WEEKLY</button>
                     <button 
-                      className={cn("px-3 py-1 text-[10px] font-bold rounded-md transition-all", revenueTimeframe === 'monthly' ? "bg-white shadow-sm text-violet-700" : "text-slate-500")}
+                      className={cn("px-3 py-1 text-[10px] font-bold rounded-md transition-all", revenueTimeframe === 'monthly' ? "bg-white shadow-sm text-cyan-700" : "text-slate-500")}
                       onClick={() => setRevenueTimeframe('monthly')}
                     >MONTHLY</button>
                   </div>
@@ -167,26 +166,25 @@ export default function AdminDashboard() {
                     <AreaChart data={revenueChartData}>
                       <defs>
                         <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#0891b2" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#0891b2" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#94a3b8' }} />
                       <YAxis hide />
-                      <Tooltip cursor={{ stroke: '#c4b5fd' }} contentStyle={{ fontSize: '11px', borderRadius: '6px' }} />
-                      <Area type="monotone" dataKey="revenue" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
+                      <Tooltip cursor={{ stroke: '#0891b2' }} contentStyle={{ fontSize: '11px', borderRadius: '6px' }} />
+                      <Area type="monotone" dataKey="revenue" stroke="#0891b2" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
                     </AreaChart>
                  </ResponsiveContainer>
                </div>
             </div>
 
-            {/* Top Performers Table */}
-            <div className="bg-card border rounded-md shadow-sm overflow-hidden border-violet-100">
+            <div className="bg-card border rounded-md shadow-sm overflow-hidden border-cyan-100">
                <div className="p-3 border-b bg-slate-50/50 flex items-center justify-between">
                   <h3 className="text-[12px] font-bold uppercase tracking-tight text-slate-500">Top Performing Agents</h3>
                   <Link href="/admin/agents">
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold text-violet-600">View All</Button>
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold text-cyan-600">View All</Button>
                   </Link>
                </div>
                <table className="w-full text-[12px]">
@@ -209,9 +207,9 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="text-center">{p.won}</td>
-                        <td className="text-right font-medium text-violet-700">${p.revenue.toLocaleString()}</td>
+                        <td className="text-right font-medium text-cyan-700">${p.revenue.toLocaleString()}</td>
                         <td className="text-center">
-                          <Badge variant="outline" className="text-[9px] h-4 font-bold border-violet-100 text-violet-600">{p.conversion}%</Badge>
+                          <Badge variant="outline" className="text-[9px] h-4 font-bold border-cyan-100 text-cyan-600">{p.conversion}%</Badge>
                         </td>
                       </tr>
                     ))}
@@ -224,8 +222,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="space-y-4">
-            {/* Tier Distribution */}
-            <div className="bg-card border rounded-md p-4 shadow-sm h-[140px] border-violet-100">
+            <div className="bg-card border rounded-md p-4 shadow-sm h-[140px] border-cyan-100">
                <h3 className="text-[12px] font-bold uppercase text-slate-500 mb-3">Agent Tier Distribution</h3>
                <div className="flex h-6 w-full rounded-full overflow-hidden border border-slate-100">
                   {tierDistribution.map((t, i) => (
@@ -247,8 +244,7 @@ export default function AdminDashboard() {
                </div>
             </div>
 
-            {/* System Alerts */}
-            <div className="bg-card border rounded-md shadow-sm overflow-hidden border-violet-100">
+            <div className="bg-card border rounded-md shadow-sm overflow-hidden border-cyan-100">
                <div className="p-3 border-b bg-red-50/30">
                   <h3 className="text-[12px] font-bold text-red-700 uppercase tracking-tight">System Alerts</h3>
                </div>
@@ -262,7 +258,7 @@ export default function AdminDashboard() {
                       <div className="p-3 flex items-start gap-3 hover:bg-slate-50/50 cursor-pointer group">
                          <alert.icon size={14} className="mt-0.5 text-red-400" />
                          <div className="flex-1">
-                            <p className="text-[12px] font-medium text-slate-700 leading-tight group-hover:text-violet-700">{alert.text}</p>
+                            <p className="text-[12px] font-medium text-slate-700 leading-tight group-hover:text-cyan-700">{alert.text}</p>
                             <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase">Quick Action →</p>
                          </div>
                       </div>
@@ -271,8 +267,7 @@ export default function AdminDashboard() {
                </div>
             </div>
 
-            {/* System Activity Feed */}
-            <div className="bg-card border rounded-md shadow-sm h-[240px] flex flex-col overflow-hidden border-violet-100">
+            <div className="bg-card border rounded-md shadow-sm h-[240px] flex flex-col overflow-hidden border-cyan-100">
                <div className="p-3 border-b bg-slate-50/50">
                   <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-tight">Recent Deals Won</h3>
                </div>
@@ -280,7 +275,7 @@ export default function AdminDashboard() {
                   {commissions?.filter(c => c.status === 'approved').slice(0, 10).map((c, i) => (
                     <div key={i} className="p-2.5 flex items-center justify-between gap-3 text-[11px]">
                        <div className="flex items-center gap-2 truncate">
-                          <span className="font-bold text-violet-700 bg-violet-50 px-1 rounded">WON</span>
+                          <span className="font-bold text-cyan-700 bg-cyan-50 px-1 rounded">WON</span>
                           <span className="truncate text-slate-600 font-medium">{c.clientName || 'Lead'}</span>
                        </div>
                        <span className="text-slate-400 shrink-0 font-bold uppercase">{formatDistanceToNow(parseISO(c.createdAt))} ago</span>

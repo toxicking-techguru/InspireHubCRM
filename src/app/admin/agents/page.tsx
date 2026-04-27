@@ -133,31 +133,31 @@ export default function AdminAgentsPage() {
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="h-11 flex items-center justify-between gap-4">
-          <h1 className="text-[16px] font-bold shrink-0 text-violet-900">Agent Onboarding & Mgmt</h1>
+          <h1 className="text-[16px] font-bold shrink-0 text-cyan-950">Agent Onboarding & Mgmt</h1>
           <div className="flex-1 max-w-[280px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
               placeholder="Search by name or email..." 
-              className="pl-8 h-8 text-[13px] bg-white border-violet-100" 
+              className="pl-8 h-8 text-[13px] bg-white border-cyan-100" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-violet-200 text-violet-700">
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-cyan-200 text-cyan-700">
               <Download size={14} /> Export CSV
             </Button>
-            <Button size="sm" className="h-8 text-[12px] bg-violet-600 hover:bg-violet-700 gap-2 shadow-md" onClick={handleAdd}>
+            <Button size="sm" className="h-8 text-[12px] bg-cyan-600 hover:bg-cyan-700 gap-2 shadow-md" onClick={handleAdd}>
               <UserPlus size={14} /> Add Agent
             </Button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-violet-100">
+        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-cyan-100">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center">
-              <Loader2 size={24} className="animate-spin text-violet-600 mb-2" />
+              <Loader2 size={24} className="animate-spin text-cyan-600 mb-2" />
               <p className="text-[13px] text-muted-foreground">Synchronizing team directory...</p>
             </div>
           ) : (
@@ -180,7 +180,7 @@ export default function AdminAgentsPage() {
                     const manager = managers?.find(m => m.id === agent.managerId);
                     const wallet = wallets?.find(w => w.agentId === agent.id);
                     return (
-                      <tr key={agent.id} className="h-10 hover:bg-violet-50/30 transition-colors group">
+                      <tr key={agent.id} className="h-10 hover:bg-cyan-50/30 transition-colors group">
                         <td className="px-3">
                            <div className="flex flex-col">
                              <span className="font-bold text-slate-800">{agent.name}</span>
@@ -189,7 +189,7 @@ export default function AdminAgentsPage() {
                         </td>
                         <td>
                           <div className="flex items-center gap-2">
-                             <div className="w-5 h-5 rounded bg-violet-100 text-violet-600 text-[9px] font-bold flex items-center justify-center">
+                             <div className="w-5 h-5 rounded bg-cyan-100 text-cyan-600 text-[9px] font-bold flex items-center justify-center">
                                 {manager?.name.split(' ').map(n => n[0]).join('') || '??'}
                              </div>
                              <span className="text-slate-600 truncate">{manager?.name || '--'}</span>
@@ -206,7 +206,7 @@ export default function AdminAgentsPage() {
                         <td className="text-slate-400 font-medium">
                           {format(parseISO(agent.joinDate), 'MMM d, yyyy')}
                         </td>
-                        <td className="text-right font-bold text-violet-700">
+                        <td className="text-right font-bold text-cyan-700">
                           <div className="flex items-center justify-end gap-1">
                              <WalletIcon size={12} className="text-slate-300" />
                              ${(wallet?.withdrawable || 0).toLocaleString()}
@@ -214,7 +214,7 @@ export default function AdminAgentsPage() {
                         </td>
                         <td className="px-3 text-right">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-violet-600" onClick={() => handleEdit(agent)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-cyan-600" onClick={() => handleEdit(agent)}>
                               <Edit2 size={14} />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500">
@@ -240,9 +240,9 @@ export default function AdminAgentsPage() {
       {/* Add/Edit Drawer */}
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <SheetContent className="w-[400px] sm:max-w-[400px] p-0 overflow-hidden flex flex-col">
-          <SheetHeader className="p-4 border-b bg-violet-50">
+          <SheetHeader className="p-4 border-b bg-cyan-50">
              <SheetTitle className="text-[16px] font-bold flex items-center gap-2">
-               <UserPlus className="text-violet-600" size={18} />
+               <UserPlus className="text-cyan-600" size={18} />
                {editingAgent ? 'Edit Agent Profile' : 'Register New Agent'}
              </SheetTitle>
           </SheetHeader>
@@ -269,7 +269,7 @@ export default function AdminAgentsPage() {
                 </div>
                 
                 <div className="pt-4 border-t space-y-4">
-                   <h3 className="text-[12px] font-bold text-violet-700">Assignment & Permissions</h3>
+                   <h3 className="text-[12px] font-bold text-cyan-700">Assignment & Permissions</h3>
                    <div className="space-y-1.5">
                       <Label className="text-[11px] font-bold uppercase text-slate-400">Manager</Label>
                       <Select value={formData.managerId} onValueChange={(v) => setFormData({...formData, managerId: v})}>
@@ -325,7 +325,7 @@ export default function AdminAgentsPage() {
 
           <SheetFooter className="p-4 border-t bg-slate-50/50">
              <Button variant="ghost" size="sm" className="h-9 px-6 text-slate-500 font-bold uppercase tracking-tight text-[11px]" onClick={() => setIsDrawerOpen(false)}>Cancel</Button>
-             <Button className="h-9 px-10 bg-violet-600 hover:bg-violet-700 font-bold uppercase tracking-tight text-[11px]" disabled={isSaving} onClick={handleSave}>
+             <Button className="h-9 px-10 bg-cyan-600 hover:bg-cyan-700 font-bold uppercase tracking-tight text-[11px]" disabled={isSaving} onClick={handleSave}>
                 {isSaving ? <Loader2 className="animate-spin" size={14} /> : 'Confirm Save'}
              </Button>
           </SheetFooter>

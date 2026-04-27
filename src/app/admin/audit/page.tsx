@@ -46,10 +46,10 @@ export default function AdminAuditPage() {
   const getBadgeColor = (type: string) => {
     const t = type.toLowerCase();
     if (t.includes('create')) return "bg-emerald-50 text-emerald-700 border-emerald-100";
-    if (t.includes('update')) return "bg-blue-50 text-blue-700 border-blue-100";
+    if (t.includes('update')) return "bg-cyan-50 text-cyan-700 border-cyan-100";
     if (t.includes('delete')) return "bg-red-50 text-red-700 border-red-100";
     if (t.includes('login')) return "bg-slate-100 text-slate-600 border-slate-200";
-    if (t.includes('upgrade')) return "bg-purple-50 text-purple-700 border-purple-100";
+    if (t.includes('upgrade')) return "bg-cyan-50 text-cyan-700 border-cyan-100";
     return "bg-slate-50 text-slate-500 border-slate-100";
   };
 
@@ -60,8 +60,8 @@ export default function AdminAuditPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
            <div>
-              <h1 className="text-[18px] font-bold flex items-center gap-2 text-violet-900">
-                 <History className="text-violet-600" size={20} /> System Audit Trail
+              <h1 className="text-[18px] font-bold flex items-center gap-2 text-cyan-950">
+                 <History className="text-cyan-600" size={20} /> System Audit Trail
               </h1>
               <p className="text-[12px] text-muted-foreground mt-0.5">Real-time record of all administrative and automated system actions.</p>
            </div>
@@ -72,7 +72,7 @@ export default function AdminAuditPage() {
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <Input 
                 placeholder="Search actor, entity or action..." 
-                className="pl-8 h-8 text-[12px] bg-white border-violet-100 shadow-none" 
+                className="pl-8 h-8 text-[12px] bg-white border-cyan-100 shadow-none" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -103,12 +103,12 @@ export default function AdminAuditPage() {
                  </thead>
                  <tbody className="divide-y">
                     {loading ? (
-                       <tr className="h-40"><td colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto text-violet-200" /></td></tr>
+                       <tr className="h-40"><td colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto text-cyan-200" /></td></tr>
                     ) : filteredLogs.map(log => {
                        const isExpanded = expandedId === log.id;
                        return (
                           <React.Fragment key={log.id}>
-                             <tr className={cn("h-10 hover:bg-slate-50 cursor-pointer transition-colors group", isExpanded && "bg-violet-50/30")}>
+                             <tr className={cn("h-10 hover:bg-slate-50 cursor-pointer transition-colors group", isExpanded && "bg-cyan-50/30")}>
                                 <td className="px-3 text-slate-500 font-medium">{format(parseISO(log.timestamp), 'MMM d, HH:mm:ss')}</td>
                                 <td className="">
                                    <div className="flex flex-col">
@@ -124,7 +124,7 @@ export default function AdminAuditPage() {
                                 <td className="text-slate-600 font-medium">{log.entityType}</td>
                                 <td className="text-slate-400 text-[11px] truncate max-w-[200px]">{log.remark || `ID: ${log.entityId}`}</td>
                                 <td className="px-3 text-right">
-                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-violet-600" onClick={() => setExpandedId(isExpanded ? null : log.id)}>
+                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-cyan-600" onClick={() => setExpandedId(isExpanded ? null : log.id)}>
                                       {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                    </Button>
                                 </td>
@@ -140,8 +140,8 @@ export default function AdminAuditPage() {
                                             </div>
                                          </div>
                                          <div className="space-y-2">
-                                            <h4 className="text-[11px] font-bold uppercase text-violet-700">New State</h4>
-                                            <div className="p-3 bg-white border border-violet-100 rounded shadow-inner font-mono text-[11px] overflow-auto max-h-[200px] text-violet-800">
+                                            <h4 className="text-[11px] font-bold uppercase text-cyan-700">New State</h4>
+                                            <div className="p-3 bg-white border border-cyan-100 rounded shadow-inner font-mono text-[11px] overflow-auto max-h-[200px] text-cyan-800">
                                                {log.newValue ? <pre>{JSON.stringify(log.newValue, null, 2)}</pre> : 'NONE'}
                                             </div>
                                          </div>
