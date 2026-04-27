@@ -21,7 +21,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, limit, collectionGroup } from 'firebase/firestore';
 import { Lead, LeadActivity, Tier, Target as AgentTarget } from '@/types/crm';
 import { formatDistanceToNow, parseISO, startOfMonth, format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -40,24 +40,39 @@ export default function DashboardPage() {
   const priorityLeadsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     let q = collection(firestore, 'leads');
+    // Removed orderBy to avoid index requirements for prototype
     if (user.role === 'Agent') {
-      return query(q, where('agentId', '==', user.id), orderBy('lastActivityAt', 'desc'), limit(10));
+      return query(q, where('agentId', '==', user.id), limit(10));
     }
-    return query(q, orderBy('lastActivityAt', 'desc'), limit(10));
+    return query(q, limit(10));
   }, [firestore, user?.id, user?.role]);
-  const { data: leads } = useCollection<Lead>(priorityLeadsQuery);
+  const { data: rawLeads } = useCollection<Lead>(priorityLeadsQuery);
+
+  // In-memory sorting for leads
+  const leads = useMemo(() => {
+    if (!rawLeads) return [];
+    return [...rawLeads].sort((a, b) => (b.lastActivityAt || b.createdAt).localeCompare(a.lastActivityAt || a.createdAt));
+  }, [rawLeads]);
 
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // Removed orderBy to avoid index requirements for collectionGroup
     return query(
       collectionGroup(firestore, 'activities'),
       where('agentId', '==', user.id),
-      orderBy('createdAt', 'desc'),
-      limit(4)
+      limit(20)
     );
   }, [firestore, user?.id]);
   
-  const { data: recentActivities, loading: activitiesLoading } = useCollection<LeadActivity>(activitiesQuery as any);
+  const { data: rawActivities, loading: activitiesLoading } = useCollection<LeadActivity>(activitiesQuery as any);
+
+  // In-memory sorting for activities
+  const recentActivities = useMemo(() => {
+    if (!rawActivities) return [];
+    return [...rawActivities]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 4);
+  }, [rawActivities]);
 
   const targetQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -71,10 +86,18 @@ export default function DashboardPage() {
   const { data: targets } = useCollection<AgentTarget>(targetQuery as any);
   const currentTarget = targets?.[0];
 
-  const tiersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null, [firestore]);
+  const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
-  const currentTier = tiers?.find(t => t.id === user?.tierId);
-  const nextTier = tiers?.find(t => t.rankLevel === (currentTier?.rankLevel || 0) + 1);
+  
+  const currentTier = useMemo(() => {
+    if (!tiers || !user) return null;
+    return tiers.find(t => t.id === user.tierId);
+  }, [tiers, user?.tierId]);
+
+  const nextTier = useMemo(() => {
+    if (!tiers || !currentTier) return null;
+    return [...tiers].sort((a, b) => a.rankLevel - b.rankLevel).find(t => t.rankLevel === currentTier.rankLevel + 1);
+  }, [tiers, currentTier]);
 
   const progressMetrics = useMemo(() => {
     if (!leads) return { leadsCount: 0, winsCount: 0, leadsPercent: 0, winsPercent: 0, overallPercent: 0, leadsTarget: 10, winsTarget: 2 };
@@ -254,7 +277,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recentActivities && recentActivities.map(activity => (
+            {recentActivities.map(activity => (
               <div key={activity.id} className="bg-card border rounded-md p-4 shadow-sm hover:shadow-md transition-shadow relative">
                 <div className="flex items-start justify-between mb-2">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -287,7 +310,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] font-medium uppercase">Awaiting activity</p>
               </div>
             ))}
-            {activitiesLoading && !recentActivities && Array.from({ length: 4 }).map((_, i) => (
+            {activitiesLoading && recentActivities.length === 0 && Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-slate-50 animate-pulse rounded-md h-[140px]" />
             ))}
           </div>

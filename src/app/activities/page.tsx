@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, where, orderBy } from 'firebase/firestore';
+import { collectionGroup, query, where } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
 import { format, parseISO } from 'date-fns';
 import { 
@@ -29,16 +29,22 @@ export default function ActivitiesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Removed orderBy to avoid index requirements for prototype
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collectionGroup(firestore, 'activities'),
-      where('agentId', '==', user.id),
-      orderBy('createdAt', 'desc')
+      where('agentId', '==', user.id)
     );
   }, [firestore, user?.id]);
 
-  const { data: activities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
+  const { data: rawActivities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
+
+  // Sort in memory to bypass index requirements
+  const activities = useMemo(() => {
+    if (!rawActivities) return [];
+    return [...rawActivities].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [rawActivities]);
 
   const upcomingActions = useMemo(() => {
     if (!activities) return [];
@@ -159,7 +165,7 @@ export default function ActivitiesPage() {
           </div>
 
           <div className="bg-card border rounded-md shadow-sm overflow-hidden">
-            {loading && !activities ? (
+            {loading && activities.length === 0 ? (
               <div className="py-20 flex flex-col items-center">
                 <Loader2 className="animate-spin text-primary mb-2" />
                 <p className="text-[13px] text-muted-foreground">Loading interaction history...</p>
@@ -233,7 +239,7 @@ export default function ActivitiesPage() {
             
             <div className="p-3 border-t bg-slate-50/30 flex items-center justify-between text-[11px] text-muted-foreground">
               <span>Showing {filteredActivities.length} interactions</span>
-              {loading && activities && <span className="flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Syncing...</span>}
+              {loading && activities.length > 0 && <span className="flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Syncing...</span>}
             </div>
           </div>
         </div>

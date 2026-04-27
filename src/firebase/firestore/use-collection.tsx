@@ -19,10 +19,8 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    // Only show full loading state if we have no existing data
-    if (!data) {
-      setLoading(true);
-    }
+    // Reset loading state for a new query if we don't have cached data for it
+    setLoading(true);
 
     const unsubscribe = onSnapshot(
       query,
@@ -31,14 +29,18 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
           ...doc.data(),
           id: doc.id,
         } as unknown as T));
+        
         setData(items);
         setLoading(false);
         setError(null);
       },
       (err) => {
-        console.warn('Firestore useCollection error:', err.message);
+        console.warn('Firestore useCollection error:', err.message, err.code);
+        // If we get an index error, we still want to stop loading
         setError(err);
         setLoading(false);
+        // Ensure data is at least an empty array if it fails so the UI can render
+        if (!data) setData([]);
       }
     );
 
