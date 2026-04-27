@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, where } from 'firebase/firestore';
+import { collectionGroup } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
 import { format, parseISO } from 'date-fns';
 import { 
@@ -29,22 +29,21 @@ export default function ActivitiesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Removed orderBy to avoid index requirements for prototype
+  // Use a naked collectionGroup query to bypass index requirements in prototype
   const activitiesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collectionGroup(firestore, 'activities'),
-      where('agentId', '==', user.id)
-    );
-  }, [firestore, user?.id]);
+    if (!firestore) return null;
+    return collectionGroup(firestore, 'activities');
+  }, [firestore]);
 
   const { data: rawActivities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  // Sort in memory to bypass index requirements
+  // Filter and sort in memory to respect user privacy and avoid server-side indexes
   const activities = useMemo(() => {
-    if (!rawActivities) return [];
-    return [...rawActivities].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [rawActivities]);
+    if (!rawActivities || !user) return [];
+    return [...rawActivities]
+      .filter(a => a.agentId === user.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [rawActivities, user?.id]);
 
   const upcomingActions = useMemo(() => {
     if (!activities) return [];

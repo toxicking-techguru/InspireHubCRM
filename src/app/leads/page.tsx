@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,6 @@ import {
   Search, 
   Filter, 
   Plus, 
-  ChevronRight,
   MoreVertical,
   AlertCircle,
   Loader2,
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Lead, Product } from '@/types/crm';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -30,30 +29,32 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Naked query for leads to avoid composite index requirements
   const leadsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    let q = collection(firestore, 'leads');
-    if (user.role === 'Agent') {
-      return query(q, where('agentId', '==', user.id), orderBy('createdAt', 'desc'));
-    }
-    return query(q, orderBy('createdAt', 'desc'));
-  }, [firestore, user?.id, user?.role]);
+    if (!firestore) return null;
+    return collection(firestore, 'leads');
+  }, [firestore]);
 
-  const { data: leads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
+  const { data: rawLeads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
   
   const productsQuery = useMemoFirebase(() => 
     firestore ? collection(firestore, 'products') : null
   , [firestore]);
   const { data: products } = useCollection<Product>(productsQuery as any);
 
+  // Filter and sort in memory
   const filteredLeads = useMemo(() => {
-    if (!leads) return [];
-    return leads.filter(lead => {
-      const search = searchTerm.toLowerCase();
-      return lead.clientName.toLowerCase().includes(search) || 
-             lead.clientEmail.toLowerCase().includes(search);
-    });
-  }, [leads, searchTerm]);
+    if (!rawLeads || !user) return [];
+    return rawLeads
+      .filter(lead => {
+        const matchesAgent = user.role !== 'Agent' || lead.agentId === user.id;
+        const search = searchTerm.toLowerCase();
+        const matchesSearch = lead.clientName.toLowerCase().includes(search) || 
+                             lead.clientEmail.toLowerCase().includes(search);
+        return matchesAgent && matchesSearch;
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [rawLeads, user, searchTerm]);
 
   return (
     <Shell>
@@ -200,7 +201,7 @@ export default function LeadsPage() {
           )}
 
           <div className="p-3 border-t bg-slate-50/30 flex items-center justify-between text-[12px] text-muted-foreground">
-             <span>Showing {filteredLeads.length} of {leads?.length || 0}</span>
+             <span>Showing {filteredLeads.length} of {rawLeads?.length || 0}</span>
              <div className="flex items-center gap-2">
                 <select className="bg-transparent border rounded px-1 h-6">
                   <option>20 rows</option>

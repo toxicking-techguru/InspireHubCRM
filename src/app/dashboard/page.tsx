@@ -21,7 +21,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, limit, collectionGroup } from 'firebase/firestore';
+import { collection, collectionGroup } from 'firebase/firestore';
 import { Lead, LeadActivity, Tier, Target as AgentTarget } from '@/types/crm';
 import { formatDistanceToNow, parseISO, startOfMonth, format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -37,54 +37,47 @@ export default function DashboardPage() {
 
   const currentMonthStr = format(new Date(), 'yyyy-MM');
 
-  const priorityLeadsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    let q = collection(firestore, 'leads');
-    // Removed orderBy to avoid index requirements for prototype
-    if (user.role === 'Agent') {
-      return query(q, where('agentId', '==', user.id), limit(10));
-    }
-    return query(q, limit(10));
-  }, [firestore, user?.id, user?.role]);
-  const { data: rawLeads } = useCollection<Lead>(priorityLeadsQuery);
+  // Fetch all leads and filter in memory to avoid index requirements
+  const leadsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'leads');
+  }, [firestore]);
+  const { data: rawLeads } = useCollection<Lead>(leadsQuery);
 
-  // In-memory sorting for leads
   const leads = useMemo(() => {
-    if (!rawLeads) return [];
-    return [...rawLeads].sort((a, b) => (b.lastActivityAt || b.createdAt).localeCompare(a.lastActivityAt || a.createdAt));
-  }, [rawLeads]);
+    if (!rawLeads || !user) return [];
+    return rawLeads
+      .filter(l => user.role !== 'Agent' || l.agentId === user.id)
+      .sort((a, b) => (b.lastActivityAt || b.createdAt).localeCompare(a.lastActivityAt || a.createdAt))
+      .slice(0, 10);
+  }, [rawLeads, user?.id, user?.role]);
 
+  // Fetch all activities and filter in memory to bypass COLLECTION_GROUP index requirement
   const activitiesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    // Removed orderBy to avoid index requirements for collectionGroup
-    return query(
-      collectionGroup(firestore, 'activities'),
-      where('agentId', '==', user.id),
-      limit(20)
-    );
-  }, [firestore, user?.id]);
+    if (!firestore) return null;
+    return collectionGroup(firestore, 'activities');
+  }, [firestore]);
   
   const { data: rawActivities, loading: activitiesLoading } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  // In-memory sorting for activities
   const recentActivities = useMemo(() => {
-    if (!rawActivities) return [];
+    if (!rawActivities || !user) return [];
     return [...rawActivities]
+      .filter(a => a.agentId === user.id)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 4);
-  }, [rawActivities]);
+  }, [rawActivities, user?.id]);
 
   const targetQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, 'targets'),
-      where('agentId', '==', user.id),
-      where('month', '==', currentMonthStr),
-      limit(1)
-    );
-  }, [firestore, user?.id, currentMonthStr]);
-  const { data: targets } = useCollection<AgentTarget>(targetQuery as any);
-  const currentTarget = targets?.[0];
+    if (!firestore) return null;
+    return collection(firestore, 'targets');
+  }, [firestore]);
+  const { data: allTargets } = useCollection<AgentTarget>(targetQuery as any);
+  
+  const currentTarget = useMemo(() => {
+    if (!allTargets || !user) return null;
+    return allTargets.find(t => t.agentId === user.id && t.month === currentMonthStr);
+  }, [allTargets, user?.id, currentMonthStr]);
 
   const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
@@ -100,11 +93,12 @@ export default function DashboardPage() {
   }, [tiers, currentTier]);
 
   const progressMetrics = useMemo(() => {
-    if (!leads) return { leadsCount: 0, winsCount: 0, leadsPercent: 0, winsPercent: 0, overallPercent: 0, leadsTarget: 10, winsTarget: 2 };
+    if (!rawLeads || !user) return { leadsCount: 0, winsCount: 0, leadsPercent: 0, winsPercent: 0, overallPercent: 0, leadsTarget: 10, winsTarget: 2 };
     
     const monthStart = startOfMonth(new Date());
-    const monthLeads = leads.filter(l => parseISO(l.createdAt) >= monthStart);
-    const monthWins = leads.filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= monthStart);
+    const myLeads = rawLeads.filter(l => l.agentId === user.id);
+    const monthLeads = myLeads.filter(l => parseISO(l.createdAt) >= monthStart);
+    const monthWins = myLeads.filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= monthStart);
 
     const lTarget = currentTarget?.leadsTarget || 10;
     const wTarget = currentTarget?.closedTarget || 2;
@@ -125,7 +119,7 @@ export default function DashboardPage() {
       winsPercent: wp, 
       overallPercent: op 
     };
-  }, [leads, currentTarget]);
+  }, [rawLeads, currentTarget, user?.id]);
 
   const tierUI = useMemo(() => {
     switch (user?.tierId) {
@@ -165,7 +159,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {leads?.slice(0, 5).map((lead) => (
+                    {leads.map((lead) => (
                       <tr key={lead.id} className="h-11 hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 font-bold text-slate-700">{lead.clientName}</td>
                         <td>
@@ -250,8 +244,8 @@ export default function DashboardPage() {
               <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Pipeline Distribution</h3>
               <div className="space-y-4">
                 {['new', 'qualified', 'proposal', 'won'].map((stage) => {
-                  const count = leads?.filter(l => l.status === stage).length || 0;
-                  const total = leads?.length || 1;
+                  const count = rawLeads?.filter(l => l.status === stage && (user.role !== 'Agent' || l.agentId === user.id)).length || 0;
+                  const total = rawLeads?.filter(l => (user.role !== 'Agent' || l.agentId === user.id)).length || 1;
                   const pct = Math.round((count / total) * 100);
                   return (
                     <div key={stage} className="space-y-1.5">
