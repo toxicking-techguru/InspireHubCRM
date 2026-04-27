@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Lead, Product } from '@/types/crm';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 export default function LeadsPage() {
   const { user } = useAuthStore();
   const firestore = useFirestore();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
