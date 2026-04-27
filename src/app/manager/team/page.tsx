@@ -1,28 +1,37 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { Agent, Lead, Commission } from '@/types/crm';
+import { collection, doc, setDoc } from 'firebase/firestore';
+import { Agent, Lead, Commission, UserStatus, Role } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Filter, Wallet as WalletIcon, MoreVertical } from 'lucide-react';
+import { Search, Filter, Wallet as WalletIcon, MoreVertical, UserPlus, Loader2 } from 'lucide-react';
 import { TierBadge } from '@/components/ui/tier-badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ManagerTeamPage() {
   const { user } = useAuthStore();
   const firestore = useFirestore();
+  const { toast } = useToast();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Use naked queries + in-memory filtering to avoid index management
+  // Data Fetching
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
   const { data: allAgents, loading: agentsLoading } = useCollection<Agent>(agentsQuery as any);
 
@@ -31,6 +40,9 @@ export default function ManagerTeamPage() {
 
   const commissionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'commissions') : null, [firestore]);
   const { data: allCommissions } = useCollection<Commission>(commissionsQuery as any);
+
+  const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
+  const { data: tiers } = useCollection<any>(tiersQuery as any);
 
   const teamAgents = useMemo(() => {
     if (!allAgents || !user) return [];
@@ -46,6 +58,55 @@ export default function ManagerTeamPage() {
 
   const selectedAgent = teamAgents.find(a => a.id === selectedAgentId);
 
+  // Onboarding Form State
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    region: '',
+    tierId: 't1',
+    status: 'active' as UserStatus
+  });
+
+  const handleAddAgent = () => {
+    setFormData({ name: '', email: '', phone: '', region: '', tierId: 't1', status: 'active' });
+    setIsDrawerOpen(true);
+  };
+
+  const handleSaveAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !user) return;
+    setIsSaving(true);
+    try {
+      const agentId = `agent_${Date.now()}`;
+      const finalData = {
+        ...formData,
+        role: 'Agent' as Role,
+        managerId: user.id,
+        joinDate: new Date().toISOString(),
+      };
+      
+      // 1. Create agent profile
+      await setDoc(doc(firestore, 'agents', agentId), finalData);
+      
+      // 2. Initialize wallet
+      await setDoc(doc(firestore, 'wallets', agentId), {
+        agentId,
+        totalEarned: 0,
+        pending: 0,
+        withdrawable: 0,
+        withdrawn: 0
+      });
+
+      toast({ title: "Agent Onboarded", description: `${formData.name} is now pre-authorized to join your team.` });
+      setIsDrawerOpen(false);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Onboarding Failed", description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!user || user.role !== 'Manager') return null;
 
   return (
@@ -54,7 +115,7 @@ export default function ManagerTeamPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-cyan-950">Team Directory</h1>
-            <p className="text-sm text-muted-foreground">Monitor performance and managed portfolios for your {teamAgents.length} agents.</p>
+            <p className="text-sm text-muted-foreground">Monitor performance and onboard new agents for your territory.</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative w-[260px]">
@@ -66,8 +127,8 @@ export default function ManagerTeamPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="sm" className="h-9 gap-2 border-cyan-100 text-cyan-700">
-              <Filter size={14} /> Filter
+            <Button size="sm" className="h-9 gap-2 bg-cyan-600 hover:bg-cyan-700" onClick={handleAddAgent}>
+              <UserPlus size={14} /> Onboard Agent
             </Button>
           </div>
         </div>
@@ -207,9 +268,6 @@ export default function ManagerTeamPage() {
                               <td className="text-right px-3 font-bold text-slate-900">${l.estimatedBudget.toLocaleString()}</td>
                             </tr>
                           ))}
-                          {allLeads?.filter(l => l.agentId === selectedAgentId).length === 0 && (
-                            <tr className="h-20"><td colSpan={3} className="text-center text-slate-300 italic">No leads managed yet.</td></tr>
-                          )}
                         </tbody>
                       </table>
                    </div>
@@ -233,9 +291,6 @@ export default function ManagerTeamPage() {
                               <td className="text-right px-3 font-bold text-emerald-600">${c.amount.toLocaleString()}</td>
                             </tr>
                           ))}
-                          {allCommissions?.filter(c => c.agentId === selectedAgentId).length === 0 && (
-                            <tr className="h-20"><td colSpan={3} className="text-center text-slate-300 italic">No earnings recorded.</td></tr>
-                          )}
                         </tbody>
                       </table>
                    </div>
@@ -245,10 +300,67 @@ export default function ManagerTeamPage() {
 
           <div className="p-4 border-t bg-slate-50/50 flex justify-end gap-3">
              <Button variant="outline" size="sm" className="h-9 text-[11px] font-bold uppercase" onClick={() => setSelectedAgentId(null)}>Close</Button>
-             <Button className="h-9 text-[11px] bg-cyan-600 hover:bg-cyan-700 font-bold uppercase tracking-tight">Direct Message</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Onboarding Drawer */}
+      <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <SheetContent className="w-[400px] sm:max-w-[400px] p-0 overflow-hidden flex flex-col">
+          <SheetHeader className="p-4 border-b bg-cyan-50">
+             <SheetTitle className="text-[16px] font-bold flex items-center gap-2">
+               <UserPlus className="text-cyan-600" size={18} />
+               Onboard New Agent
+             </SheetTitle>
+          </SheetHeader>
+          
+          <form onSubmit={handleSaveAgent} className="flex-1 overflow-y-auto p-5 space-y-6">
+             <div className="space-y-4">
+                <div className="space-y-1.5">
+                   <Label className="text-[11px] font-bold uppercase text-slate-400">Full Name</Label>
+                   <Input required className="h-9 text-[13px]" placeholder="e.g. Alice Johnson" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                </div>
+                <div className="space-y-1.5">
+                   <Label className="text-[11px] font-bold uppercase text-slate-400">Work Email</Label>
+                   <Input required type="email" className="h-9 text-[13px]" placeholder="alice@nexus.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                </div>
+                <div className="space-y-1.5">
+                   <Label className="text-[11px] font-bold uppercase text-slate-400">Phone</Label>
+                   <Input required className="h-9 text-[13px]" placeholder="+1..." value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                </div>
+                <div className="space-y-1.5">
+                   <Label className="text-[11px] font-bold uppercase text-slate-400">Region / Territory</Label>
+                   <Input required className="h-9 text-[13px]" placeholder="e.g. East Coast" value={formData.region} onChange={(e) => setFormData({...formData, region: e.target.value})} />
+                </div>
+                
+                <div className="pt-4 border-t space-y-4">
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Performance Tier</Label>
+                      <Select value={formData.tierId} onValueChange={(v) => setFormData({...formData, tierId: v})}>
+                         <SelectTrigger className="h-9 text-[13px]">
+                            <SelectValue />
+                         </SelectTrigger>
+                         <SelectContent>
+                            {tiers?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.rankLabel})</SelectItem>)}
+                         </SelectContent>
+                      </Select>
+                   </div>
+                </div>
+                
+                <div className="bg-amber-50 p-3 rounded-md border border-amber-100 text-[11px] text-amber-800 leading-tight">
+                   <b>Temporary Password:</b> The new agent will use <code>12345678</code> for their initial login to create their account credentials.
+                </div>
+             </div>
+          </form>
+
+          <SheetFooter className="p-4 border-t bg-slate-50/50">
+             <Button variant="ghost" size="sm" className="h-9 text-slate-500 font-bold uppercase text-[11px]" onClick={() => setIsDrawerOpen(false)}>Cancel</Button>
+             <Button className="h-9 px-8 bg-cyan-600 hover:bg-cyan-700 font-bold uppercase text-[11px]" disabled={isSaving} onClick={handleSaveAgent}>
+                {isSaving ? <Loader2 className="animate-spin" size={14} /> : 'Onboard Agent'}
+             </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </Shell>
   );
 }

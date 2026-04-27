@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertCircle, Info } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword 
@@ -25,8 +26,8 @@ import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@nexus.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { setAuth: setGlobalAuth, isAuthenticated, user: currentUser } = useAuthStore();
   const router = useRouter();
@@ -42,113 +43,66 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, currentUser, router]);
 
-  // Helper to ensure Firestore profile exists and matches Auth UID
-  const syncUserSession = async (uid: string, userEmail: string) => {
-    if (!db) return null;
-
-    let userDoc = await getDoc(doc(db, 'agents', uid));
-    
-    if (!userDoc.exists()) {
-      const q = query(collection(db, 'agents'), where('email', '==', userEmail));
-      const snap = await getDocs(q);
-      
-      if (!snap.empty) {
-        const seededData = snap.docs[0].data();
-        const oldId = snap.docs[0].id;
-        await setDoc(doc(db, 'agents', uid), seededData);
-        if (oldId !== uid) {
-          await deleteDoc(doc(db, 'agents', oldId));
-        }
-        userDoc = await getDoc(doc(db, 'agents', uid));
-      } else {
-        const isDefaultAdmin = userEmail === 'admin@nexus.com';
-        const isDefaultManager = userEmail === 'manager@nexus.com';
-        
-        const userData = {
-          name: userEmail.split('@')[0],
-          email: userEmail,
-          phone: '+1 000 000 0000',
-          region: 'Global',
-          status: 'active',
-          role: isDefaultAdmin ? 'Admin' : (isDefaultManager ? 'Manager' : 'Agent'),
-          tierId: isDefaultAdmin ? 't4' : 't1',
-          managerId: null,
-          joinDate: new Date().toISOString()
-        };
-        await setDoc(doc(db, 'agents', uid), userData);
-        await setDoc(doc(db, 'wallets', uid), {
-          agentId: uid,
-          totalEarned: 0,
-          pending: 0,
-          withdrawable: 0,
-          withdrawn: 0
-        });
-        userDoc = await getDoc(doc(db, 'agents', uid));
-      }
-    }
-
-    return { id: userDoc.id, ...userDoc.data() } as any;
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth || !db) return;
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const agentData = await syncUserSession(userCredential.user.uid, email);
-      
-      if (agentData) {
+      let userCredential;
+      try {
+        // 1. Attempt standard login
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
+      } catch (authErr: any) {
+        // 2. If user doesn't exist in Auth, check if they are pre-authorized in Firestore
+        if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
+          const q = query(collection(db, 'agents'), where('email', '==', email));
+          const snap = await getDocs(q);
+          
+          if (!snap.empty && password === '12345678') {
+            // First time login with default password
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const seededData = snap.docs[0].data();
+            const oldId = snap.docs[0].id;
+            
+            // Migrate Firestore record to match Auth UID
+            await setDoc(doc(db, 'agents', userCredential.user.uid), seededData);
+            if (oldId !== userCredential.user.uid) {
+              await deleteDoc(doc(db, 'agents', oldId));
+            }
+            
+            // If Agent, migrate wallet too
+            if (seededData.role === 'Agent') {
+               const wSnap = await getDoc(doc(db, 'wallets', oldId));
+               if (wSnap.exists()) {
+                 await setDoc(doc(db, 'wallets', userCredential.user.uid), wSnap.data());
+                 await deleteDoc(doc(db, 'wallets', oldId));
+               }
+            }
+          } else {
+            throw new Error("Account not found or not authorized. Please contact your administrator.");
+          }
+        } else {
+          throw authErr;
+        }
+      }
+
+      // 3. Sync Session
+      const userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
+      if (userDoc.exists()) {
+        const agentData = { id: userDoc.id, ...userDoc.data() } as any;
         setGlobalAuth(agentData);
         toast({ title: "Login Successful", description: `Welcome back, ${agentData.name}` });
-        
-        // Immediate role-based redirect
-        if (agentData.role === 'Admin') router.push('/admin/dashboard');
-        else if (agentData.role === 'Manager') router.push('/manager/dashboard');
-        else router.push('/dashboard');
       } else {
-        throw new Error("Failed to sync account data.");
+        throw new Error("Authorized profile missing from database.");
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid credentials or account record missing."
+        title: "Access Denied",
+        description: error.message || "Invalid credentials."
       });
-      setLoading(false);
-    }
-  };
-
-  const handleDevLogin = async (role: 'Agent' | 'Manager' | 'Admin') => {
-    if (!auth || !db) return;
-    setLoading(true);
-    
-    const devEmail = role === 'Agent' ? 'agent@nexus.com' : role === 'Manager' ? 'manager@nexus.com' : 'admin@nexus.com';
-    const devPassword = 'password';
-
-    try {
-      let uid = '';
-      try {
-        const cred = await signInWithEmailAndPassword(auth, devEmail, devPassword);
-        uid = cred.user.uid;
-      } catch (err: any) {
-        const cred = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
-        uid = cred.user.uid;
-      }
-
-      const agentData = await syncUserSession(uid, devEmail);
-      if (agentData) {
-        setGlobalAuth(agentData);
-        toast({ title: "Welcome", description: `Signed in as ${role}.` });
-        
-        // Immediate role-based redirect
-        if (agentData.role === 'Admin') router.push('/admin/dashboard');
-        else if (agentData.role === 'Manager') router.push('/manager/dashboard');
-        else router.push('/dashboard');
-      }
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Access Error", description: err.message });
+    } finally {
       setLoading(false);
     }
   };
@@ -161,17 +115,17 @@ export default function LoginPage() {
             <ShieldCheck size={28} />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">InspireHubCRM</h1>
-          <p className="text-sm text-muted-foreground">Production-ready CRM Automation</p>
+          <p className="text-sm text-muted-foreground">Internal Management System</p>
         </div>
 
         <div className="bg-card border rounded-xl shadow-xl overflow-hidden">
           <form onSubmit={handleLogin} className="p-6 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Work Email</Label>
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="admin@nexus.com" 
+                placeholder="name@nexus.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -181,7 +135,6 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <a href="#" className="text-[11px] text-primary hover:underline">Forgot?</a>
               </div>
               <Input 
                 id="password" 
@@ -196,33 +149,15 @@ export default function LoginPage() {
             <Button type="submit" className="w-full h-10 mt-2" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" size={18} /> : 'Sign In'}
             </Button>
+            
+            <div className="mt-4 p-3 bg-cyan-50 rounded-lg flex gap-3 text-cyan-800 text-[11px] leading-tight">
+               <Info size={14} className="shrink-0 text-cyan-600" />
+               <p>New staff member? Use the default password provided by your manager for your first login.</p>
+            </div>
           </form>
           
           <div className="bg-slate-50 dark:bg-slate-900 border-t p-4 text-center">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">Development Access</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <button 
-                onClick={() => handleDevLogin('Agent')}
-                disabled={loading}
-                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium border-slate-200"
-              >
-                Agent
-              </button>
-              <button 
-                onClick={() => handleDevLogin('Manager')}
-                disabled={loading}
-                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium border-slate-200"
-              >
-                Manager
-              </button>
-              <button 
-                onClick={() => handleDevLogin('Admin')}
-                disabled={loading}
-                className="text-[10px] px-3 py-1.5 bg-white dark:bg-slate-800 border rounded shadow-sm hover:bg-slate-100 disabled:opacity-50 transition-colors font-medium border-slate-200"
-              >
-                Admin
-              </button>
-            </div>
+             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Secure Authentication Environment</p>
           </div>
         </div>
       </div>
