@@ -1,10 +1,10 @@
-import { Firestore, doc, setDoc, collection, addDoc } from 'firebase/firestore';
+import { Firestore, doc, setDoc, collection, addDoc, getDocs, limit, query } from 'firebase/firestore';
 import { TIERS, PRODUCTS, AGENTS, LEADS } from './mock-data';
 
 export async function seedDatabase(db: Firestore) {
   console.log('Starting database seed...');
 
-  // Seed Tiers - Fixed mapping from mock-data (camelCase)
+  // Seed Tiers
   for (const tier of TIERS) {
     await setDoc(doc(db, 'tiers', tier.id), {
       name: tier.name,
@@ -62,6 +62,36 @@ export async function seedDatabase(db: Firestore) {
       createdAt: leadData.createdAt || new Date().toISOString(),
       lastActivityAt: leadData.lastActivityAt || new Date().toISOString()
     });
+  }
+
+  // Seed Channels (Hierarchical)
+  const channelsRef = collection(db, 'channels');
+  const channelCheck = await getDocs(query(channelsRef, limit(1)));
+  
+  if (channelCheck.empty) {
+    const defaultChannels = [
+      { name: 'Physical visit', sub: [] },
+      { name: 'Referral', sub: ['Exiting client', 'Friend', 'Consultant', 'NGO', 'Partner', 'Auditor', 'Accountant'] },
+      { name: 'Social media', sub: ['TikTok', 'Facebook', 'Instagram', 'LinkedIn', 'X'] },
+      { name: 'Email', sub: [] },
+      { name: 'Website Inquiry', sub: [] },
+      { name: 'Partnership', sub: [] },
+      { name: 'Events or Expos', sub: [] },
+      { name: 'Webinars', sub: [] },
+      { name: 'Workshops', sub: [] },
+      { name: 'Walk in', sub: [] },
+      { name: 'Meeting', sub: ['First meeting', 'Follow up meeting', 'Physical meeting', 'Zoom meeting'] },
+    ];
+
+    for (const main of defaultChannels) {
+      const mainId = `ch_${main.name.toLowerCase().replace(/\s/g, '_')}`;
+      await setDoc(doc(db, 'channels', mainId), { name: main.name, active: true, usageCount: 0 });
+      
+      for (const sub of main.sub) {
+        const subId = `sub_${sub.toLowerCase().replace(/\s/g, '_')}`;
+        await setDoc(doc(db, 'channels', subId), { name: sub, active: true, parentId: mainId, usageCount: 0 });
+      }
+    }
   }
 
   console.log('Seeding complete!');
