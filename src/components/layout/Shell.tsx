@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -26,7 +25,8 @@ import {
   History as HistoryIcon,
   Banknote,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Coins
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -52,6 +52,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingWithdrawals, setPendingWithdrawals] = useState(0);
+  const [pendingCommissions, setPendingCommissions] = useState(0);
   const auth = useAuth();
   const db = useFirestore();
 
@@ -60,9 +61,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!db || !isAdmin) return;
-    const q = query(collection(db, 'withdrawals'), where('status', '==', 'pending'));
-    const unsub = onSnapshot(q, (snap) => setPendingWithdrawals(snap.size));
-    return () => unsub();
+    
+    // Listen for pending withdrawals
+    const qW = query(collection(db, 'withdrawals'), where('status', '==', 'pending'));
+    const unsubW = onSnapshot(qW, (snap) => setPendingWithdrawals(snap.size));
+    
+    // Listen for pending commissions
+    const qC = query(collection(db, 'commissions'), where('status', '==', 'pending'));
+    const unsubC = onSnapshot(qC, (snap) => setPendingCommissions(snap.size));
+
+    return () => {
+      unsubW();
+      unsubC();
+    };
   }, [db, isAdmin]);
 
   const handleLogout = async () => {
@@ -118,8 +129,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
       { label: 'Products', icon: Package, href: '/admin/products', sub: 'Product & resource mgmt' },
       { label: 'Channels', icon: GitBranch, href: '/admin/channels', sub: 'Contact channel tree' },
     ]},
+    { section: 'Finance', items: [
+      { label: 'Commissions', icon: Coins, href: '/admin/commissions', sub: 'Approve deal earnings', badge: pendingCommissions },
+      { label: 'Withdrawals', icon: Banknote, href: '/admin/withdrawals', sub: 'Payout execution', badge: pendingWithdrawals },
+    ]},
     { section: 'System', items: [
-      { label: 'Withdrawals', icon: Banknote, href: '/admin/withdrawals', sub: 'Approve/reject queue', badge: pendingWithdrawals },
       { label: 'Reports', icon: BarChart3, href: '/admin/reports', sub: 'System-wide analytics' },
       { label: 'Targets', icon: Target, href: '/admin/targets', sub: 'Set team targets' },
       { label: 'Audit log', icon: HistoryIcon, href: '/admin/audit', sub: 'All system actions' },
@@ -128,10 +142,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   ];
 
   const themeClasses = {
-        active: "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-l-2 border-cyan-600",
-        hover: "hover:bg-slate-50 dark:hover:bg-slate-800/50",
-        icon: "text-cyan-600"
-      };
+    active: "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-l-2 border-cyan-600",
+    hover: "hover:bg-slate-50 dark:hover:bg-slate-800/50",
+    icon: "text-cyan-600"
+  };
 
   if (isInitializing) {
     return (
