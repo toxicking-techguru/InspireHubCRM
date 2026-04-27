@@ -25,7 +25,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, collectionGroup } from 'firebase/firestore';
 import { Lead, LeadActivity, Tier, Target as AgentTarget } from '@/types/crm';
 import { formatDistanceToNow, isToday, parseISO, startOfMonth, format } from 'date-fns';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -58,7 +58,6 @@ export default function DashboardPage() {
   // Using collectionGroup for cross-lead activity feed
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    const { collectionGroup } = require('firebase/firestore');
     return query(
       collectionGroup(firestore, 'activities'),
       where('agentId', '==', user.id),
