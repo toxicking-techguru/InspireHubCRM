@@ -58,7 +58,7 @@ export const AGENTS = [
   { id: 'a1', name: 'John Doe', email: 'agent@nexus.com', phone: '+123456789', region: 'North', status: 'active', joinDate: '2024-01-15', tierId: 't2', managerId: 'm1', role: 'Agent' },
   { id: 'a2', name: 'Sarah Smith', email: 'sarah@nexus.com', phone: '+123456780', region: 'South', status: 'active', joinDate: '2023-11-20', tierId: 't3', managerId: 'm1', role: 'Agent' },
   { id: 'm1', name: 'Robert King', email: 'manager@nexus.com', phone: '+123456700', region: 'Global', status: 'active', joinDate: '2023-01-01', tierId: 't4', managerId: null, role: 'Manager' },
-  { id: 'adm', name: 'Admin Nexus', email: 'admin@nexus.com', phone: '+000000000', region: 'Global', status: 'active', joinDate: '2022-12-01', tierId: 't4', managerId: null, role: 'Admin' },
+  { id: 'adm', name: 'Admin Nexus', email: 'admin@inspirehub.com', phone: '+000000000', region: 'Global', status: 'active', joinDate: '2022-12-01', tierId: 't4', managerId: null, role: 'Admin' },
 ];
 
 export const LEADS = [

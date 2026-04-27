@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Loader2, Info, UserCheck } from 'lucide-react';
+import { ShieldCheck, Loader2, Info } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword 
@@ -43,12 +43,12 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, currentUser, router]);
 
-  const handleLogin = async (e: React.FormEvent | null, demoEmail?: string, demoPass?: string) => {
+  const handleLogin = async (e: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!auth || !db) return;
 
-    const targetEmail = (demoEmail || email).trim().toLowerCase();
-    const targetPass = demoPass || password;
+    const targetEmail = email.trim().toLowerCase();
+    const targetPass = password;
 
     if (!targetEmail || !targetPass) return;
 
@@ -61,7 +61,6 @@ export default function LoginPage() {
         userCredential = await signInWithEmailAndPassword(auth, targetEmail, targetPass);
       } catch (authErr: any) {
         // 2. If user doesn't exist in Auth, check if they are pre-authorized in Firestore
-        // error codes: auth/user-not-found, auth/invalid-credential, auth/invalid-email
         if (
           authErr.code === 'auth/user-not-found' || 
           authErr.code === 'auth/invalid-credential' || 
@@ -70,8 +69,8 @@ export default function LoginPage() {
           const q = query(collection(db, 'agents'), where('email', '==', targetEmail));
           const snap = await getDocs(q);
           
-          if (!snap.empty && targetPass === '12345678') {
-            // First time login with default password
+          if (!snap.empty && targetPass === 'password123') {
+            // First time login with activation password
             userCredential = await createUserWithEmailAndPassword(auth, targetEmail, targetPass);
             const seededData = snap.docs[0].data();
             const oldId = snap.docs[0].id;
@@ -79,10 +78,10 @@ export default function LoginPage() {
             // Migrate Firestore record to match Auth UID
             await setDoc(doc(db, 'agents', userCredential.user.uid), {
               ...seededData,
-              email: targetEmail // Ensure normalized email
+              email: targetEmail
             });
 
-            // Delete old record if it was a custom ID (like 'adm' or 'agent_...')
+            // Delete old record if it was a custom ID
             if (oldId !== userCredential.user.uid) {
               await deleteDoc(doc(db, 'agents', oldId));
             }
@@ -96,8 +95,7 @@ export default function LoginPage() {
                }
             }
           } else {
-            // If we are here, either email not in DB or password isn't 12345678
-            throw new Error("Access denied. Please check your credentials or contact your administrator.");
+            throw new Error("Access denied. Please contact your administrator for an invitation.");
           }
         } else {
           throw authErr;
@@ -111,13 +109,13 @@ export default function LoginPage() {
         setGlobalAuth(agentData);
         toast({ title: "Welcome", description: `Signed in as ${agentData.name}` });
       } else {
-        throw new Error("User profile not found in system database.");
+        throw new Error("Profile synchronization failed. Contact support.");
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error.message || "Invalid email or password."
+        description: error.message || "Invalid credentials."
       });
     } finally {
       setLoading(false);
@@ -136,13 +134,13 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-card border rounded-xl shadow-xl overflow-hidden border-cyan-100">
-          <form onSubmit={(e) => handleLogin(e)} className="p-6 space-y-4">
+          <form onSubmit={handleLogin} className="p-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Work Email</Label>
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="name@nexus.com" 
+                placeholder="name@inspirehub.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -169,25 +167,9 @@ export default function LoginPage() {
             
             <div className="mt-4 p-3 bg-cyan-50 rounded-lg flex gap-3 text-cyan-800 text-[11px] leading-tight">
                <Info size={14} className="shrink-0 text-cyan-600" />
-               <p>New staff? Use the default password <code>12345678</code> for your first sign-in to activate your account.</p>
+               <p>New staff? Use your activation password for your first sign-in to create your account.</p>
             </div>
           </form>
-          
-          <div className="bg-slate-50 border-t p-4 space-y-3">
-             <div className="flex items-center gap-2">
-                <div className="h-px bg-slate-200 flex-1" />
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Administrative Access</span>
-                <div className="h-px bg-slate-200 flex-1" />
-             </div>
-             <Button 
-               variant="outline" 
-               className="w-full h-9 text-[11px] font-bold uppercase tracking-tight gap-2 border-cyan-200 text-cyan-700 bg-white hover:bg-cyan-50"
-               onClick={() => handleLogin(null, 'admin@nexus.com', '12345678')}
-               disabled={loading}
-             >
-                <UserCheck size={14} /> Log in as Admin (Demo)
-             </Button>
-          </div>
         </div>
       </div>
     </div>
