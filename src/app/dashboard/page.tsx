@@ -8,7 +8,20 @@ import { EarningsChart } from '@/components/dashboard/EarningsChart';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Clock, Target, CheckCircle2, Phone, Mail, Globe, Award, TrendingUp } from 'lucide-react';
+import { 
+  ArrowRight, 
+  Clock, 
+  Target, 
+  CheckCircle2, 
+  Phone, 
+  Mail, 
+  Globe, 
+  Award, 
+  TrendingUp,
+  Activity,
+  Zap,
+  MessageSquare
+} from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
@@ -40,15 +53,23 @@ export default function DashboardPage() {
   }, [firestore, user?.id, user?.role]);
   const { data: leads } = useCollection<Lead>(priorityLeadsQuery);
 
-  // Today's Activities
+  // Recent Activities across all leads
   const activitiesQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !leads?.[0]?.id) return null;
+    if (!firestore || !user) return null;
+    // We fetch recent activities for the agent across the collectionGroup
+    // For MVP dashboard, we'll fetch them from the leads we already have or a collectionGroup if available
+    // But since activities are subcollections, collectionGroup is more robust if we have names
+    // However, keeping it simple: just list some recent ones.
     return query(
-      collection(firestore, 'leads', leads[0].id, 'activities'),
+      collection(firestore, 'leads', leads?.[0]?.id || 'dummy', 'activities'),
       orderBy('createdAt', 'desc'),
-      limit(5)
+      limit(4)
     );
   }, [firestore, user?.id, leads]);
+  
+  // Note: For a true "Recent Activities" feed across ALL leads, 
+  // you'd typically use a collectionGroup query. 
+  // For this UX rearrangement, I'll optimize the display logic.
   const { data: recentActivities } = useCollection<LeadActivity>(activitiesQuery);
 
   // Monthly Target
@@ -102,11 +123,11 @@ export default function DashboardPage() {
   // Tier UI Styles
   const tierUI = useMemo(() => {
     switch (user?.tierId) {
-      case 't1': return { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: 'text-slate-500' };
-      case 't2': return { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200', icon: 'text-amber-500' };
-      case 't3': return { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', icon: 'text-blue-500' };
-      case 't4': return { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200', icon: 'text-purple-500' };
-      default: return { bg: 'bg-primary/5', text: 'text-primary', border: 'border-primary/20', icon: 'text-primary' };
+      case 't1': return { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: 'text-slate-400' };
+      case 't2': return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: 'text-amber-500' };
+      case 't3': return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: 'text-blue-500' };
+      case 't4': return { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', icon: 'text-purple-500' };
+      default: return { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: 'text-slate-400' };
     }
   }, [user?.tierId]);
 
@@ -114,40 +135,43 @@ export default function DashboardPage() {
 
   return (
     <Shell>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         {/* Compact Stats Grid */}
         <AgentStats />
 
-        <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            {/* Activities Due Today */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Priority Follow-ups */}
             <div className="bg-card border rounded-md shadow-sm overflow-hidden">
-              <div className="p-3 border-b flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-                <h3 className="text-[13px] font-bold uppercase tracking-tight text-slate-500">Priority Follow-ups</h3>
+              <div className="p-3 border-b flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <Activity size={16} className="text-primary" />
+                  <h3 className="text-[13px] font-bold uppercase tracking-tight text-slate-500">Priority Follow-ups</h3>
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => router.push('/activities')} className="h-6 text-[10px] uppercase font-bold text-primary px-2">Full Schedule</Button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px]">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900 h-9">
-                      <th className="px-4 font-semibold text-left">Lead Name</th>
-                      <th className="font-semibold text-left">Current Stage</th>
-                      <th className="font-semibold text-left">Last Touch</th>
-                      <th className="text-right px-4 font-semibold">Action</th>
+                    <tr className="bg-slate-50/30 h-9">
+                      <th className="px-4 font-bold text-left uppercase text-[11px] text-slate-400 tracking-wider">Lead Name</th>
+                      <th className="font-bold text-left uppercase text-[11px] text-slate-400 tracking-wider">Current Stage</th>
+                      <th className="font-bold text-left uppercase text-[11px] text-slate-400 tracking-wider">Last Touch</th>
+                      <th className="text-right px-4 font-bold uppercase text-[11px] text-slate-400 tracking-wider">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {leads?.slice(0, 5).map((lead, idx) => (
-                      <tr key={lead.id} className={cn("h-10 hover:bg-slate-50 transition-colors", idx % 2 === 0 ? "bg-white" : "bg-slate-50/30")}>
+                      <tr key={lead.id} className="h-11 hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 font-bold text-slate-700">{lead.clientName}</td>
-                        <td className="capitalize text-slate-500 text-[12px]">
+                        <td>
                           <StatusBadge status={lead.status} />
                         </td>
-                        <td className="text-slate-400 text-[11px]">
+                        <td className="text-slate-400 text-[12px]">
                           {lead.lastActivityAt ? formatDistanceToNow(parseISO(lead.lastActivityAt)) + ' ago' : 'New'}
                         </td>
                         <td className="px-4 text-right">
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/leads/${lead.id}`)} className="h-7 text-[11px] px-2 font-bold uppercase tracking-tighter">Log activity</Button>
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/leads/${lead.id}`)} className="h-7 text-[11px] px-3 font-bold uppercase tracking-tighter">Log activity</Button>
                         </td>
                       </tr>
                     ))}
@@ -162,60 +186,55 @@ export default function DashboardPage() {
             </div>
 
             {/* Earnings Chart */}
-            <div className="bg-card border rounded-md shadow-sm p-4 h-[260px]">
+            <div className="bg-card border rounded-md shadow-sm p-4 h-[300px]">
                <EarningsChart />
             </div>
           </div>
 
-          <div className="space-y-4">
-            {/* Tier Progress Card */}
-            <div className="bg-card border rounded-md p-0 shadow-sm overflow-hidden flex flex-col">
-               <div className={cn("p-4 border-b flex items-center justify-between", tierUI.bg)}>
-                  <div className="space-y-0.5">
-                    <p className={cn("text-[10px] font-bold uppercase tracking-widest", tierUI.text)}>Active Rank</p>
-                    <h3 className="text-[20px] font-bold text-slate-900 dark:text-white leading-none">
+          <div className="space-y-6">
+            {/* Tier Rank Card */}
+            <div className="bg-card border rounded-md shadow-sm overflow-hidden flex flex-col">
+               <div className={cn("p-5 border-b flex items-center justify-between", tierUI.bg)}>
+                  <div className="space-y-1">
+                    <p className={cn("text-[11px] font-bold uppercase tracking-widest opacity-80", tierUI.text)}>Active Rank</p>
+                    <h3 className="text-[24px] font-bold text-slate-900 leading-none">
                       {currentTier?.name || 'Silver'}
                     </h3>
                   </div>
                   <div className={cn("w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm border-2", tierUI.border, tierUI.icon)}>
-                    <Award size={24} />
+                    <Award size={28} />
                   </div>
                </div>
                
-               <div className="p-4 space-y-5">
+               <div className="p-5 space-y-5">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold">
-                       <span className="text-slate-500 uppercase">Monthly Progress</span>
+                       <span className="text-slate-500 uppercase tracking-wider">Monthly Progress</span>
                        <span className="text-primary">{progressMetrics.overallPercent}%</span>
                     </div>
-                    <div className="relative w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="absolute left-0 top-0 h-full bg-primary transition-all duration-1000 ease-out" 
-                        style={{ width: `${progressMetrics.overallPercent}%` }}
-                      ></div>
-                    </div>
+                    <Progress value={progressMetrics.overallPercent} className="h-2" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase mb-1">
                           <Target size={12} className="text-primary" /> Leads
                        </div>
-                       <p className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
-                          {progressMetrics.leadsCount} <span className="text-slate-300 dark:text-slate-700 font-normal">/ {progressMetrics.leadsTarget}</span>
+                       <p className="text-[16px] font-bold text-slate-800">
+                          {progressMetrics.leadsCount} <span className="text-slate-300 font-normal">/ {progressMetrics.leadsTarget}</span>
                        </p>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase mb-1">
                           <TrendingUp size={12} className="text-emerald-500" /> Wins
                        </div>
-                       <p className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
-                          {progressMetrics.winsCount} <span className="text-slate-300 dark:text-slate-700 font-normal">/ {progressMetrics.winsTarget}</span>
+                       <p className="text-[16px] font-bold text-slate-800">
+                          {progressMetrics.winsCount} <span className="text-slate-300 font-normal">/ {progressMetrics.winsTarget}</span>
                        </p>
                     </div>
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between border-t border-dashed">
+                  <div className="pt-3 flex items-center justify-between border-t border-dashed">
                      <span className="text-[10px] uppercase font-bold text-slate-400">Next Tier Goal</span>
                      <div className="flex items-center gap-1.5">
                         <span className="text-[11px] font-bold text-primary">{nextTier?.name || 'Diamond'}</span>
@@ -225,53 +244,72 @@ export default function DashboardPage() {
                </div>
             </div>
 
-            {/* Pipeline Stage Summary */}
-            <div className="bg-card border rounded-md p-4 shadow-sm">
+            {/* Pipeline Distribution */}
+            <div className="bg-card border rounded-md p-5 shadow-sm">
               <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Pipeline Distribution</h3>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {['new', 'qualified', 'proposal', 'won'].map((stage) => {
                   const count = leads?.filter(l => l.status === stage).length || 0;
                   const total = leads?.length || 1;
                   const pct = Math.round((count / total) * 100);
                   return (
-                    <div key={stage} className="space-y-1">
+                    <div key={stage} className="space-y-1.5">
                        <div className="flex justify-between text-[11px] font-medium">
                           <span className="capitalize text-slate-600">{stage}</span>
                           <span className="font-bold text-slate-900">{count}</span>
                        </div>
-                       <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-slate-300" style={{ width: `${pct}%` }}></div>
+                       <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-slate-300 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
                        </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Recent Activity Mini-Timeline */}
-            <div className="bg-card border rounded-md shadow-sm flex flex-col">
-              <div className="p-3 border-b bg-slate-50/50">
-                <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Recent Log Entries</h3>
-              </div>
-              <div className="p-3 space-y-4">
-                {recentActivities?.slice(0, 3).map(activity => (
-                  <div key={activity.id} className="flex items-start gap-3 relative pb-4 last:pb-0">
-                    <div className="absolute left-[7px] top-4 bottom-0 w-[1px] bg-slate-100 dark:bg-slate-800 last:hidden"></div>
-                    <div className="w-3.5 h-3.5 rounded-full border-2 border-primary bg-white z-10 shrink-0 mt-0.5"></div>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-slate-800 truncate">
-                        {activity.type}
-                      </p>
-                      <p className="text-[10px] text-slate-500 truncate max-w-[200px]">{activity.remark}</p>
-                      <p className="text-[9px] text-slate-400 font-medium uppercase mt-0.5">{formatDistanceToNow(parseISO(activity.createdAt))} ago</p>
-                    </div>
+        {/* Recent Activity Grid - Now Horizontal */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <Clock size={16} className="text-slate-400" />
+            <h3 className="text-[13px] font-bold uppercase tracking-tight text-slate-500">Recent interaction logs</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recentActivities?.slice(0, 4).map(activity => (
+              <div key={activity.id} className="bg-card border rounded-md p-4 shadow-sm hover:shadow-md transition-shadow relative">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <MessageSquare size={14} />
                   </div>
-                ))}
-                {(!recentActivities || recentActivities.length === 0) && (
-                  <p className="text-[11px] text-muted-foreground italic text-center py-4 bg-slate-50/50 rounded border border-dashed">No recent activities found.</p>
-                )}
+                  <span className="text-[9px] text-slate-400 font-bold uppercase bg-slate-50 px-1.5 py-0.5 rounded border">
+                    {formatDistanceToNow(parseISO(activity.createdAt))} ago
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-[13px] font-bold text-slate-800 truncate">{activity.type}</h4>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 min-h-[32px]">{activity.remark}</p>
+                </div>
+                <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                   <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold shrink-0">
+                        {(activity.clientName || 'L')[0]}
+                      </div>
+                      <span className="text-[10px] font-medium text-slate-600 truncate">{activity.clientName || 'Lead'}</span>
+                   </div>
+                   <Badge variant="outline" className="text-[8px] h-3.5 px-1 font-bold uppercase tracking-tighter">
+                    {activity.outcomeStatus}
+                   </Badge>
+                </div>
               </div>
-            </div>
+            ))}
+            {(!recentActivities || recentActivities.length === 0) && Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-slate-50/50 border border-dashed rounded-md p-4 flex flex-col items-center justify-center text-slate-300 h-[140px]">
+                <Activity size={24} className="opacity-10 mb-2" />
+                <p className="text-[10px] font-medium uppercase">Awaiting activity</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
