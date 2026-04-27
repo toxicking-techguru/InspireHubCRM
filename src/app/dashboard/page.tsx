@@ -16,7 +16,8 @@ import {
   TrendingUp,
   Activity,
   Zap,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
