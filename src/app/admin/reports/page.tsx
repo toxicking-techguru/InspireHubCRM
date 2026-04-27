@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -75,11 +74,13 @@ export default function AdminReportsPage() {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [filteredLeads]);
 
-  const managerPerformance = useMemo(() => {
+  const teamPerformance = useMemo(() => {
     if (!agents || !leads) return [];
-    const managers = agents.filter(a => a.role === 'Manager' || a.role === 'Admin');
+    // Only rank people with roles that manage leads (Agents/Managers), exclude Admin oversighers
+    const staff = agents.filter(a => a.role !== 'Admin');
     
-    return managers.map(m => {
+    return staff.map(m => {
+      // For Managers, count their whole team's contribution. For Agents, just their own.
       const teamAgentIds = agents.filter(a => a.managerId === m.id || a.id === m.id).map(a => a.id);
       const teamLeads = leads.filter(l => teamAgentIds.includes(l.agentId));
       const won = teamLeads.filter(l => l.status === 'won').length;
@@ -174,14 +175,14 @@ export default function AdminReportsPage() {
                   <table className="w-full text-[13px]">
                      <thead>
                         <tr className="bg-slate-50 h-10 border-b">
-                           <th className="px-4 text-left">Unit Leader / Staff Member</th>
-                           <th className="text-center">Team Wins</th>
-                           <th className="text-right">Team Revenue</th>
+                           <th className="px-4 text-left">Operational Staff Member</th>
+                           <th className="text-center">Contribution (Wins)</th>
+                           <th className="text-right">Revenue Impact</th>
                            <th className="text-center px-4">Avg. Conversion</th>
                         </tr>
                      </thead>
                      <tbody className="divide-y">
-                        {managerPerformance.map((m, i) => (
+                        {teamPerformance.map((m, i) => (
                           <tr key={i} className="h-11 hover:bg-cyan-50/30 transition-colors">
                              <td className="px-4 font-bold text-slate-800">{m.name}</td>
                              <td className="text-center font-medium text-slate-600">{m.won}</td>
@@ -191,8 +192,8 @@ export default function AdminReportsPage() {
                              </td>
                           </tr>
                         ))}
-                        {managerPerformance.length === 0 && (
-                          <tr className="h-40"><td colSpan={4} className="text-center text-slate-300 italic">No staff data available for current range.</td></tr>
+                        {teamPerformance.length === 0 && (
+                          <tr className="h-40"><td colSpan={4} className="text-center text-slate-300 italic">No operational data available for current range.</td></tr>
                         )}
                      </tbody>
                   </table>

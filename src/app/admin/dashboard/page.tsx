@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useMemo, useState } from 'react';
@@ -54,6 +53,9 @@ export default function AdminDashboard() {
   const stats = useMemo(() => {
     if (leadsLoading || agentsLoading || !allLeads || !agents) return null;
     
+    // Count only Agents for the "Total Agents" card
+    const activeAgentsCount = agents.filter(a => a.role === 'Agent').length;
+    
     const activeLeads = allLeads.filter(l => !['won', 'lost', 'dormant'].includes(l.status)).length;
     const monthStart = startOfMonth(new Date());
     const wonThisMonth = allLeads.filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= monthStart).length;
@@ -74,7 +76,7 @@ export default function AdminDashboard() {
 
     return {
       cards: [
-        { label: 'Total agents', value: agents.length, sub: 'Team size', icon: Users },
+        { label: 'Total agents', value: activeAgentsCount, sub: 'Excluding Oversighters', icon: Users },
         { label: 'Active leads', value: activeLeads, sub: `${idleLeadsCount} idle (>72h)`, icon: Target },
         { label: 'Won this month', value: wonThisMonth, sub: 'Deals closed', icon: TrendingUp },
         { label: 'Gross Revenue', value: `$${(totalGrossRevenue / 1000).toFixed(1)}k`, sub: 'Lifetime sales', icon: TrendingUp },
@@ -90,13 +92,18 @@ export default function AdminDashboard() {
 
   const performanceData = useMemo(() => {
     if (!agents || !allLeads) return [];
-    return agents.map(agent => {
-      const agentLeads = allLeads.filter(l => l.agentId === agent.id);
-      const won = agentLeads.filter(l => l.status === 'won').length;
-      const revenue = agentLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
-      const conversion = agentLeads.length > 0 ? Math.round((won / agentLeads.length) * 100) : 0;
-      return { ...agent, won, revenue, conversion };
-    }).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+    // Only Agents and Managers are ranked; Admins are oversighers
+    return agents
+      .filter(agent => agent.role !== 'Admin')
+      .map(agent => {
+        const agentLeads = allLeads.filter(l => l.agentId === agent.id);
+        const won = agentLeads.filter(l => l.status === 'won').length;
+        const revenue = agentLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+        const conversion = agentLeads.length > 0 ? Math.round((won / agentLeads.length) * 100) : 0;
+        return { ...agent, won, revenue, conversion };
+      })
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
   }, [agents, allLeads]);
 
   const revenueChartData = useMemo(() => {
@@ -115,8 +122,10 @@ export default function AdminDashboard() {
 
   const tierDistribution = useMemo(() => {
     if (!agents) return [];
+    // Only Agents count for distribution statistics
     const counts = { t1: 0, t2: 0, t3: 0, t4: 0 };
-    agents.forEach(a => { 
+    const operationalStaff = agents.filter(a => a.role !== 'Admin');
+    operationalStaff.forEach(a => { 
       const tid = a.tierId as keyof typeof counts;
       counts[tid] = (counts[tid] || 0) + 1 
     });
@@ -190,7 +199,7 @@ export default function AdminDashboard() {
 
             <div className="bg-card border rounded-md shadow-sm overflow-hidden border-cyan-100">
                <div className="p-3 border-b bg-slate-50/50 flex items-center justify-between">
-                  <h3 className="text-[12px] font-bold uppercase tracking-tight text-slate-500">Top Performing Agents</h3>
+                  <h3 className="text-[12px] font-bold uppercase tracking-tight text-slate-500">Top Performing Staff</h3>
                   <Link href="/admin/agents">
                     <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold text-cyan-600">View All</Button>
                   </Link>
@@ -199,7 +208,7 @@ export default function AdminDashboard() {
                   <thead>
                     <tr className="bg-slate-50/50 h-8">
                        <th className="px-3 text-left w-10">Rank</th>
-                       <th className="text-left">Agent</th>
+                       <th className="text-left">Person</th>
                        <th className="text-center">Won</th>
                        <th className="text-right">Revenue</th>
                        <th className="text-center">Conv %</th>
@@ -217,12 +226,12 @@ export default function AdminDashboard() {
                         <td className="text-center">{p.won}</td>
                         <td className="text-right font-medium text-cyan-700">${p.revenue.toLocaleString()}</td>
                         <td className="text-center">
-                          <Badge variant="outline" className="text-[9px] h-4 font-bold border-cyan-100 text-cyan-600">{p.conversion}%</Badge>
+                          <Badge variant="outline" className="text-[9px] h-4 font-bold border-cyan-100 text-cyan-700">{p.conversion}%</Badge>
                         </td>
                       </tr>
                     ))}
                     {performanceData.length === 0 && !agentsLoading && (
-                      <tr className="h-20"><td colSpan={5} className="text-center text-slate-300 italic">No agent performance data.</td></tr>
+                      <tr className="h-20"><td colSpan={5} className="text-center text-slate-300 italic">No staff performance data.</td></tr>
                     )}
                   </tbody>
                </table>
@@ -237,7 +246,7 @@ export default function AdminDashboard() {
                     <div 
                       key={i} 
                       className="h-full transition-all" 
-                      style={{ width: `${(t.count / (agents?.length || 1)) * 100}%`, backgroundColor: t.fill }}
+                      style={{ width: `${(t.count / (agents?.filter(a => a.role === 'Agent').length || 1)) * 100}%`, backgroundColor: t.fill }}
                       title={`${t.name}: ${t.count}`}
                     />
                   ))}

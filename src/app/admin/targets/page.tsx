@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -37,12 +36,16 @@ export default function AdminTargetsPage() {
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
 
-  // Admin sees ALL potential sales contributors (Agents, Managers, Admins)
+  // Quotas are assigned to operational staff (Agents/Managers). Admins are oversighers and excluded.
   const agentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'agents'), orderBy('name'));
   }, [firestore]);
   const { data: agents } = useCollection<Agent>(agentsQuery as any);
+
+  const targetableStaff = useMemo(() => {
+    return agents?.filter(a => a.role !== 'Admin') || [];
+  }, [agents]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -120,7 +123,7 @@ export default function AdminTargetsPage() {
             <h1 className="text-[18px] font-bold text-cyan-900 flex items-center gap-2">
                <ShieldCheck className="text-cyan-600" size={20} /> Quota Administration
             </h1>
-            <p className="text-[12px] text-muted-foreground mt-0.5">Define system-wide performance targets for any sales representative.</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Define system-wide performance targets for sales representatives. (Admins excluded)</p>
           </div>
           <div className="flex items-center gap-2">
              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
@@ -128,7 +131,7 @@ export default function AdminTargetsPage() {
                  <SelectValue placeholder="Search person to assign targets..." />
                </SelectTrigger>
                <SelectContent>
-                 {agents?.map(a => (
+                 {targetableStaff.map(a => (
                    <SelectItem key={a.id} value={a.id}>
                      <div className="flex flex-col">
                        <span>{a.name}</span>
@@ -136,6 +139,7 @@ export default function AdminTargetsPage() {
                      </div>
                    </SelectItem>
                  ))}
+                 {targetableStaff.length === 0 && <div className="p-2 text-xs text-slate-400">No targetable staff found.</div>}
                </SelectContent>
              </Select>
              <div className="flex items-center gap-1 bg-slate-50 border rounded-md px-2 h-9">
@@ -223,10 +227,10 @@ export default function AdminTargetsPage() {
                <div className="bg-cyan-50 border border-cyan-100 rounded-md p-5 shadow-inner">
                   <div className="flex items-center gap-4 mb-6">
                      <div className="w-12 h-12 rounded-full bg-white border border-cyan-100 text-cyan-600 flex items-center justify-center font-bold text-lg shadow-sm">
-                       {agents?.find(a => a.id === selectedAgentId)?.name[0]}
+                       {targetableStaff.find(a => a.id === selectedAgentId)?.name?.[0]}
                      </div>
                      <div>
-                        <p className="text-[15px] font-bold text-cyan-900">{agents?.find(a => a.id === selectedAgentId)?.name}</p>
+                        <p className="text-[15px] font-bold text-cyan-900">{targetableStaff.find(a => a.id === selectedAgentId)?.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                            <Badge variant="outline" className="text-[9px] h-4 bg-white border-cyan-200 text-cyan-700 uppercase tracking-tighter">Current Quota</Badge>
                            <span className="text-[10px] text-slate-400 font-bold uppercase">{monthStr}</span>
@@ -260,8 +264,8 @@ export default function AdminTargetsPage() {
              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
                 <TargetIcon size={32} className="text-cyan-100" />
              </div>
-             <p className="text-[15px] font-bold text-slate-400">Select a team member</p>
-             <p className="text-[12px] text-slate-400">Choose a staff member from the dropdown to manage their performance benchmarks.</p>
+             <p className="text-[15px] font-bold text-slate-400">Select an operational team member</p>
+             <p className="text-[12px] text-slate-400">Choose an agent or manager from the dropdown to manage their performance benchmarks.</p>
           </div>
         )}
       </div>
