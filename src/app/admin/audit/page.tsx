@@ -5,15 +5,13 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
   History, 
   Search, 
-  Filter, 
-  Download, 
   ChevronDown, 
   ChevronUp, 
   Loader2,
@@ -31,7 +29,7 @@ export default function AdminAuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Fetch Audit Logs (Limited to 100 for performance, ideally server-side paginated)
+  // Fetch Audit Logs (Limited to 100 for performance)
   const auditQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100)) : null, [firestore]);
   const { data: logs, loading } = useCollection<any>(auditQuery as any);
 
@@ -40,7 +38,8 @@ export default function AdminAuditPage() {
     return logs.filter(l => 
       l.actorName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       l.actionType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.entityId?.toLowerCase().includes(searchTerm.toLowerCase())
+      l.entityId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.entityType?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [logs, searchTerm]);
 
@@ -64,12 +63,7 @@ export default function AdminAuditPage() {
               <h1 className="text-[18px] font-bold flex items-center gap-2 text-violet-900">
                  <History className="text-violet-600" size={20} /> System Audit Trail
               </h1>
-              <p className="text-[12px] text-muted-foreground mt-0.5">Immutable record of all administrative and automated system actions.</p>
-           </div>
-           <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8 gap-2 border-violet-200 text-violet-700">
-                 <Download size={14} /> Export CSV (500)
-              </Button>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Real-time record of all administrative and automated system actions.</p>
            </div>
         </div>
 
@@ -77,7 +71,7 @@ export default function AdminAuditPage() {
            <div className="relative flex-1 max-w-[300px]">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <Input 
-                placeholder="Search actor or entity..." 
+                placeholder="Search actor, entity or action..." 
                 className="pl-8 h-8 text-[12px] bg-white border-violet-100 shadow-none" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -118,8 +112,8 @@ export default function AdminAuditPage() {
                                 <td className="px-3 text-slate-500 font-medium">{format(parseISO(log.timestamp), 'MMM d, HH:mm:ss')}</td>
                                 <td className="">
                                    <div className="flex flex-col">
-                                      <span className="font-bold text-slate-800">{log.actorName}</span>
-                                      <span className="text-[10px] text-slate-400 font-bold uppercase">{log.actorRole}</span>
+                                      <span className="font-bold text-slate-800">{log.actorName || 'System'}</span>
+                                      <span className="text-[10px] text-slate-400 font-bold uppercase">{log.actorRole || 'AUTO'}</span>
                                    </div>
                                 </td>
                                 <td>
@@ -142,19 +136,19 @@ export default function AdminAuditPage() {
                                          <div className="space-y-2">
                                             <h4 className="text-[11px] font-bold uppercase text-slate-400">Previous State</h4>
                                             <div className="p-3 bg-white border rounded shadow-inner font-mono text-[11px] overflow-auto max-h-[200px] text-slate-400">
-                                               {log.oldValue ? JSON.stringify(log.oldValue, null, 2) : 'NONE'}
+                                               {log.oldValue ? <pre>{JSON.stringify(log.oldValue, null, 2)}</pre> : 'NONE'}
                                             </div>
                                          </div>
                                          <div className="space-y-2">
                                             <h4 className="text-[11px] font-bold uppercase text-violet-700">New State</h4>
                                             <div className="p-3 bg-white border border-violet-100 rounded shadow-inner font-mono text-[11px] overflow-auto max-h-[200px] text-violet-800">
-                                               {log.newValue ? JSON.stringify(log.newValue, null, 2) : 'NONE'}
+                                               {log.newValue ? <pre>{JSON.stringify(log.newValue, null, 2)}</pre> : 'NONE'}
                                             </div>
                                          </div>
                                       </div>
                                       <div className="mt-4 flex items-center gap-6 text-[11px] text-slate-400 font-medium">
                                          <span>Entity ID: <b className="text-slate-600">{log.entityId}</b></span>
-                                         <span>IP Address: <b className="text-slate-600">{log.ipAddress || '192.168.1.1'}</b></span>
+                                         <span>IP Address: <b className="text-slate-600">{log.ipAddress || '---'}</b></span>
                                          <span>Reference: <b className="text-slate-600">{log.reference || 'SYSTEM_EVENT'}</b></span>
                                       </div>
                                    </td>
@@ -181,4 +175,3 @@ export default function AdminAuditPage() {
     </Shell>
   );
 }
-

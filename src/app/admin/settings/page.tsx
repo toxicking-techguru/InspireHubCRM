@@ -24,7 +24,8 @@ import {
   AlertTriangle,
   Play,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -115,7 +116,8 @@ function GeneralSettings({ config, onSave, saving }: any) {
     appName: 'InspireHubCRM', 
     timezone: 'UTC+3', 
     currency: 'USD', 
-    idleThreshold: 72 
+    idleThreshold: 72,
+    withdrawalDays: 'Fridays'
   });
 
   useEffect(() => {
@@ -125,6 +127,7 @@ function GeneralSettings({ config, onSave, saving }: any) {
         timezone: config.timezone || 'UTC+3',
         currency: config.currency || 'USD',
         idleThreshold: config.idleThreshold || 72,
+        withdrawalDays: config.withdrawalDays || 'Fridays',
       });
     }
   }, [config]);
@@ -152,12 +155,18 @@ function GeneralSettings({ config, onSave, saving }: any) {
                 </div>
              </div>
           </div>
-          <div className="space-y-1.5">
-             <Label className="text-[11px] font-bold uppercase text-slate-400">Idle Lead Threshold (Hours)</Label>
-             <div className="flex items-center gap-3">
-                <Input type="number" className="h-9 w-24 text-[13px]" value={data.idleThreshold} onChange={(e) => setData({...data, idleThreshold: parseInt(e.target.value) || 0})} />
-                <span className="text-[12px] text-slate-500">Leads with no activity for this period will flag as "Idle".</span>
-             </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+               <Label className="text-[11px] font-bold uppercase text-slate-400">Idle Threshold (Hours)</Label>
+               <Input type="number" className="h-9 text-[13px]" value={data.idleThreshold} onChange={(e) => setData({...data, idleThreshold: parseInt(e.target.value) || 0})} />
+            </div>
+            <div className="space-y-1.5">
+               <Label className="text-[11px] font-bold uppercase text-slate-400">Withdrawal Allowed Days</Label>
+               <div className="relative">
+                  <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input className="h-9 pl-8 text-[13px]" placeholder="e.g. Fridays, Mondays" value={data.withdrawalDays} onChange={(e) => setData({...data, withdrawalDays: e.target.value})} />
+               </div>
+            </div>
           </div>
        </div>
        <Button className="bg-violet-600 hover:bg-violet-700 h-9 px-8 gap-2 font-bold uppercase text-[11px]" disabled={saving} onClick={() => onSave(data)}>

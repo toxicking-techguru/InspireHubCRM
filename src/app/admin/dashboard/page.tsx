@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   const withdrawalsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'withdrawals') : null, [firestore]);
   const { data: withdrawals } = useCollection<Withdrawal>(withdrawalsQuery as any);
 
-  const commissionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'commissions') : null, [firestore]);
+  const commissionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'commissions'), orderBy('createdAt', 'desc'), limit(10)) : null, [firestore]);
   const { data: commissions } = useCollection<Commission>(commissionsQuery as any);
 
   const stats = useMemo(() => {
@@ -57,24 +57,30 @@ export default function AdminDashboard() {
     const wonThisMonth = allLeads.filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= monthStart).length;
     const totalRevenue = allLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
     const pendingWithdrawals = withdrawals?.filter(w => w.status === 'pending').length || 0;
-    const idleLeads = allLeads.filter(l => {
+    
+    const idleLeadsCount = allLeads.filter(l => {
       if (['won', 'lost', 'dormant'].includes(l.status)) return false;
       const lastTouch = new Date(l.lastActivityAt || l.createdAt).getTime();
       return (Date.now() - lastTouch) > (72 * 60 * 60 * 1000);
     }).length;
+
     const newAgentsThisMonth = agents.filter(a => parseISO(a.joinDate) >= monthStart).length;
     const pendingCommsAmount = commissions?.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0;
 
-    return [
-      { label: 'Total agents', value: agents.length, icon: Users },
-      { label: 'Active leads', value: activeLeads, icon: Target },
-      { label: 'Won this month', value: wonThisMonth, icon: TrendingUp },
-      { label: 'Total revenue', value: `$${(totalRevenue / 1000).toFixed(1)}k`, icon: TrendingUp },
-      { label: 'Pending comms', value: `$${(pendingCommsAmount / 1000).toFixed(1)}k`, icon: Banknote },
-      { label: 'Pending withdrawals', value: pendingWithdrawals, isWarning: pendingWithdrawals > 0, icon: Banknote },
-      { label: 'Idle leads', value: idleLeads, icon: AlertCircle },
-      { label: 'New agents', value: newAgentsThisMonth, icon: UserPlus },
-    ];
+    return {
+      cards: [
+        { label: 'Total agents', value: agents.length, icon: Users },
+        { label: 'Active leads', value: activeLeads, icon: Target },
+        { label: 'Won this month', value: wonThisMonth, icon: TrendingUp },
+        { label: 'Total revenue', value: `$${(totalRevenue / 1000).toFixed(1)}k`, icon: TrendingUp },
+        { label: 'Pending comms', value: `$${(pendingCommsAmount / 1000).toFixed(1)}k`, icon: Banknote },
+        { label: 'Pending withdrawals', value: pendingWithdrawals, isWarning: pendingWithdrawals > 0, icon: Banknote },
+        { label: 'Idle leads', value: idleLeadsCount, icon: AlertCircle },
+        { label: 'New agents', value: newAgentsThisMonth, icon: UserPlus },
+      ],
+      idleLeadsCount,
+      pendingWithdrawals
+    };
   }, [allLeads, agents, withdrawals, commissions, leadsLoading, agentsLoading]);
 
   const performanceData = useMemo(() => {
@@ -121,7 +127,7 @@ export default function AdminDashboard() {
       <div className="space-y-4">
         {/* Metric Cards Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {stats ? stats.map((stat, i) => (
+          {stats ? stats.cards.map((stat, i) => (
             <div key={i} className={cn(
               "border-[0.5px] rounded-md p-3 shadow-sm flex flex-col justify-between h-[90px]",
               stat.isWarning ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200" : "bg-slate-50 dark:bg-slate-800"
@@ -246,17 +252,19 @@ export default function AdminDashboard() {
                </div>
                <div className="divide-y">
                   {[
-                    { text: `${stats?.idleLeads || 0} leads have been idle > 72h`, icon: Clock },
-                    { text: `${stats?.find(s => s.label === 'Pending withdrawals')?.value || 0} withdrawals pending approval`, icon: Banknote },
-                    { text: "Lead volume assessment complete", icon: TrendingUp },
+                    { text: `${stats?.idleLeadsCount || 0} leads have been idle > 72h`, icon: Clock, href: '/admin/leads' },
+                    { text: `${stats?.pendingWithdrawals || 0} withdrawals pending approval`, icon: Banknote, href: '/admin/withdrawals' },
+                    { text: "Lead volume assessment complete", icon: TrendingUp, href: '/admin/reports' },
                   ].map((alert, i) => (
-                    <div key={i} className="p-3 flex items-start gap-3 hover:bg-slate-50/50 cursor-pointer group">
-                       <alert.icon size={14} className="mt-0.5 text-red-400" />
-                       <div className="flex-1">
-                          <p className="text-[12px] font-medium text-slate-700 leading-tight group-hover:text-violet-700">{alert.text}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase">Quick Action →</p>
-                       </div>
-                    </div>
+                    <Link key={i} href={alert.href}>
+                      <div className="p-3 flex items-start gap-3 hover:bg-slate-50/50 cursor-pointer group">
+                         <alert.icon size={14} className="mt-0.5 text-red-400" />
+                         <div className="flex-1">
+                            <p className="text-[12px] font-medium text-slate-700 leading-tight group-hover:text-violet-700">{alert.text}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase">Quick Action →</p>
+                         </div>
+                      </div>
+                    </Link>
                   ))}
                </div>
             </div>
@@ -264,20 +272,20 @@ export default function AdminDashboard() {
             {/* System Activity Feed */}
             <div className="bg-card border rounded-md shadow-sm h-[240px] flex flex-col overflow-hidden border-violet-100">
                <div className="p-3 border-b bg-slate-50/50">
-                  <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-tight">Recent System Events</h3>
+                  <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-tight">Recent Deals Won</h3>
                </div>
                <div className="flex-1 overflow-y-auto divide-y">
-                  {commissions?.slice(0, 5).map((c, i) => (
+                  {commissions?.map((c, i) => (
                     <div key={i} className="p-2.5 flex items-center justify-between gap-3 text-[11px]">
                        <div className="flex items-center gap-2 truncate">
-                          <span className="font-bold text-violet-700 bg-violet-50 px-1 rounded">DEAL</span>
-                          <span className="truncate text-slate-600 font-medium">Won by agent: {c.agentId.slice(0, 5)}...</span>
+                          <span className="font-bold text-violet-700 bg-violet-50 px-1 rounded">WON</span>
+                          <span className="truncate text-slate-600 font-medium">{c.clientName || 'Lead'}</span>
                        </div>
                        <span className="text-slate-400 shrink-0 font-bold uppercase">{formatDistanceToNow(parseISO(c.createdAt))} ago</span>
                     </div>
                   ))}
                   {(!commissions || commissions.length === 0) && (
-                    <div className="p-10 text-center text-slate-300 italic text-[11px]">No recent events recorded.</div>
+                    <div className="p-10 text-center text-slate-300 italic text-[11px]">No recent deals recorded.</div>
                   )}
                </div>
             </div>

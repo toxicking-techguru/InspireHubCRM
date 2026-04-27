@@ -4,8 +4,8 @@
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, writeBatch, where, increment } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, orderBy, doc, updateDoc, writeBatch, increment } from 'firebase/firestore';
 import { Withdrawal, Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,13 +20,12 @@ import {
   Download, 
   Search, 
   AlertCircle,
-  Eye,
-  ShieldCheck,
-  History
+  ShieldCheck
 } from 'lucide-react';
 import { format, differenceInHours, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 export default function AdminWithdrawalsPage() {
   const { user } = useAuthStore();
@@ -45,6 +44,9 @@ export default function AdminWithdrawalsPage() {
 
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
   const { data: agents } = useCollection<Agent>(agentsQuery as any);
+
+  const configRef = useMemoFirebase(() => firestore ? doc(firestore, 'system', 'config') : null, [firestore]);
+  const { data: config } = useDoc<any>(configRef as any);
 
   const pendingList = useMemo(() => withdrawals?.filter(w => w.status === 'pending') || [], [withdrawals]);
   const historyList = withdrawals || [];
@@ -152,6 +154,11 @@ export default function AdminWithdrawalsPage() {
 
            <div className="pt-4">
               <TabsContent value="pending" className="m-0 space-y-4">
+                 <div className="bg-amber-50/30 border border-amber-100 p-3 rounded text-[12px] text-amber-800 flex items-center gap-3">
+                   <Clock size={16} />
+                   <span>Withdrawal processing day is set to: <b>{config?.withdrawalDays || 'Fridays'}</b>. Requests outside this window can still be processed manually.</span>
+                 </div>
+                 
                  <div className="bg-card border rounded-md shadow-sm overflow-hidden">
                     <table className="w-full text-[13px]">
                        <thead>

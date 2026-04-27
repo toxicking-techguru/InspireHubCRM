@@ -6,7 +6,7 @@ import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
-import { Agent, Tier, UserStatus, Role } from '@/types/crm';
+import { Agent, Tier, UserStatus, Role, Wallet } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -15,7 +15,7 @@ import {
   Loader2, 
   UserPlus, 
   MoreVertical, 
-  Wallet,
+  Wallet as WalletIcon,
   CheckCircle2,
   XCircle,
   Edit2
@@ -44,6 +44,9 @@ export default function AdminAgentsPage() {
 
   const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
+
+  const walletsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wallets') : null, [firestore]);
+  const { data: wallets } = useCollection<Wallet>(walletsQuery as any);
 
   const managers = agents?.filter(a => ['Manager', 'Admin'].includes(a.role));
 
@@ -102,6 +105,18 @@ export default function AdminAgentsPage() {
         joinDate: editingAgent ? editingAgent.joinDate : new Date().toISOString(),
       };
       await setDoc(doc(firestore, 'agents', agentId), finalData, { merge: true });
+      
+      // Ensure wallet exists for new agents
+      if (!editingAgent) {
+        await setDoc(doc(firestore, 'wallets', agentId), {
+          agentId,
+          totalEarned: 0,
+          pending: 0,
+          withdrawable: 0,
+          withdrawn: 0
+        });
+      }
+
       toast({ title: editingAgent ? "Agent Updated" : "Agent Created", description: `${formData.name} record saved.` });
       setIsDrawerOpen(false);
     } catch (err: any) {
@@ -163,6 +178,7 @@ export default function AdminAgentsPage() {
                 <tbody className="divide-y">
                   {filteredAgents.map((agent) => {
                     const manager = managers?.find(m => m.id === agent.managerId);
+                    const wallet = wallets?.find(w => w.agentId === agent.id);
                     return (
                       <tr key={agent.id} className="h-10 hover:bg-violet-50/30 transition-colors group">
                         <td className="px-3">
@@ -192,8 +208,8 @@ export default function AdminAgentsPage() {
                         </td>
                         <td className="text-right font-bold text-violet-700">
                           <div className="flex items-center justify-end gap-1">
-                             <Wallet size={12} className="text-slate-300" />
-                             $1,240
+                             <WalletIcon size={12} className="text-slate-300" />
+                             ${(wallet?.withdrawable || 0).toLocaleString()}
                           </div>
                         </td>
                         <td className="px-3 text-right">
