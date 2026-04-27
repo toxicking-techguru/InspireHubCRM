@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -15,7 +14,8 @@ import {
   Award, 
   AlertCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';

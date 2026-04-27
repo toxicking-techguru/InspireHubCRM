@@ -16,6 +16,7 @@ import { Lead, LeadActivity, Tier } from '@/types/crm';
 import { formatDistanceToNow, isToday, parseISO } from 'date-fns';
 import { format } from 'date-fns';
 import { TierBadge } from '@/components/ui/tier-badge';
+import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuthStore();
