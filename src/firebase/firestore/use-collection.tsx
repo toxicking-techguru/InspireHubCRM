@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Query, onSnapshot, QuerySnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
 
+/**
+ * Hook to subscribe to a Firestore collection or query.
+ * Optimized to keep previous data while loading background updates to prevent layout flickering.
+ */
 export function useCollection<T = DocumentData>(query: Query<T> | null) {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -15,7 +19,11 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    setLoading(true);
+    // Only show full loading state if we have no existing data
+    if (!data) {
+      setLoading(true);
+    }
+
     const unsubscribe = onSnapshot(
       query,
       (snapshot: QuerySnapshot<T>) => {
@@ -28,7 +36,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         setError(null);
       },
       (err) => {
-        // Log error but don't crash
         console.warn('Firestore useCollection error:', err.message);
         setError(err);
         setLoading(false);

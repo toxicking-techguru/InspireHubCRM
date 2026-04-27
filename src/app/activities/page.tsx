@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -30,7 +29,6 @@ export default function ActivitiesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch all activities across all leads for this agent
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -42,7 +40,6 @@ export default function ActivitiesPage() {
 
   const { data: activities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  // Filter for Upcoming Next Actions (Today or Past)
   const upcomingActions = useMemo(() => {
     if (!activities) return [];
     const today = new Date().toISOString().split('T')[0];
@@ -54,7 +51,6 @@ export default function ActivitiesPage() {
     ).sort((a, b) => a.nextActionDate.localeCompare(b.nextActionDate));
   }, [activities]);
 
-  // General Filtered Activities
   const filteredActivities = useMemo(() => {
     if (!activities) return [];
     return activities.filter(a => {
@@ -78,7 +74,6 @@ export default function ActivitiesPage() {
           <p className="text-sm text-muted-foreground">Monitor all lead interactions and pending follow-ups.</p>
         </div>
 
-        {/* Upcoming Next Actions Section */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-primary" />
@@ -123,11 +118,16 @@ export default function ActivitiesPage() {
                       </tr>
                     );
                   })}
-                  {upcomingActions.length === 0 && (
+                  {upcomingActions.length === 0 && !loading && (
                     <tr className="h-20">
                       <td colSpan={4} className="text-center text-muted-foreground italic text-[12px]">
                         No pending next actions for today.
                       </td>
+                    </tr>
+                  )}
+                  {loading && upcomingActions.length === 0 && (
+                    <tr className="h-20">
+                      <td colSpan={4} className="text-center"><Loader2 className="animate-spin inline-block mr-2" size={14} /> Loading...</td>
                     </tr>
                   )}
                 </tbody>
@@ -136,7 +136,6 @@ export default function ActivitiesPage() {
           </div>
         </div>
 
-        {/* All Activities Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-4 h-9">
             <div className="flex items-center gap-2">
@@ -159,41 +158,14 @@ export default function ActivitiesPage() {
             </div>
           </div>
 
-          {showFilters && (
-            <div className="bg-slate-50 p-3 rounded-md border grid md:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-400">Activity Type</label>
-                <select className="w-full h-8 bg-white border rounded text-[12px] px-2">
-                  <option>All Types</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-400">Outcome</label>
-                <select className="w-full h-8 bg-white border rounded text-[12px] px-2">
-                  <option>All Outcomes</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-400">Date Range</label>
-                <div className="flex items-center gap-1">
-                  <Input type="date" className="h-8 text-[11px] p-1" />
-                  <Input type="date" className="h-8 text-[11px] p-1" />
-                </div>
-              </div>
-              <div className="flex items-end">
-                <Button variant="ghost" size="sm" className="h-8 w-full text-[11px]" onClick={() => setShowFilters(false)}>Close Filters</Button>
-              </div>
-            </div>
-          )}
-
           <div className="bg-card border rounded-md shadow-sm overflow-hidden">
-            {loading ? (
+            {loading && !activities ? (
               <div className="py-20 flex flex-col items-center">
                 <Loader2 className="animate-spin text-primary mb-2" />
                 <p className="text-[13px] text-muted-foreground">Loading interaction history...</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className={cn("overflow-x-auto transition-opacity", loading && "opacity-50")}>
                 <table className="w-full">
                   <thead>
                     <tr className="bg-slate-50 border-b h-9">
@@ -247,7 +219,7 @@ export default function ActivitiesPage() {
                         </td>
                       </tr>
                     ))}
-                    {filteredActivities.length === 0 && (
+                    {filteredActivities.length === 0 && !loading && (
                       <tr className="h-20">
                         <td colSpan={6} className="text-center text-muted-foreground italic text-[12px]">
                           No activities found matching the criteria.
@@ -261,10 +233,7 @@ export default function ActivitiesPage() {
             
             <div className="p-3 border-t bg-slate-50/30 flex items-center justify-between text-[11px] text-muted-foreground">
               <span>Showing {filteredActivities.length} interactions</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-6 px-2 text-[10px]" disabled>Previous</Button>
-                <Button variant="outline" size="sm" className="h-6 px-2 text-[10px]" disabled>Next</Button>
-              </div>
+              {loading && activities && <span className="flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Syncing...</span>}
             </div>
           </div>
         </div>

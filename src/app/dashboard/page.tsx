@@ -12,10 +12,6 @@ import {
   ArrowRight, 
   Clock, 
   Target, 
-  CheckCircle2, 
-  Phone, 
-  Mail, 
-  Globe, 
   Award, 
   TrendingUp,
   Activity,
@@ -27,8 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, limit, collectionGroup } from 'firebase/firestore';
 import { Lead, LeadActivity, Tier, Target as AgentTarget } from '@/types/crm';
-import { formatDistanceToNow, isToday, parseISO, startOfMonth, format } from 'date-fns';
-import { TierBadge } from '@/components/ui/tier-badge';
+import { formatDistanceToNow, parseISO, startOfMonth, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
@@ -40,10 +35,8 @@ export default function DashboardPage() {
     if (!isAuthenticated) router.push('/login');
   }, [isAuthenticated, router]);
 
-  // Current Month String for target lookup
   const currentMonthStr = format(new Date(), 'yyyy-MM');
 
-  // Priority Leads (Active ones)
   const priorityLeadsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     let q = collection(firestore, 'leads');
@@ -54,8 +47,6 @@ export default function DashboardPage() {
   }, [firestore, user?.id, user?.role]);
   const { data: leads } = useCollection<Lead>(priorityLeadsQuery);
 
-  // Recent Activities across all leads
-  // Using collectionGroup for cross-lead activity feed
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -66,9 +57,8 @@ export default function DashboardPage() {
     );
   }, [firestore, user?.id]);
   
-  const { data: recentActivities } = useCollection<LeadActivity>(activitiesQuery as any);
+  const { data: recentActivities, loading: activitiesLoading } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  // Monthly Target
   const targetQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -81,13 +71,11 @@ export default function DashboardPage() {
   const { data: targets } = useCollection<AgentTarget>(targetQuery as any);
   const currentTarget = targets?.[0];
 
-  // Tier info for progress
   const tiersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null, [firestore]);
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
   const currentTier = tiers?.find(t => t.id === user?.tierId);
   const nextTier = tiers?.find(t => t.rankLevel === (currentTier?.rankLevel || 0) + 1);
 
-  // Dynamic Progress Calculation
   const progressMetrics = useMemo(() => {
     if (!leads) return { leadsCount: 0, winsCount: 0, leadsPercent: 0, winsPercent: 0, overallPercent: 0, leadsTarget: 10, winsTarget: 2 };
     
@@ -116,7 +104,6 @@ export default function DashboardPage() {
     };
   }, [leads, currentTarget]);
 
-  // Tier UI Styles
   const tierUI = useMemo(() => {
     switch (user?.tierId) {
       case 't1': return { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: 'text-slate-400' };
@@ -132,12 +119,10 @@ export default function DashboardPage() {
   return (
     <Shell>
       <div className="flex flex-col gap-6">
-        {/* Compact Stats Grid */}
         <AgentStats />
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {/* Priority Follow-ups */}
             <div className="bg-card border rounded-md shadow-sm overflow-hidden">
               <div className="p-3 border-b flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-2">
@@ -181,14 +166,12 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Earnings Chart */}
             <div className="bg-card border rounded-md shadow-sm p-4 h-[300px]">
                <EarningsChart />
             </div>
           </div>
 
           <div className="space-y-6">
-            {/* Tier Rank Card */}
             <div className="bg-card border rounded-md shadow-sm overflow-hidden flex flex-col">
                <div className={cn("p-5 border-b flex items-center justify-between", tierUI.bg)}>
                   <div className="space-y-1">
@@ -240,7 +223,6 @@ export default function DashboardPage() {
                </div>
             </div>
 
-            {/* Pipeline Distribution */}
             <div className="bg-card border rounded-md p-5 shadow-sm">
               <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Pipeline Distribution</h3>
               <div className="space-y-4">
@@ -265,7 +247,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Activity Grid - Horizontal Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <Clock size={16} className="text-slate-400" />
@@ -273,7 +254,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recentActivities?.map(activity => (
+            {recentActivities && recentActivities.map(activity => (
               <div key={activity.id} className="bg-card border rounded-md p-4 shadow-sm hover:shadow-md transition-shadow relative">
                 <div className="flex items-start justify-between mb-2">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -300,11 +281,14 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
-            {(!recentActivities || recentActivities.length === 0) && Array.from({ length: 4 }).map((_, i) => (
+            {(!recentActivities || recentActivities.length === 0) && !activitiesLoading && Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-slate-50/50 border border-dashed rounded-md p-4 flex flex-col items-center justify-center text-slate-300 h-[140px]">
                 <Activity size={24} className="opacity-10 mb-2" />
                 <p className="text-[10px] font-medium uppercase">Awaiting activity</p>
               </div>
+            ))}
+            {activitiesLoading && !recentActivities && Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-slate-50 animate-pulse rounded-md h-[140px]" />
             ))}
           </div>
         </div>
