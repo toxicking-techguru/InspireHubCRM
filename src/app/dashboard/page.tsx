@@ -99,6 +99,17 @@ export default function DashboardPage() {
     };
   }, [leads, currentTarget]);
 
+  // Tier UI Styles
+  const tierUI = useMemo(() => {
+    switch (user?.tierId) {
+      case 't1': return { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: 'text-slate-500' };
+      case 't2': return { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200', icon: 'text-amber-500' };
+      case 't3': return { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', icon: 'text-blue-500' };
+      case 't4': return { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200', icon: 'text-purple-500' };
+      default: return { bg: 'bg-primary/5', text: 'text-primary', border: 'border-primary/20', icon: 'text-primary' };
+    }
+  }, [user?.tierId]);
+
   if (!user) return null;
 
   return (
@@ -157,16 +168,16 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-4">
-            {/* Tier Progress Card - REDESIGNED UI/UX */}
+            {/* Tier Progress Card */}
             <div className="bg-card border rounded-md p-0 shadow-sm overflow-hidden flex flex-col">
-               <div className="bg-primary/5 p-4 border-b flex items-center justify-between">
+               <div className={cn("p-4 border-b flex items-center justify-between", tierUI.bg)}>
                   <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Active Rank</p>
-                    <h3 className="text-[20px] font-bold text-slate-900 leading-none">
+                    <p className={cn("text-[10px] font-bold uppercase tracking-widest", tierUI.text)}>Active Rank</p>
+                    <h3 className="text-[20px] font-bold text-slate-900 dark:text-white leading-none">
                       {currentTier?.name || 'Silver'}
                     </h3>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-white border-2 border-primary/20 flex items-center justify-center text-primary shadow-sm">
+                  <div className={cn("w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm border-2", tierUI.border, tierUI.icon)}>
                     <Award size={24} />
                   </div>
                </div>
@@ -186,20 +197,20 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase mb-1">
                           <Target size={12} className="text-primary" /> Leads
                        </div>
-                       <p className="text-[15px] font-bold text-slate-800">
-                          {progressMetrics.leadsCount} <span className="text-slate-300 font-normal">/ {progressMetrics.leadsTarget}</span>
+                       <p className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
+                          {progressMetrics.leadsCount} <span className="text-slate-300 dark:text-slate-700 font-normal">/ {progressMetrics.leadsTarget}</span>
                        </p>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase mb-1">
                           <TrendingUp size={12} className="text-emerald-500" /> Wins
                        </div>
-                       <p className="text-[15px] font-bold text-slate-800">
-                          {progressMetrics.winsCount} <span className="text-slate-300 font-normal">/ {progressMetrics.winsTarget}</span>
+                       <p className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
+                          {progressMetrics.winsCount} <span className="text-slate-300 dark:text-slate-700 font-normal">/ {progressMetrics.winsTarget}</span>
                        </p>
                     </div>
                   </div>
