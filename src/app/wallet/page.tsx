@@ -21,7 +21,9 @@ import {
   Clock,
   Wallet as WalletIcon,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -37,9 +39,6 @@ export default function WalletPage() {
 
   // Form State
   const [amount, setAmount] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [accountName, setAccountName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const walletRef = useMemoFirebase(() => {
@@ -89,18 +88,23 @@ export default function WalletPage() {
       return;
     }
 
+    if (!user.paymentDetails?.accountNumber) {
+      toast({ variant: "destructive", title: "Payment Details Missing", description: "Your payment details must be configured by a manager before withdrawal." });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const batch = writeBatch(firestore);
       const withdrawalRef = doc(collection(firestore, 'withdrawals'));
       
-      // 1. Create the withdrawal request
+      // 1. Create the withdrawal request using the locked payment details from user profile
       batch.set(withdrawalRef, {
         agentId: user.id,
         amount: requestAmount,
         status: 'pending',
         requestedAt: new Date().toISOString(),
-        bankDetails: { bankName, accountName, accountNumber }
+        bankDetails: user.paymentDetails // Use system-locked details
       });
 
       // 2. Deduct from wallet immediately
@@ -111,9 +115,6 @@ export default function WalletPage() {
       await batch.commit();
 
       setAmount('');
-      setBankName('');
-      setAccountName('');
-      setAccountNumber('');
       toast({ title: "Request Submitted", description: `Funds deducted and payout is now pending verification.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Request Failed", description: error.message });
@@ -127,9 +128,14 @@ export default function WalletPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-cyan-950">Earnings & Wallet</h1>
-          <p className="text-sm text-muted-foreground">Manage your commissions and payout requests.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-cyan-950">Earnings & Wallet</h1>
+            <p className="text-sm text-muted-foreground">Manage your commissions and payout requests.</p>
+          </div>
+          <Badge variant="outline" className="h-6 gap-2 bg-emerald-50 text-emerald-700 border-emerald-200">
+             <ShieldCheck size={14} /> Payout Details Verified
+          </Badge>
         </div>
 
         {/* Metric Cards Grid */}
@@ -159,7 +165,24 @@ export default function WalletPage() {
                   <Banknote size={16} /> Request Payout
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-5">
+              <CardContent className="p-5 space-y-6">
+                <div className="bg-slate-50 p-4 rounded-lg border space-y-3">
+                   <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Target Bank Account</p>
+                      <Lock size={12} className="text-slate-300" />
+                   </div>
+                   <div className="space-y-1">
+                      <p className="text-[13px] font-bold text-slate-800">{user.paymentDetails?.bankName || 'NOT CONFIGURED'}</p>
+                      <p className="text-[11px] text-slate-500">{user.paymentDetails?.accountName}</p>
+                      <p className="text-[11px] font-mono text-slate-400">{user.paymentDetails?.accountNumber}</p>
+                   </div>
+                   {!user.paymentDetails?.accountNumber && (
+                     <div className="p-2 bg-red-50 text-red-600 text-[10px] font-bold uppercase rounded border border-red-100 flex items-center gap-2">
+                        <AlertCircle size={12} /> Contact manager to set bank info
+                     </div>
+                   )}
+                </div>
+
                 <form onSubmit={handleWithdrawalRequest} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-bold text-slate-400 uppercase">Amount to Withdraw</Label>
@@ -172,29 +195,13 @@ export default function WalletPage() {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         required
+                        disabled={!user.paymentDetails?.accountNumber}
                       />
                     </div>
                     <p className="text-[10px] text-slate-400 font-medium">Available for transfer: {currencySymbol}{withdrawableBalance.toLocaleString()}</p>
                   </div>
 
-                  <div className="space-y-3 pt-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold text-slate-400 uppercase">Bank / Provider Name</Label>
-                      <Input required className="h-9 text-[13px]" placeholder="e.g. Standard Chartered" value={bankName} onChange={(e) => setBankName(e.target.value)} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-bold text-slate-400 uppercase">Account Name</Label>
-                        <Input required className="h-9 text-[13px]" placeholder="Full Name" value={accountName} onChange={(e) => setAccountName(e.target.value)} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-bold text-slate-400 uppercase">Account Number</Label>
-                        <Input required className="h-9 text-[13px]" placeholder="0000000000" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md bg-cyan-600 hover:bg-cyan-700" disabled={isSubmitting || withdrawableBalance === 0}>
+                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md bg-cyan-600 hover:bg-cyan-700" disabled={isSubmitting || withdrawableBalance === 0 || !user.paymentDetails?.accountNumber}>
                     {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}
                     Initiate Transfer
                   </Button>
@@ -204,7 +211,7 @@ export default function WalletPage() {
 
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg flex items-start gap-3 text-[12px] text-amber-800">
                <Clock size={16} className="shrink-0 mt-0.5" />
-               <p>Withdrawal requests are processed <b>{config?.withdrawalDays === 'All Days' ? 'daily' : config?.withdrawalDays ? `every ${config.withdrawalDays}` : 'every Friday'}</b>. Transfers to non-local banks may take up to 3 business days to reflect.</p>
+               <p>Withdrawal requests are processed <b>{config?.withdrawalDays === 'All Days' ? 'daily' : config?.withdrawalDays ? `every ${config.withdrawalDays}` : 'every Friday'}</b>. Funds are disbursed only to the verified account shown above.</p>
             </div>
           </div>
 

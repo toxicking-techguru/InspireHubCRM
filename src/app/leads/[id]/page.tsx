@@ -1,11 +1,10 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, collection, addDoc, updateDoc, query, orderBy, getDoc } from 'firebase/firestore';
+import { doc, collection, addDoc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Lead, LeadActivity, LeadStatus, ActivityType, Tier, GeoLocation } from '@/types/crm';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -29,7 +28,9 @@ import {
   Zap,
   ExternalLink,
   MapPin,
-  ClipboardList
+  ClipboardList,
+  Sparkles,
+  Lightbulb
 } from 'lucide-react';
 import { 
   Select, 
@@ -40,10 +41,10 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { format, formatDistanceToNow, differenceInDays, parseISO, differenceInHours } from 'date-fns';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import Link from 'next/link';
+import { getLeadAdvice } from '@/ai/flows/lead-advisor-flow';
 
 const ACTIVITY_TYPES: ActivityType[] = [
   'Call made', 'Intro meeting', 'Follow up', 'Proposal send', 'Demo done', 
@@ -53,7 +54,6 @@ const ACTIVITY_TYPES: ActivityType[] = [
 
 export default function LeadDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const { user } = useAuthStore();
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -73,29 +73,47 @@ export default function LeadDetailPage() {
   const [remark, setRemark] = useState('');
   const [type, setType] = useState<ActivityType>('Call made');
   const [dateDone, setDateDone] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [scheduledAt, setScheduledAt] = useState(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
   const [nextActionType, setNextActionType] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
-  const [outcomeStatus, setOutcomeStatus] = useState('Pending');
-  const [fileUrl, setFileUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [location, setLocation] = useState<GeoLocation | null>(null);
   const [confirmStatus, setConfirmStatus] = useState<LeadStatus | null>(null);
+  const [aiAdvice, setAiAdvice] = useState<any>(null);
+  const [isGettingAdvice, setIsGettingAdvice] = useState(false);
 
   const handleGetLocation = () => {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: new Date().toISOString() });
+        const newLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: new Date().toISOString() };
+        setLocation(newLoc);
         setLocating(false);
-        toast({ title: "Site Location Captured" });
+        toast({ title: "Location Captured" });
       },
       () => {
         toast({ variant: "destructive", title: "Location Error" });
         setLocating(false);
       }
     );
+  };
+
+  const fetchAiAdvice = async () => {
+    if (!lead) return;
+    setIsGettingAdvice(true);
+    try {
+      const advice = await getLeadAdvice({
+        clientName: lead.clientName,
+        clientBrief: lead.clientBrief,
+        painPoints: lead.painPoints,
+        serviceOffering: lead.serviceOffering,
+      });
+      setAiAdvice(advice);
+    } catch (e) {
+      toast({ variant: 'destructive', title: "AI Error", description: "Failed to generate sales advice." });
+    } finally {
+      setIsGettingAdvice(false);
+    }
   };
 
   const handleStatusChangeRequest = (newStatus: LeadStatus) => {
@@ -129,14 +147,12 @@ export default function LeadDetailPage() {
         agentName: user.name,
         type,
         dateDone,
-        scheduledAt,
         remark,
         nextActionType,
         nextActionDate,
-        outcomeStatus,
-        fileUrl,
         location: location || null,
         createdAt: now,
+        outcomeStatus: 'recorded'
       };
 
       await addDoc(collection(firestore, 'leads', id as string, 'activities'), activityData);
@@ -144,6 +160,7 @@ export default function LeadDetailPage() {
       const updateData: any = { lastActivityAt: now };
       if (!lead.firstResponseAt) updateData.firstResponseAt = now;
       if (type === 'Contract send') updateData.contractSignedAt = now;
+      if (location) updateData.location = location; // Update lead's map position to the latest activity site
 
       if (type === 'Closed won') {
         updateData.status = 'won';
@@ -162,7 +179,7 @@ export default function LeadDetailPage() {
       }
 
       await updateDoc(doc(firestore, 'leads', id as string), updateData);
-      setRemark(''); setNextActionType(''); setNextActionDate(''); setFileUrl(''); setLocation(null);
+      setRemark(''); setNextActionType(''); setNextActionDate(''); setLocation(null);
       toast({ title: "Activity Logged" });
     } catch (error) {
       toast({ variant: "destructive", title: "Error" });
@@ -194,13 +211,48 @@ export default function LeadDetailPage() {
       </div>
 
       <div className="grid lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-5 space-y-6">
           <Card className="shadow-none border-[0.5px]">
-            <CardHeader className="p-3 bg-slate-50/50 border-b flex flex-row items-center gap-2">
-               <ClipboardList size={14} className="text-cyan-600" />
-               <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Qualification Insights</CardTitle>
+            <CardHeader className="p-3 bg-slate-50/50 border-b flex flex-row items-center justify-between">
+               <div className="flex items-center gap-2">
+                 <ClipboardList size={14} className="text-cyan-600" />
+                 <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Qualification Insights</CardTitle>
+               </div>
+               <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 text-[10px] gap-1.5 text-cyan-600 font-bold uppercase"
+                onClick={fetchAiAdvice}
+                disabled={isGettingAdvice}
+               >
+                 {isGettingAdvice ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                 Get AI Strategy
+               </Button>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
+               {aiAdvice && (
+                 <div className="bg-cyan-50/50 border border-cyan-100 rounded-lg p-3 space-y-3 animate-in fade-in zoom-in-95">
+                    <div className="flex items-center gap-2 text-cyan-700 font-bold text-[11px] uppercase">
+                       <Lightbulb size={14} /> AI Sales Strategist
+                    </div>
+                    <p className="text-[12px] text-cyan-900 leading-tight italic">"{aiAdvice.strategicSummary}"</p>
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-bold text-cyan-600 uppercase">Recommended Next Step</p>
+                       <p className="text-[12px] font-medium text-slate-800">{aiAdvice.suggestedNextStep}</p>
+                    </div>
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-bold text-cyan-600 uppercase">Talking Points</p>
+                       <ul className="space-y-1">
+                          {aiAdvice.keyTalkingPoints.map((tp: string, i: number) => (
+                            <li key={i} className="text-[11px] text-slate-600 flex gap-2">
+                               <span className="text-cyan-400 font-bold">•</span> {tp}
+                            </li>
+                          ))}
+                       </ul>
+                    </div>
+                 </div>
+               )}
+
                <div>
                   <Label className="text-[10px] font-bold text-slate-400 uppercase">Client Brief</Label>
                   <p className="text-[13px] text-slate-700 leading-relaxed">{lead.clientBrief || 'Not provided'}</p>
@@ -271,7 +323,7 @@ export default function LeadDetailPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-7">
           <Card className="h-full shadow-none border-[0.5px]">
             <CardHeader className="p-3 border-b bg-slate-50/50 flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
