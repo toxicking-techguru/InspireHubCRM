@@ -103,7 +103,43 @@ export default function LoginPage() {
       }
 
       // 3. Sync Session
-      const userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
+      let userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
+
+      // 4. Late Migration Check: If UID record is missing but an email-based record exists
+      // This handles users who were created in Auth but whose Firestore profile wasn't keyed to UID yet
+      if (!userDoc.exists()) {
+        const q = query(collection(db, 'agents'), where('email', '==', targetEmail));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          const oldDoc = snap.docs[0];
+          const oldData = oldDoc.data();
+          const oldId = oldDoc.id;
+          
+          // Link pre-authorized profile to the new Auth UID
+          await setDoc(doc(db, 'agents', userCredential.user.uid), {
+            ...oldData,
+            email: targetEmail
+          });
+
+          if (oldId !== userCredential.user.uid) {
+            await deleteDoc(doc(db, 'agents', oldId));
+          }
+          
+          // Migrate matching wallet if applicable
+          if (oldData.role === 'Agent') {
+            const wSnap = await getDoc(doc(db, 'wallets', oldId));
+            if (wSnap.exists()) {
+              await setDoc(doc(db, 'wallets', userCredential.user.uid), wSnap.data());
+              await deleteDoc(doc(db, 'wallets', oldId));
+            }
+          }
+
+          // Re-fetch the newly linked doc
+          userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
+        }
+      }
+
       if (userDoc.exists()) {
         const agentData = { id: userDoc.id, ...userDoc.data() } as any;
         setGlobalAuth(agentData);
@@ -167,7 +203,7 @@ export default function LoginPage() {
             
             <div className="mt-4 p-3 bg-cyan-50 rounded-lg flex gap-3 text-cyan-800 text-[11px] leading-tight">
                <Info size={14} className="shrink-0 text-cyan-600" />
-               <p>New staff? Use your activation password for your first sign-in to create your account.</p>
+               <p>New staff? Use your activation password (password123) for your first sign-in to create your account.</p>
             </div>
           </form>
         </div>
