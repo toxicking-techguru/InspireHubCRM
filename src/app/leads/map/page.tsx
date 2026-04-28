@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -14,6 +15,11 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
+
+// Required for Leaflet to work correctly in Next.js
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.webpack.css';
+import 'leaflet-defaulticon-compatibility';
 
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
@@ -37,21 +43,6 @@ export default function LeadsMapPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
-  const [L, setL] = useState<any>(null);
-
-  useEffect(() => {
-    import('leaflet').then((leaflet) => {
-      // Fix for default marker icons not showing in Next.js
-      const DefaultIcon = leaflet.Icon.Default.prototype as any;
-      delete DefaultIcon._getIconUrl;
-      leaflet.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      });
-      setL(leaflet);
-    });
-  }, []);
 
   const leadsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'leads'), orderBy('createdAt', 'desc')) : null
@@ -200,33 +191,31 @@ export default function LeadsMapPage() {
 
                    <div className="flex-1 flex flex-col md:flex-row min-h-0">
                       <div className="flex-1 relative bg-slate-100/50 overflow-hidden min-h-0">
-                         {L && (
-                           <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
-                             <TileLayer
-                               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                             />
-                             {mapPins.map(l => (
-                               <Marker 
-                                 key={l.id} 
-                                 position={[l.location!.lat, l.location!.lng]}
-                                 eventHandlers={{
-                                   click: () => setSelectedLeadId(l.id),
-                                 }}
-                               >
-                                 <Popup>
-                                    <div className="p-1 min-w-[120px]">
-                                      <p className="font-bold text-[12px]">{l.clientName}</p>
-                                      <p className="text-[10px] text-slate-500 uppercase font-bold">{l.status}</p>
-                                      <hr className="my-1.5" />
-                                      <Link href={`/leads/${l.id}`} className="text-[10px] font-bold text-cyan-600 block hover:underline">OPEN LEAD FILE</Link>
-                                    </div>
-                                 </Popup>
-                               </Marker>
-                             ))}
-                             <MapFocusHandler center={mapCenter} />
-                           </MapContainer>
-                         )}
+                         <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
+                           <TileLayer
+                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                           />
+                           {mapPins.map(l => (
+                             <Marker 
+                               key={l.id} 
+                               position={[l.location!.lat, l.location!.lng]}
+                               eventHandlers={{
+                                 click: () => setSelectedLeadId(l.id),
+                               }}
+                             >
+                               <Popup>
+                                  <div className="p-1 min-w-[120px]">
+                                    <p className="font-bold text-[12px]">{l.clientName}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold">{l.status}</p>
+                                    <hr className="my-1.5" />
+                                    <Link href={`/leads/${l.id}`} className="text-[10px] font-bold text-cyan-600 block hover:underline">OPEN LEAD FILE</Link>
+                                  </div>
+                               </Popup>
+                             </Marker>
+                           ))}
+                           <MapFocusHandler center={mapCenter} />
+                         </MapContainer>
                       </div>
 
                       <div className="w-full md:w-[280px] border-t md:border-t-0 md:border-l bg-white flex flex-col shrink-0 min-h-0">
@@ -265,31 +254,29 @@ export default function LeadsMapPage() {
                      </div>
                    ) : (
                      <div className="h-full w-full">
-                        {L && (
-                          <MapContainer center={mapCenter} zoom={mapPins.length > 0 ? 10 : 2} className="h-full w-full">
-                            <TileLayer
-                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                            />
-                            {mapPins.map(l => (
-                              <Marker 
-                                key={l.id} 
-                                position={[l.location!.lat, l.location!.lng]}
-                                eventHandlers={{
-                                  click: () => setSelectedLeadId(l.id),
-                                }}
-                              >
-                                <Popup>
-                                   <div className="p-1">
-                                      <p className="font-bold text-[12px]">{l.clientName}</p>
-                                      <p className="text-[10px] text-slate-500 uppercase font-bold">{l.status}</p>
-                                      <button onClick={() => setSelectedLeadId(l.id)} className="text-[10px] font-bold text-cyan-600 mt-2 block hover:underline">VIEW JOURNEY</button>
-                                   </div>
-                                </Popup>
-                              </Marker>
-                            ))}
-                          </MapContainer>
-                        )}
+                        <MapContainer center={mapCenter} zoom={mapPins.length > 0 ? 10 : 2} className="h-full w-full">
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          />
+                          {mapPins.map(l => (
+                            <Marker 
+                              key={l.id} 
+                              position={[l.location!.lat, l.location!.lng]}
+                              eventHandlers={{
+                                click: () => setSelectedLeadId(l.id),
+                              }}
+                            >
+                              <Popup>
+                                 <div className="p-1">
+                                    <p className="font-bold text-[12px]">{l.clientName}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold">{l.status}</p>
+                                    <button onClick={() => setSelectedLeadId(l.id)} className="text-[10px] font-bold text-cyan-600 mt-2 block hover:underline">VIEW JOURNEY</button>
+                                 </div>
+                              </Popup>
+                            </Marker>
+                          ))}
+                        </MapContainer>
                         {!selectedLeadId && mapPins.length === 0 && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                             <div className="bg-white/95 border p-8 rounded-xl shadow-2xl max-w-[320px] text-center backdrop-blur-sm border-cyan-100">
