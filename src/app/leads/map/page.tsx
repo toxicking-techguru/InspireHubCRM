@@ -2,7 +2,6 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -16,20 +15,9 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 
-// Required for Leaflet to work correctly in Next.js
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
-import 'leaflet-defaulticon-compatibility';
-
-// Dynamically import Leaflet components to avoid SSR issues
-const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
-const useMap = dynamic(() => import('react-leaflet').then(mod => mod.useMap), { ssr: false });
-
-function MapFocusHandler({ center }: { center: [number, number] }) {
-  const map = (useMap as any)();
+// MapInner Component to use Leaflet hooks
+function MapFocusHandler({ center, useMap }: { center: [number, number], useMap: any }) {
+  const map = useMap();
   useEffect(() => {
     if (center && map && center[0] !== 0) {
       map.setView(center, 13);
@@ -43,6 +31,25 @@ export default function LeadsMapPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [LeafletModules, setLeafletModules] = useState<any>(null);
+
+  // Load Leaflet modules only on client
+  useEffect(() => {
+    setIsClient(true);
+    // Dynamically require Leaflet and React-Leaflet to avoid SSR "window" errors
+    const L = require('leaflet');
+    const RL = require('react-leaflet');
+    // Ensure styles are loaded
+    require('leaflet/dist/leaflet.css');
+    require('leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css');
+    require('leaflet-defaulticon-compatibility');
+
+    setLeafletModules({
+      ...RL,
+      L
+    });
+  }, []);
 
   const leadsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'leads'), orderBy('createdAt', 'desc')) : null
@@ -97,8 +104,23 @@ export default function LeadsMapPage() {
     if (mapPins.length > 0) {
       return [mapPins[0].location!.lat, mapPins[0].location!.lng];
     }
-    return [0, 0];
+    return [0, 0]; // Default global view
   }, [selectedLead, mapPins]);
+
+  if (!isClient || !LeafletModules) {
+    return (
+      <Shell>
+        <div className="flex items-center justify-center h-[calc(100vh-140px)]">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="animate-spin text-cyan-600" size={32} />
+            <p className="text-sm font-medium text-slate-400">Loading map engine...</p>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  const { MapContainer, TileLayer, Marker, Popup, useMap } = LeafletModules;
 
   return (
     <Shell>
@@ -214,7 +236,7 @@ export default function LeadsMapPage() {
                                </Popup>
                              </Marker>
                            ))}
-                           <MapFocusHandler center={mapCenter} />
+                           <MapFocusHandler center={mapCenter} useMap={useMap} />
                          </MapContainer>
                       </div>
 
@@ -276,6 +298,7 @@ export default function LeadsMapPage() {
                               </Popup>
                             </Marker>
                           ))}
+                          <MapFocusHandler center={mapCenter} useMap={useMap} />
                         </MapContainer>
                         {!selectedLeadId && mapPins.length === 0 && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
