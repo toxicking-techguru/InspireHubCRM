@@ -18,7 +18,7 @@ import { format, parseISO } from 'date-fns';
 
 // Required for Leaflet to work correctly in Next.js
 import 'leaflet/dist/leaflet.css';
-import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.webpack.css';
+import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
 import 'leaflet-defaulticon-compatibility';
 
 // Dynamically import Leaflet components to avoid SSR issues
