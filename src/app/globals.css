@@ -96,3 +96,10 @@ td {
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300;
 }
+
+/* Leaflet Overrides */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}

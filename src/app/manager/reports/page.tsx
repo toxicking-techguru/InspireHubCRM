@@ -4,18 +4,18 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { Lead, Agent } from '@/types/crm';
+import { collection, query, collectionGroup } from 'firebase/firestore';
+import { Lead, Agent, LeadActivity } from '@/types/crm';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
+  PieChart, Pie, Cell, Legend, AreaChart, Area 
 } from 'recharts';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, Clock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { format, subMonths, startOfMonth, parseISO } from 'date-fns';
+import { format, subMonths, startOfMonth, parseISO, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -33,6 +33,9 @@ export default function ManagerReportsPage() {
 
   const leadsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
   const { data: allLeads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
+
+  const activitiesQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'activities') : null, [firestore]);
+  const { data: allActivities } = useCollection<LeadActivity>(activitiesQuery as any);
 
   const teamAgents = useMemo(() => {
     if (!allAgents || !user) return [];
@@ -94,6 +97,18 @@ export default function ManagerReportsPage() {
     return months;
   }, [teamLeads]);
 
+  const velocityData = useMemo(() => {
+    if (teamLeads.length === 0 || !allActivities) return [];
+    return teamLeads.filter(l => l.status === 'won').map(l => {
+      const leadActivities = allActivities.filter(a => a.leadId === l.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      if (leadActivities.length === 0) return null;
+      const start = parseISO(leadActivities[0].createdAt);
+      const end = parseISO(l.wonAt || leadActivities[leadActivities.length-1].createdAt);
+      const days = Math.max(differenceInDays(end, start), 1);
+      return { name: l.clientName, days };
+    }).filter(Boolean).slice(0, 10);
+  }, [teamLeads, allActivities]);
+
   const exportCSV = () => {
     toast({ title: "Compilation Started", description: "Exporting team datasets to CSV." });
   };
@@ -128,7 +143,7 @@ export default function ManagerReportsPage() {
 
         <Tabs defaultValue="conversion" className="w-full">
           <TabsList className="bg-slate-50 border h-9 p-0.5 justify-start gap-4 px-4 rounded-none border-x-0 border-t-0 w-full">
-            {['Conversion', 'Revenue', 'Lead Source'].map(t => (
+            {['Conversion', 'Revenue', 'Lead Source', 'Velocity'].map(t => (
               <TabsTrigger 
                 key={t} 
                 value={t.toLowerCase().replace(' ', '')} 
@@ -276,6 +291,42 @@ export default function ManagerReportsPage() {
                    </table>
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="velocity" className="m-0 space-y-4">
+               <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-card border rounded-md p-6 h-[340px]">
+                     <h3 className="text-[12px] font-bold text-slate-500 uppercase mb-6 flex items-center gap-2"><Clock size={14} /> Team Cycle Time (First Log to Won)</h3>
+                     <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={velocityData} layout="vertical">
+                           <XAxis type="number" fontSize={10} label={{ value: 'Days', position: 'insideBottom', offset: -5 }} />
+                           <YAxis dataKey="name" type="category" width={80} fontSize={10} />
+                           <Tooltip />
+                           <Bar dataKey="days" fill="#0891b2" radius={[0, 2, 2, 0]} />
+                        </BarChart>
+                     </ResponsiveContainer>
+                  </div>
+                  <div className="bg-card border rounded-md p-6">
+                     <h3 className="text-[12px] font-bold text-slate-500 uppercase mb-4">High-Velocity Team Deals</h3>
+                     <div className="space-y-3">
+                        {velocityData.sort((a,b) => a.days - b.days).slice(0, 5).map((v, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-md border border-slate-100">
+                             <div className="space-y-0.5">
+                                <p className="text-[13px] font-bold text-slate-800">{v.name}</p>
+                                <p className="text-[10px] text-emerald-600 font-bold uppercase flex items-center gap-1"><Zap size={10} /> High Momentum</p>
+                             </div>
+                             <div className="text-right">
+                                <p className="text-[16px] font-bold text-cyan-700">{v.days} Days</p>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">Total Cycle</p>
+                             </div>
+                          </div>
+                        ))}
+                        {velocityData.length === 0 && (
+                           <div className="p-10 text-center text-slate-400 italic text-[11px]">Awaiting won deals for cycle analysis.</div>
+                        )}
+                     </div>
+                  </div>
+               </div>
             </TabsContent>
           </div>
         </Tabs>

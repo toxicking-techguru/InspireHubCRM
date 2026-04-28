@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -177,6 +176,8 @@ export default function LeadDetailPage() {
       const updateData: any = { lastActivityAt: now };
       if (!lead.firstResponseAt) updateData.firstResponseAt = now;
       if (type === 'Contract send') updateData.contractSignedAt = now;
+      
+      // CRITICAL: Update the lead's main location so it reflects on the territory map
       if (location) updateData.location = location; 
 
       if (type === 'Closed won') {
