@@ -81,8 +81,8 @@ export default function LeadsMapPage() {
               <div className="relative flex-1">
                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                  <Input 
-                   placeholder="Filter team leads..." 
-                   className="pl-8 h-8 text-[12px]" 
+                   placeholder="Filter leads..." 
+                   className="pl-8 h-8 text-[12px] bg-white border-cyan-100" 
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
                  />
@@ -90,10 +90,10 @@ export default function LeadsMapPage() {
            </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-220px)] border rounded-lg overflow-hidden bg-slate-50">
+        <div className="flex flex-col lg:flex-row h-[calc(100vh-220px)] border rounded-lg overflow-hidden bg-slate-50 border-cyan-100 shadow-sm">
            {/* Sidebar: Lead Directory */}
-           <div className="w-full lg:w-[320px] bg-white border-r flex flex-col">
-              <div className="p-3 border-b bg-slate-50/50 flex justify-between items-center">
+           <div className="w-full lg:w-[320px] bg-white border-r flex flex-col shrink-0">
+              <div className="p-3 border-b bg-slate-50/50 flex justify-between items-center px-4">
                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{filteredLeads.length} RECORDS</span>
                  <Filter size={14} className="text-slate-300" />
               </div>
@@ -113,7 +113,7 @@ export default function LeadsMapPage() {
                       </div>
                       <div className="flex items-center justify-between">
                          <span className="text-[10px] text-slate-400 font-bold uppercase">{products?.find(p => p.id === l.productId)?.name || 'Product'}</span>
-                         <span className="text-[10px] text-slate-300">{(l as any).idleHours ? `${(l as any).idleHours}h idle` : ''}</span>
+                         <Badge variant="outline" className="text-[9px] h-3.5 bg-slate-50 text-slate-400 border-none uppercase">{l.status}</Badge>
                       </div>
                    </div>
                  ))}
@@ -134,12 +134,12 @@ export default function LeadsMapPage() {
                          </Button>
                          <div>
                             <h2 className="text-[14px] font-bold text-slate-900">{selectedLead?.clientName}</h2>
-                            <Link href={`/leads/${selectedLead?.id}`} className="text-[10px] font-bold text-cyan-600 uppercase hover:underline">View Lead Profile →</Link>
+                            <Link href={`/leads/${selectedLead?.id}`} className="text-[10px] font-bold text-cyan-600 uppercase hover:underline">View Full Lead Profile →</Link>
                          </div>
                       </div>
                       <div className="flex gap-2">
                         {selectedLead?.location ? (
-                           <Badge className="bg-emerald-100 text-emerald-700 border-none h-5 text-[10px] gap-1"><Navigation size={10} /> Live Coordinates</Badge>
+                           <Badge className="bg-emerald-100 text-emerald-700 border-none h-5 text-[10px] gap-1"><Navigation size={10} /> Active Pin</Badge>
                         ) : (
                            <Badge variant="outline" className="h-5 text-[10px] text-slate-400">No Field Pin</Badge>
                         )}
@@ -156,7 +156,7 @@ export default function LeadsMapPage() {
                               <MapPin className="text-cyan-600 drop-shadow-xl" size={64} />
                               <div className="absolute inset-0 animate-ping rounded-full bg-cyan-400 opacity-20 scale-150" />
                               <div className="absolute top-full mt-4 left-1/2 -translate-x-1/2 bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-center whitespace-nowrap">
-                                 <p className="text-[11px] font-bold uppercase text-slate-400">Primary Location</p>
+                                 <p className="text-[11px] font-bold uppercase text-slate-400">Pinned Location</p>
                                  <p className="text-[13px] font-mono text-slate-700">{selectedLead.location.lat.toFixed(4)}, {selectedLead.location.lng.toFixed(4)}</p>
                               </div>
                            </div>
@@ -168,10 +168,10 @@ export default function LeadsMapPage() {
                          )}
                       </div>
 
-                      <div className="w-full md:w-[300px] border-l bg-white flex flex-col overflow-hidden">
-                         <div className="p-3 border-b bg-slate-50/50 flex items-center gap-2">
+                      <div className="w-full md:w-[320px] border-l bg-white flex flex-col overflow-hidden">
+                         <div className="p-3 border-b bg-slate-50/50 flex items-center gap-2 px-4">
                             <History size={14} className="text-slate-400" />
-                            <span className="text-[11px] font-bold text-slate-500 uppercase">Field Visit Logs</span>
+                            <span className="text-[11px] font-bold text-slate-500 uppercase">Interaction History</span>
                          </div>
                          <div className="flex-1 overflow-y-auto divide-y">
                             {selectedLeadSiteVisits.map(visit => (
@@ -182,14 +182,14 @@ export default function LeadsMapPage() {
                                  </div>
                                  <p className="text-[11px] text-slate-500 line-clamp-3">{visit.remark}</p>
                                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 w-max px-1.5 py-0.5 rounded border border-emerald-100/50">
-                                    <Navigation size={8} /> Verified Log
+                                    <Navigation size={8} /> Geo-Stamp
                                  </div>
                               </div>
                             ))}
                             {selectedLeadSiteVisits.length === 0 && (
                               <div className="p-10 text-center space-y-2 opacity-50 grayscale">
                                  <Clock size={24} className="mx-auto text-slate-200" />
-                                 <p className="text-[10px] text-slate-400 italic">No interaction-level coordinates recorded.</p>
+                                 <p className="text-[10px] text-slate-400 italic">No geo-verified interactions recorded for this lead.</p>
                               </div>
                             )}
                          </div>
@@ -227,15 +227,15 @@ export default function LeadsMapPage() {
                            })}
                         </div>
                         
-                        <div className="bg-white/80 border p-6 rounded-xl shadow-xl z-10 max-w-[320px] text-center backdrop-blur-sm border-cyan-100">
-                           <Target size={40} className="mx-auto text-cyan-100 mb-4" />
-                           <p className="text-[15px] font-bold text-slate-800 mb-1">Field Intelligence Map</p>
-                           <p className="text-[11px] text-slate-500">Select a lead from the directory to trace field activities and physical interaction points.</p>
+                        <div className="bg-white/80 border p-8 rounded-xl shadow-2xl z-10 max-w-[340px] text-center backdrop-blur-sm border-cyan-100">
+                           <Target size={48} className="mx-auto text-cyan-100 mb-4" />
+                           <p className="text-[16px] font-bold text-slate-800 mb-1">Lead Territory Visualizer</p>
+                           <p className="text-[12px] text-slate-500">Select a lead from the directory to trace field activities, visit coordinates, and interaction logs.</p>
                         </div>
 
                         <div className="absolute bottom-4 left-4 flex gap-4 px-4 py-2 bg-white/90 border rounded-full shadow-lg backdrop-blur-sm z-10 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-cyan-50">
-                           <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-cyan-600" /> Active Pins</div>
-                           <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-slate-200" /> Territory Bounds Loaded</div>
+                           <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-cyan-600" /> Pins Loaded</div>
+                           <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-slate-200" /> Search Active</div>
                         </div>
                      </>
                    )}

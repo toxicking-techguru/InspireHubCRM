@@ -17,7 +17,8 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +48,6 @@ export default function ActivitiesPage() {
 
   const upcomingActions = useMemo(() => {
     if (!activities) return [];
-    const today = new Date().toISOString().split('T')[0];
     
     // Group activities by lead to find the *latest* scheduled action
     const latestActionsMap: Record<string, LeadActivity> = {};
@@ -99,16 +99,16 @@ export default function ActivitiesPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-slate-50 border-b h-9">
+                  <tr className="bg-slate-50 border-b h-9 text-[11px] font-bold uppercase text-slate-400">
                     <th className="px-3 text-left w-[200px]">Client / Lead</th>
                     <th className="text-left w-[180px]">Planned Activity</th>
                     <th className="text-left w-[120px]">Target Date</th>
                     <th className="text-right px-3">Resolution</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y text-[13px]">
                   {upcomingActions.map((action) => {
-                    const isOverdue = action.nextActionDate < new Date().toISOString().split('T')[0];
+                    const isOverdue = action.nextActionDate! < new Date().toISOString().split('T')[0];
                     return (
                       <tr key={action.id} className={cn("h-11 transition-colors", isOverdue ? "bg-red-50/20" : "hover:bg-slate-50/50")}>
                         <td className="px-3">
@@ -189,12 +189,12 @@ export default function ActivitiesPage() {
               <div className={cn("overflow-x-auto transition-opacity", loading && "opacity-50")}>
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-slate-50 border-b h-9">
+                    <tr className="bg-slate-50 border-b h-9 text-[11px] font-bold uppercase text-slate-400">
                       <th className="px-3 text-left w-[140px]">Sync Date</th>
                       <th className="text-left w-[160px]">Client</th>
                       <th className="text-left w-[130px]">Type</th>
                       <th className="text-left">Details</th>
-                      <th className="text-right px-3 w-[80px]">Check-in</th>
+                      <th className="text-right px-3 w-[80px]">Location</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -225,11 +225,11 @@ export default function ActivitiesPage() {
                                   <TooltipTrigger asChild>
                                      <MapPin size={14} className="text-emerald-500 inline-block" />
                                   </TooltipTrigger>
-                                  <TooltipContent className="text-[10px] bg-slate-900 text-white">Verified site visit coordinates captured.</TooltipContent>
+                                  <TooltipContent className="text-[10px] bg-slate-900 text-white">Verified site visit captured.</TooltipContent>
                                </Tooltip>
                             </TooltipProvider>
                           ) : (
-                             <span className="text-[10px] text-slate-200">No Pin</span>
+                             <span className="text-[10px] text-slate-200">--</span>
                           )}
                         </td>
                       </tr>

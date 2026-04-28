@@ -29,7 +29,10 @@ import {
   Zap,
   ExternalLink,
   MapPin,
-  ClipboardList
+  ClipboardList,
+  Edit2,
+  Save,
+  X
 } from 'lucide-react';
 import { 
   Select, 
@@ -43,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 
 const ACTIVITY_TYPES: ActivityType[] = [
   'Call made', 'Intro meeting', 'Follow up', 'Proposal send', 'Demo done', 
@@ -68,6 +72,7 @@ export default function LeadDetailPage() {
   const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
 
+  // Activity Form State
   const [remark, setRemark] = useState('');
   const [type, setType] = useState<ActivityType>('Call made');
   const [dateDone, setDateDone] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -77,6 +82,26 @@ export default function LeadDetailPage() {
   const [locating, setLocating] = useState(false);
   const [location, setLocation] = useState<GeoLocation | null>(null);
   const [confirmStatus, setConfirmStatus] = useState<LeadStatus | null>(null);
+
+  // Edit Lead State
+  const [isEditDialogOpen, setIsEditOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    estimatedBudget: 0,
+    clientBrief: '',
+    painPoints: '',
+    serviceOffering: ''
+  });
+
+  useEffect(() => {
+    if (lead) {
+      setEditData({
+        estimatedBudget: lead.estimatedBudget || 0,
+        clientBrief: lead.clientBrief || '',
+        painPoints: lead.painPoints || '',
+        serviceOffering: lead.serviceOffering || ''
+      });
+    }
+  }, [lead]);
 
   const handleGetLocation = () => {
     setLocating(true);
@@ -111,8 +136,22 @@ export default function LeadDetailPage() {
     }
   };
 
-  const handleAddActivity = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateLead = async () => {
+    if (!leadRef) return;
+    try {
+      await updateDoc(leadRef, {
+        ...editData,
+        lastActivityAt: new Date().toISOString()
+      });
+      toast({ title: "Qualification Updated" });
+      setIsEditOpen(false);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    }
+  };
+
+  const handleAddActivity = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!remark.trim() || !firestore || !id || !user || !lead) return;
     setSubmitting(true);
 
@@ -171,9 +210,13 @@ export default function LeadDetailPage() {
     const lastWithAction = activities.find(a => a.nextActionDate);
     if (!lastWithAction) return null;
     
-    const today = new Date().toISOString().split('T')[0];
-    if (lastWithAction.nextActionDate < today) return lastWithAction;
-    return null;
+    // A task is checked out if there is an activity created AFTER it
+    const subsequentActivity = activities.find(sub => 
+      sub.createdAt > lastWithAction.createdAt
+    );
+    if (subsequentActivity) return null;
+
+    return lastWithAction;
   }, [activities]);
 
   if (leadLoading) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary" /></div></Shell>;
@@ -181,12 +224,47 @@ export default function LeadDetailPage() {
 
   return (
     <Shell>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <h1 className="text-[20px] font-bold text-slate-900">{lead.clientName}</h1>
           <StatusBadge status={lead.status} />
         </div>
         <div className="flex items-center gap-2">
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs border-cyan-100 text-cyan-700">
+                  <Edit2 size={14} /> Edit Qualification
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Update Lead Qualification</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Estimated Budget ($)</Label>
+                      <Input type="number" value={editData.estimatedBudget} onChange={(e) => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} />
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Client Brief</Label>
+                      <Textarea value={editData.clientBrief} onChange={(e) => setEditData({...editData, clientBrief: e.target.value})} className="min-h-[60px]" />
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Pain Points</Label>
+                      <Textarea value={editData.painPoints} onChange={(e) => setEditData({...editData, painPoints: e.target.value})} className="min-h-[60px]" />
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Proposed Solution</Label>
+                      <Textarea value={editData.serviceOffering} onChange={(e) => setEditData({...editData, serviceOffering: e.target.value})} className="min-h-[60px]" />
+                   </div>
+                </div>
+                <DialogFooter>
+                   <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                   <Button className="bg-cyan-600" onClick={handleUpdateLead}>Save Changes</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Select value={lead.status} onValueChange={(val) => handleStatusChangeRequest(val as LeadStatus)}>
               <SelectTrigger className="h-8 text-xs min-w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -199,48 +277,74 @@ export default function LeadDetailPage() {
       </div>
 
       {overdueAction && (
-        <div className="mb-6 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-3 text-red-700">
-             <AlertCircle size={18} />
-             <div className="text-[12px]">
-                <p className="font-bold uppercase tracking-tight">Pending Action Overdue</p>
-                <p>Reminder: <b>{overdueAction.nextActionType}</b> was due on {overdueAction.nextActionDate}.</p>
+        <div className={cn(
+          "mb-6 p-4 rounded-lg flex items-center justify-between animate-in fade-in slide-in-from-top-2 border",
+          overdueAction.nextActionDate! < new Date().toISOString().split('T')[0] 
+            ? "bg-red-50 border-red-100 text-red-700" 
+            : "bg-amber-50 border-amber-100 text-amber-700"
+        )}>
+          <div className="flex items-center gap-4">
+             <CalendarIcon size={20} />
+             <div className="text-[13px]">
+                <p className="font-bold uppercase tracking-tight">Scheduled Next Action</p>
+                <p>Task: <b>{overdueAction.nextActionType}</b> {overdueAction.nextActionDate! < new Date().toISOString().split('T')[0] ? 'was due on' : 'is due on'} {overdueAction.nextActionDate}.</p>
              </div>
           </div>
-          <Badge variant="outline" className="bg-white text-red-600 border-red-200">Needs Update</Badge>
+          <Button 
+            className={cn(
+              "h-8 px-4 text-[11px] font-bold uppercase",
+              overdueAction.nextActionDate! < new Date().toISOString().split('T')[0] ? "bg-red-600" : "bg-amber-600"
+            )}
+            onClick={() => {
+              setType('Follow up');
+              setRemark(`Completed scheduled action: ${overdueAction.nextActionType}`);
+              window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }}
+          >
+            Complete Now
+          </Button>
         </div>
       )}
 
       <div className="grid lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-8 space-y-6">
           <Card className="shadow-none border-[0.5px]">
             <CardHeader className="p-3 bg-slate-50/50 border-b flex flex-row items-center justify-between">
                <div className="flex items-center gap-2">
                  <ClipboardList size={14} className="text-cyan-600" />
                  <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Qualification & Analysis</CardTitle>
                </div>
+               <Badge variant="outline" className="text-[10px] bg-white border-cyan-100 text-cyan-700 font-bold uppercase">
+                  Budget: ${lead.estimatedBudget?.toLocaleString() || '0'}
+               </Badge>
             </CardHeader>
-            <CardContent className="p-5 space-y-6">
-               <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                     <div>
+            <CardContent className="p-5 space-y-8">
+               <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                     <div className="group relative">
                         <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Brief</Label>
-                        <p className="text-[13px] text-slate-700 leading-relaxed mt-1">{lead.clientBrief || 'No background info logged.'}</p>
+                        <p className="text-[14px] text-slate-700 leading-relaxed mt-1.5 min-h-[20px]">
+                           {lead.clientBrief || <span className="italic text-slate-300">Click "Edit Qualification" to add detail...</span>}
+                        </p>
                      </div>
                      <div>
                         <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Core Pain Points</Label>
-                        <p className="text-[13px] text-slate-700 leading-relaxed mt-1">{lead.painPoints || 'Challenges not analyzed yet.'}</p>
+                        <p className="text-[14px] text-slate-700 leading-relaxed mt-1.5 min-h-[20px]">
+                           {lead.painPoints || <span className="italic text-slate-300">Analysis pending...</span>}
+                        </p>
                      </div>
                   </div>
-                  <div className="space-y-4 border-l pl-6 border-slate-100">
+                  <div className="space-y-6 border-l pl-8 border-slate-100">
                      <div>
-                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proposed Offering</Label>
-                        <p className="text-[13px] text-slate-700 leading-relaxed mt-1">{lead.serviceOffering || 'Offering not defined.'}</p>
+                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proposed Solution</Label>
+                        <p className="text-[14px] text-slate-700 leading-relaxed mt-1.5 min-h-[20px]">
+                           {lead.serviceOffering || <span className="italic text-slate-300">Solutioning in progress...</span>}
+                        </p>
                      </div>
-                     <div className="pt-4 mt-4 border-t">
-                        <div className="flex justify-between items-center text-[12px] p-3 bg-cyan-50/50 rounded-md border border-cyan-100/50">
-                           <span className="text-cyan-600 font-bold uppercase tracking-tight">Est. Budget:</span>
-                           <span className="font-bold text-cyan-950 text-[16px]">${(lead.estimatedBudget || 0).toLocaleString()}</span>
+                     <div className="pt-4 mt-2">
+                        <div className="p-4 bg-cyan-50/50 rounded-xl border border-cyan-100/50 flex flex-col gap-1">
+                           <span className="text-[10px] text-cyan-600 font-bold uppercase tracking-wider">Opportunity Valuation</span>
+                           <span className="font-bold text-cyan-950 text-[22px]">${(lead.estimatedBudget || 0).toLocaleString()}</span>
                         </div>
                      </div>
                   </div>
@@ -276,12 +380,12 @@ export default function LeadDetailPage() {
                 </div>
 
                 <div className="space-y-1.5 p-3 bg-slate-50 rounded-md border border-slate-100">
-                   <Label className="text-[10px] font-bold uppercase text-slate-400">Set Next Action (The "Checker")</Label>
+                   <Label className="text-[10px] font-bold uppercase text-slate-400">Set Next Action (Reminder)</Label>
                    <div className="flex gap-3">
                       <Input placeholder="What is the next step?" className="h-8 text-[12px] flex-1 bg-white" value={nextActionType} onChange={(e) => setNextActionType(e.target.value)} />
                       <Input type="date" className="h-8 text-[12px] w-[150px] bg-white" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} />
                    </div>
-                   <p className="text-[10px] text-slate-400 italic">Setting a date creates a system reminder. It checks out when your next log is saved.</p>
+                   <p className="text-[10px] text-slate-400 italic">This creates a reminder. It clears when you log your next activity for this lead.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -290,14 +394,14 @@ export default function LeadDetailPage() {
                 </div>
 
                 <Button type="submit" className="w-full h-9 font-bold text-[12px] bg-cyan-600 hover:bg-cyan-700 shadow-md" disabled={submitting}>
-                  {submitting ? <Loader2 className="animate-spin" size={14} /> : 'Sync Activity & Move Pipeline'}
+                  {submitting ? <Loader2 className="animate-spin" size={14} /> : 'Sync Activity & Sync Pipeline'}
                 </Button>
               </form>
             </CardContent>
           </Card>
         </div>
 
-        <div className="lg:col-span-5">
+        <div className="lg:col-span-4">
           <Card className="h-full shadow-none border-[0.5px]">
             <CardHeader className="p-3 border-b bg-slate-50/50">
               <div className="flex items-center gap-2">
@@ -306,7 +410,7 @@ export default function LeadDetailPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y max-h-[600px] overflow-y-auto">
+              <div className="divide-y max-h-[700px] overflow-y-auto">
                 {activities?.map((activity) => (
                   <div key={activity.id} className="p-4 hover:bg-slate-50/10 transition-colors">
                     <div className="flex gap-3">
@@ -321,7 +425,7 @@ export default function LeadDetailPage() {
                         <div className="flex items-center gap-3">
                            {activity.location && (
                              <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 uppercase bg-emerald-50 px-1.5 py-0.5 rounded">
-                               <MapPin size={8} /> Site Pin
+                               <MapPin size={8} /> Verified visit
                              </div>
                            )}
                            {activity.nextActionType && (
