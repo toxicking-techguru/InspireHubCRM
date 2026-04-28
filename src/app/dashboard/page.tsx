@@ -18,7 +18,10 @@ import {
   Activity,
   Zap,
   MessageSquare,
-  Loader2
+  Loader2,
+  AlertCircle,
+  Calendar,
+  CheckCircle2
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +30,7 @@ import { collection, collectionGroup } from 'firebase/firestore';
 import { Lead, LeadActivity, Tier, Target as AgentTarget } from '@/types/crm';
 import { formatDistanceToNow, parseISO, startOfMonth, format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuthStore();
@@ -51,12 +55,9 @@ export default function DashboardPage() {
   }, [firestore]);
   const { data: rawLeads } = useCollection<Lead>(leadsQuery);
 
-  const leads = useMemo(() => {
+  const myLeads = useMemo(() => {
     if (!rawLeads || !user) return [];
-    return rawLeads
-      .filter(l => l.agentId === user.id)
-      .sort((a, b) => (b.lastActivityAt || b.createdAt).localeCompare(a.lastActivityAt || a.createdAt))
-      .slice(0, 10);
+    return rawLeads.filter(l => l.agentId === user.id);
   }, [rawLeads, user?.id]);
 
   const activitiesQuery = useMemoFirebase(() => {
@@ -66,13 +67,25 @@ export default function DashboardPage() {
   
   const { data: rawActivities, loading: activitiesLoading } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  const recentActivities = useMemo(() => {
+  const myActivities = useMemo(() => {
     if (!rawActivities || !user) return [];
-    return [...rawActivities]
-      .filter(a => a.agentId === user.id)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 4);
+    return rawActivities.filter(a => a.agentId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [rawActivities, user?.id]);
+
+  const pendingActions = useMemo(() => {
+    if (myActivities.length === 0) return [];
+    const latestActionsMap: Record<string, LeadActivity> = {};
+    [...myActivities].reverse().forEach(a => {
+      if (a.nextActionDate) latestActionsMap[a.leadId] = a;
+    });
+
+    return Object.values(latestActionsMap).filter(a => {
+      const subsequentActivity = myActivities.find(sub => 
+        sub.leadId === a.leadId && sub.createdAt > a.createdAt
+      );
+      return !subsequentActivity;
+    }).sort((a, b) => a.nextActionDate.localeCompare(b.nextActionDate));
+  }, [myActivities]);
 
   const targetQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -99,10 +112,7 @@ export default function DashboardPage() {
   }, [tiers, currentTier]);
 
   const progressMetrics = useMemo(() => {
-    if (!rawLeads || !user) return { leadsCount: 0, winsCount: 0, leadsPercent: 0, winsPercent: 0, overallPercent: 0, leadsTarget: 10, winsTarget: 2 };
-    
     const monthStart = startOfMonth(new Date());
-    const myLeads = rawLeads.filter(l => l.agentId === user.id);
     const monthLeads = myLeads.filter(l => parseISO(l.createdAt) >= monthStart);
     const monthWins = myLeads.filter(l => l.status === 'won' && l.wonAt && parseISO(l.wonAt) >= monthStart);
 
@@ -122,7 +132,7 @@ export default function DashboardPage() {
       winsPercent: wp, 
       overallPercent: op 
     };
-  }, [rawLeads, currentTarget, user?.id]);
+  }, [myLeads, currentTarget]);
 
   const tierUI = useMemo(() => {
     switch (user?.tierId) {
@@ -139,7 +149,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="animate-spin text-primary" size={32} />
-          <p className="text-sm font-medium text-slate-400">Loading your profile...</p>
+          <p className="text-sm font-medium text-slate-400">Syncing CRM dashboard...</p>
         </div>
       </div>
     );
@@ -155,39 +165,48 @@ export default function DashboardPage() {
             <div className="bg-card border rounded-md shadow-sm overflow-hidden">
               <div className="p-3 border-b flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-2">
-                  <Activity size={16} className="text-primary" />
-                  <h3 className="text-[13px] font-bold uppercase tracking-tight text-slate-500">Priority Follow-ups</h3>
+                  <Calendar size={16} className="text-primary" />
+                  <h3 className="text-[13px] font-bold uppercase tracking-tight text-slate-500">Scheduled Actions (Reminders)</h3>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => router.push('/activities')} className="h-6 text-[10px] uppercase font-bold text-primary px-2">Full Schedule</Button>
+                <Link href="/activities">
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold text-primary px-2">View Task List</Button>
+                </Link>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px]">
                   <thead>
                     <tr className="bg-slate-50/30 h-9">
-                      <th className="px-4 font-bold text-left uppercase text-[11px] text-slate-400 tracking-wider">Lead Name</th>
-                      <th className="font-bold text-left uppercase text-[11px] text-slate-400 tracking-wider">Current Stage</th>
-                      <th className="font-bold text-left uppercase text-[11px] text-slate-400 tracking-wider">Last Touch</th>
-                      <th className="text-right px-4 font-bold uppercase text-[11px] text-slate-400 tracking-wider">Action</th>
+                      <th className="px-4 font-bold text-left uppercase text-[10px] text-slate-400">Client Name</th>
+                      <th className="font-bold text-left uppercase text-[10px] text-slate-400">Planned Step</th>
+                      <th className="font-bold text-left uppercase text-[10px] text-slate-400">Due</th>
+                      <th className="text-right px-4 font-bold uppercase text-[10px] text-slate-400">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {leads.map((lead) => (
-                      <tr key={lead.id} className="h-11 hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 font-bold text-slate-700">{lead.clientName}</td>
-                        <td>
-                          <StatusBadge status={lead.status} />
-                        </td>
-                        <td className="text-slate-400 text-[12px]">
-                          {lead.lastActivityAt ? formatDistanceToNow(parseISO(lead.lastActivityAt)) + ' ago' : 'New'}
+                    {pendingActions.slice(0, 5).map((action) => (
+                      <tr key={action.id} className="h-11 hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 font-bold text-slate-700">{action.clientName}</td>
+                        <td className="text-slate-600">{action.nextActionType}</td>
+                        <td className="text-[12px] font-bold">
+                           <span className={cn(action.nextActionDate! < new Date().toISOString().split('T')[0] ? "text-red-600" : "text-amber-600")}>
+                             {action.nextActionDate}
+                           </span>
                         </td>
                         <td className="px-4 text-right">
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/leads/${lead.id}`)} className="h-7 text-[11px] px-3 font-bold uppercase tracking-tighter">Log activity</Button>
+                          <Link href={`/leads/${action.leadId}`}>
+                            <Button size="sm" className="h-7 text-[10px] gap-1 px-3 bg-cyan-600 font-bold uppercase">
+                               <CheckCircle2 size={12} /> Log Progress
+                            </Button>
+                          </Link>
                         </td>
                       </tr>
                     ))}
-                    {(!leads || leads.length === 0) && (
-                      <tr className="h-20">
-                        <td colSpan={4} className="text-center text-muted-foreground text-[11px] italic">No active leads in pipeline.</td>
+                    {pendingActions.length === 0 && (
+                      <tr className="h-24">
+                        <td colSpan={4} className="text-center text-muted-foreground text-[11px] italic py-8">
+                           <CheckCircle2 size={24} className="mx-auto text-emerald-500/20 mb-2" />
+                           All field actions are up to date.
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -217,35 +236,31 @@ export default function DashboardPage() {
                <div className="p-5 space-y-5">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold">
-                       <span className="text-slate-500 uppercase tracking-wider">Monthly Progress</span>
+                       <span className="text-slate-500 uppercase tracking-wider">Quota Progress</span>
                        <span className="text-primary">{progressMetrics.overallPercent}%</span>
                     </div>
                     <Progress value={progressMetrics.overallPercent} className="h-2" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase mb-1">
-                          <Target size={12} className="text-primary" /> Leads
-                       </div>
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
+                       <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Leads</p>
                        <p className="text-[16px] font-bold text-slate-800">
-                          {progressMetrics.leadsCount} <span className="text-slate-300 font-normal">/ {progressMetrics.leadsTarget}</span>
+                          {progressMetrics.leadsCount}<span className="text-slate-300 font-normal text-[12px]">/{progressMetrics.leadsTarget}</span>
                        </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase mb-1">
-                          <TrendingUp size={12} className="text-emerald-500" /> Wins
-                       </div>
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
+                       <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Wins</p>
                        <p className="text-[16px] font-bold text-slate-800">
-                          {progressMetrics.winsCount} <span className="text-slate-300 font-normal">/ {progressMetrics.winsTarget}</span>
+                          {progressMetrics.winsCount}<span className="text-slate-300 font-normal text-[12px]">/{progressMetrics.winsTarget}</span>
                        </p>
                     </div>
                   </div>
 
                   <div className="pt-3 flex items-center justify-between border-t border-dashed">
-                     <span className="text-[10px] uppercase font-bold text-slate-400">Next Tier Goal</span>
+                     <span className="text-[10px] uppercase font-bold text-slate-400">Next Review</span>
                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-bold text-primary">{nextTier?.name || 'Diamond'}</span>
+                        <span className="text-[11px] font-bold text-primary">{nextTier?.name || 'Max'}</span>
                         <ArrowRight size={10} className="text-slate-300" />
                      </div>
                   </div>
@@ -253,24 +268,19 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-card border rounded-md p-5 shadow-sm">
-              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Pipeline Distribution</h3>
+              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Field Pinning Rate</h3>
               <div className="space-y-4">
-                {['new', 'qualified', 'proposal', 'won'].map((stage) => {
-                  const count = rawLeads?.filter(l => l.status === stage && l.agentId === user.id).length || 0;
-                  const total = rawLeads?.filter(l => l.agentId === user.id).length || 1;
-                  const pct = Math.round((count / total) * 100);
-                  return (
-                    <div key={stage} className="space-y-1.5">
-                       <div className="flex justify-between text-[11px] font-medium">
-                          <span className="capitalize text-slate-600">{stage}</span>
-                          <span className="font-bold text-slate-900">{count}</span>
-                       </div>
-                       <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-slate-300 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
-                       </div>
-                    </div>
-                  );
-                })}
+                 <div className="flex items-center justify-between text-[12px]">
+                    <span className="text-slate-600">Geo-tagged Leads</span>
+                    <span className="font-bold text-slate-900">{myLeads.filter(l => l.location).length} / {myLeads.length}</span>
+                 </div>
+                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-cyan-600 transition-all duration-1000" 
+                      style={{ width: `${myLeads.length > 0 ? (myLeads.filter(l => l.location).length / myLeads.length) * 100 : 0}%` }} 
+                    />
+                 </div>
+                 <p className="text-[10px] text-slate-400 leading-tight">Capturing GPS coordinates during visits ensures territory transparency.</p>
               </div>
             </div>
           </div>
@@ -283,7 +293,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recentActivities.map(activity => (
+            {myActivities.slice(0, 4).map(activity => (
               <div key={activity.id} className="bg-card border rounded-md p-4 shadow-sm hover:shadow-md transition-shadow relative">
                 <div className="flex items-start justify-between mb-2">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -299,18 +309,20 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-3 pt-3 border-t flex items-center justify-between">
                    <div className="flex items-center gap-1.5 min-w-0">
-                      <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold shrink-0">
+                      <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold shrink-0 uppercase">
                         {(activity.clientName || 'L')[0]}
                       </div>
                       <span className="text-[10px] font-medium text-slate-600 truncate">{activity.clientName || 'Lead'}</span>
                    </div>
-                   <Badge variant="outline" className="text-[8px] h-3.5 px-1 font-bold uppercase tracking-tighter">
-                    {activity.outcomeStatus}
-                   </Badge>
+                   {activity.location && (
+                     <Badge variant="outline" className="text-[8px] h-3.5 px-1 font-bold uppercase tracking-tighter border-emerald-100 text-emerald-600 bg-emerald-50">
+                        Map Pin
+                     </Badge>
+                   )}
                 </div>
               </div>
             ))}
-            {(!recentActivities || recentActivities.length === 0) && !activitiesLoading && Array.from({ length: 4 }).map((_, i) => (
+            {myActivities.length === 0 && !activitiesLoading && Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-slate-50/50 border border-dashed rounded-md p-4 flex flex-col items-center justify-center text-slate-300 h-[140px]">
                 <Activity size={24} className="opacity-10 mb-2" />
                 <p className="text-[10px] font-medium uppercase">Awaiting activity</p>
