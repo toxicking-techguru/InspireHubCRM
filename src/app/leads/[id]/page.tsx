@@ -7,7 +7,7 @@ import { Shell } from '@/components/layout/Shell';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, collection, addDoc, updateDoc, query, orderBy, getDoc } from 'firebase/firestore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Lead, LeadActivity, LeadStatus, ActivityType, Tier } from '@/types/crm';
+import { Lead, LeadActivity, LeadStatus, ActivityType, Tier, GeoLocation } from '@/types/crm';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,9 @@ import {
   Paperclip,
   Activity,
   Zap,
-  ExternalLink
+  ExternalLink,
+  MapPin,
+  ClipboardList
 } from 'lucide-react';
 import { 
   Select, 
@@ -46,7 +48,7 @@ import Link from 'next/link';
 const ACTIVITY_TYPES: ActivityType[] = [
   'Call made', 'Intro meeting', 'Follow up', 'Proposal send', 'Demo done', 
   'Presentation done', 'Negotiation', 'Quotation shared', 'Contract send', 
-  'Invoice send', 'Closed won', 'Closed lost'
+  'Invoice send', 'Closed won', 'Closed lost', 'Outreach', 'Site visit'
 ];
 
 export default function LeadDetailPage() {
@@ -70,13 +72,31 @@ export default function LeadDetailPage() {
 
   const [remark, setRemark] = useState('');
   const [type, setType] = useState<ActivityType>('Call made');
+  const [dateDone, setDateDone] = useState(format(new Date(), "yyyy-MM-dd"));
   const [scheduledAt, setScheduledAt] = useState(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
   const [nextActionType, setNextActionType] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
   const [outcomeStatus, setOutcomeStatus] = useState('Pending');
   const [fileUrl, setFileUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [location, setLocation] = useState<GeoLocation | null>(null);
   const [confirmStatus, setConfirmStatus] = useState<LeadStatus | null>(null);
+
+  const handleGetLocation = () => {
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: new Date().toISOString() });
+        setLocating(false);
+        toast({ title: "Site Location Captured" });
+      },
+      () => {
+        toast({ variant: "destructive", title: "Location Error" });
+        setLocating(false);
+      }
+    );
+  };
 
   const handleStatusChangeRequest = (newStatus: LeadStatus) => {
     if (newStatus === lead?.status) return;
@@ -104,276 +124,196 @@ export default function LeadDetailPage() {
       const now = new Date().toISOString();
       const activityData = {
         leadId: id as string,
-        clientName: lead.clientName, // Essential for Activity Logs
+        clientName: lead.clientName,
         agentId: user.id,
         agentName: user.name,
         type,
+        dateDone,
         scheduledAt,
         remark,
         nextActionType,
         nextActionDate,
         outcomeStatus,
         fileUrl,
+        location: location || null,
         createdAt: now,
       };
 
       await addDoc(collection(firestore, 'leads', id as string, 'activities'), activityData);
       
       const updateData: any = { lastActivityAt: now };
-      
-      if (!lead.firstResponseAt) {
-        updateData.firstResponseAt = now;
-      }
-
-      if (type === 'Contract send') {
-        updateData.contractSignedAt = now;
-      }
+      if (!lead.firstResponseAt) updateData.firstResponseAt = now;
+      if (type === 'Contract send') updateData.contractSignedAt = now;
 
       if (type === 'Closed won') {
         updateData.status = 'won';
         updateData.wonAt = now;
-
         const currentTier = tiers?.find(t => t.id === user.tierId);
         const commPct = currentTier?.commissionPct || 5;
         const commAmount = (lead.estimatedBudget * commPct) / 100;
 
         await addDoc(collection(firestore, 'commissions'), {
-          agentId: user.id,
-          leadId: lead.id,
-          clientName: lead.clientName,
-          dealAmount: lead.estimatedBudget,
-          commissionPct: commPct,
-          amount: commAmount,
-          status: 'pending',
-          triggerType: 'Deal marked Won',
-          createdAt: now
+          agentId: user.id, leadId: lead.id, clientName: lead.clientName,
+          dealAmount: lead.estimatedBudget, commissionPct: commPct, amount: commAmount,
+          status: 'pending', triggerType: 'Deal marked Won', createdAt: now
         });
-
-        const walletRef = doc(firestore, 'wallets', user.id);
-        const walletSnap = await getDoc(walletRef);
-        if (walletSnap.exists()) {
-          const w = walletSnap.data();
-          await updateDoc(walletRef, {
-            pending: (w.pending || 0) + commAmount,
-            totalEarned: (w.totalEarned || 0) + commAmount
-          });
-        }
       } else if (type === 'Closed lost') {
         updateData.status = 'lost';
       }
 
       await updateDoc(doc(firestore, 'leads', id as string), updateData);
-      setRemark(''); setNextActionType(''); setNextActionDate(''); setFileUrl('');
-      toast({ title: "Activity Logged", description: "Interaction recorded successfully." });
+      setRemark(''); setNextActionType(''); setNextActionDate(''); setFileUrl(''); setLocation(null);
+      toast({ title: "Activity Logged" });
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to log activity." });
+      toast({ variant: "destructive", title: "Error" });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!user) return null;
   if (leadLoading) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary" /></div></Shell>;
-  if (!lead) return <Shell><div className="py-20 text-center text-muted-foreground">Lead not found.</div></Shell>;
-
-  const daysInPipeline = differenceInDays(new Date(), parseISO(lead.createdAt));
-  const lastActivityDate = lead.lastActivityAt ? parseISO(lead.lastActivityAt) : parseISO(lead.createdAt);
-  const firstResponseHours = lead.firstResponseAt ? differenceInHours(parseISO(lead.firstResponseAt), parseISO(lead.createdAt)) : null;
+  if (!lead) return <Shell><div className="py-20 text-center">Lead not found.</div></Shell>;
 
   return (
     <Shell>
-      <div className="text-[12px] text-slate-500 mb-1 flex items-center gap-1">
-        <Link href="/leads" className="hover:text-primary transition-colors">My leads</Link>
-        <span>&gt;</span><span className="text-slate-900 font-medium">{lead.clientName}</span>
-      </div>
-
-      <div className="h-[52px] flex items-center justify-between border-b mb-4">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-[18px] font-bold">{lead.clientName}</h1>
-          <span className="text-slate-400">/</span>
-          <span className="text-[14px] text-slate-600 font-medium">{lead.companyName || 'Private Individual'}</span>
+          <h1 className="text-[20px] font-bold text-slate-900">{lead.clientName}</h1>
           <StatusBadge status={lead.status} />
         </div>
-        <Select value={lead.status} onValueChange={(val) => handleStatusChangeRequest(val as LeadStatus)}>
-          <SelectTrigger className="h-8 text-xs min-w-[120px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost', 'dormant'].map(s => (
-              <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex items-center gap-6 py-2 px-1 border-b mb-6 text-[10px] font-bold uppercase tracking-widest text-slate-400 overflow-x-auto whitespace-nowrap">
-        <div className="flex gap-2 items-center">
-          <CalendarIcon size={12} />
-          <span>Created: <b className="text-slate-700">{format(parseISO(lead.createdAt), 'MMM d, yyyy')}</b></span>
-        </div>
-        <div className="h-3 w-px bg-slate-200" />
-        <div className="flex gap-2 items-center">
-          <Activity size={12} />
-          <span>Pipeline: <b className="text-slate-700">{daysInPipeline} Days</b></span>
-        </div>
-        <div className="h-3 w-px bg-slate-200" />
-        <div className="flex gap-2 items-center">
-          <Zap size={12} />
-          <span>Response: <b className="text-slate-700">{firstResponseHours !== null ? `${firstResponseHours}h` : 'Pending'}</b></span>
-        </div>
-        <div className="h-3 w-px bg-slate-200" />
-        <div className="flex gap-2 items-center">
-          <Clock size={12} />
-          <span>Last Touch: <b className="text-slate-700">{formatDistanceToNow(lastActivityDate)} ago</b></span>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-10 gap-6">
-        <div className="lg:col-span-6 space-y-6">
-          <Card className="rounded-none border-[0.5px] shadow-none">
-            <CardHeader className="p-3 border-b bg-slate-50/30"><CardTitle className="text-[12px] uppercase font-bold text-slate-500">Lead Information</CardTitle></CardHeader>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                {[
-                  { label: 'Phone', value: lead.clientPhone },
-                  { label: 'Email', value: lead.clientEmail },
-                  { label: 'Country', value: lead.businessCountry },
-                  { label: 'Region', value: lead.businessRegion },
-                  { label: 'Budget', value: `$${lead.estimatedBudget.toLocaleString()}` },
-                  { label: 'Channel', value: lead.firstContactChannel },
-                  { label: 'Sub-channel', value: lead.firstContactSubchannel },
-                ].map((item, i) => (
-                  <div key={i} className="flex flex-col gap-0.5">
-                    <span className="text-[12px] text-slate-500 font-medium">{item.label}</span>
-                    <span className="text-[13px] text-primary font-bold">{item.value}</span>
-                  </div>
+        <div className="flex items-center gap-2">
+            <Select value={lead.status} onValueChange={(val) => handleStatusChangeRequest(val as LeadStatus)}>
+              <SelectTrigger className="h-8 text-xs min-w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost', 'dormant'].map(s => (
+                  <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
                 ))}
-              </div>
+              </SelectContent>
+            </Select>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="shadow-none border-[0.5px]">
+            <CardHeader className="p-3 bg-slate-50/50 border-b flex flex-row items-center gap-2">
+               <ClipboardList size={14} className="text-cyan-600" />
+               <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Qualification Insights</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+               <div>
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Client Brief</Label>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">{lead.clientBrief || 'Not provided'}</p>
+               </div>
+               <div>
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Pain Points</Label>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">{lead.painPoints || 'Not analyzed'}</p>
+               </div>
+               <div>
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">Proposed Offering</Label>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">{lead.serviceOffering || 'Not defined'}</p>
+               </div>
+               <div className="pt-2 border-t">
+                  <div className="flex justify-between items-center text-[12px]">
+                     <span className="text-slate-500">Est. Budget:</span>
+                     <span className="font-bold text-cyan-700">${(lead.estimatedBudget || 0).toLocaleString()}</span>
+                  </div>
+               </div>
             </CardContent>
           </Card>
 
-          <Card className="rounded-none border-[0.5px] shadow-none">
-            <CardHeader className="p-3 border-b bg-slate-50/30"><CardTitle className="text-[12px] uppercase font-bold text-slate-500">Log Activity</CardTitle></CardHeader>
+          <Card className="shadow-none border-[0.5px]">
+            <CardHeader className="p-3 bg-slate-50/50 border-b">
+               <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Log Field Progress</CardTitle>
+            </CardHeader>
             <CardContent className="p-4">
               <form onSubmit={handleAddActivity} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-bold">Activity Type</Label>
-                    <Select value={type} onValueChange={(val) => setType(val as ActivityType)}>
-                      <SelectTrigger className="h-8 text-[11px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ACTIVITY_TYPES.map(t => <SelectItem key={t} value={t} className="text-[11px]">{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-bold">Outcome Status</Label>
-                    <Select value={outcomeStatus} onValueChange={setOutcomeStatus}>
-                      <SelectTrigger className="h-8 text-[11px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {['Pending', 'Success', 'Negative', 'Rescheduled'].map(s => <SelectItem key={s} value={s} className="text-[11px]">{s}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-1.5">
+                   <Label className="text-[11px] font-bold">Activity Performed</Label>
+                   <Select value={type} onValueChange={(val) => setType(val as ActivityType)}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>{ACTIVITY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-1">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">Schedule Next Action</Label>
-                      <Input 
-                        placeholder="e.g. Call for followup" 
-                        className="h-8 text-[11px]" 
-                        value={nextActionType} 
-                        onChange={(e) => setNextActionType(e.target.value)} 
-                      />
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold">Completion Date</Label>
+                      <Input type="date" className="h-8 text-[12px]" value={dateDone} onChange={(e) => setDateDone(e.target.value)} />
                    </div>
-                   <div className="space-y-1">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">Next Action Date</Label>
-                      <Input 
-                        type="date" 
-                        className="h-8 text-[11px]" 
-                        value={nextActionDate} 
-                        onChange={(e) => setNextActionDate(e.target.value)} 
-                      />
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold">Site Check-in</Label>
+                      <Button type="button" variant="outline" size="sm" className={cn("w-full h-8 text-[11px] gap-1", location && "text-emerald-600 border-emerald-200 bg-emerald-50")} onClick={handleGetLocation}>
+                         {locating ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} />}
+                         {location ? "Check-in OK" : "Pin Location"}
+                      </Button>
                    </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-bold">File Link (Optional)</Label>
-                  <div className="relative">
-                    <Paperclip className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
-                    <Input 
-                      placeholder="HTTPS link to document or image..." 
-                      className="pl-8 h-8 text-[11px]" 
-                      value={fileUrl}
-                      onChange={(e) => setFileUrl(e.target.value)}
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                   <Label className="text-[11px] font-bold uppercase text-slate-400">Next Planned Action</Label>
+                   <div className="flex gap-2">
+                      <Input placeholder="What's next?" className="h-8 text-[12px] flex-1" value={nextActionType} onChange={(e) => setNextActionType(e.target.value)} />
+                      <Input type="date" className="h-8 text-[12px] w-[130px]" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} />
+                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-bold">Remark <span className="text-red-500">*</span></Label>
-                  <Textarea required className="text-[11px] min-h-[80px]" placeholder="Detailed notes about this interaction..." value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={1000} />
-                  <div className="flex justify-between items-center px-1">
-                    <span className="text-[9px] text-slate-400 uppercase font-bold">Created by: {user.name}</span>
-                    <span className="text-[9px] text-slate-400">{remark.length}/1000</span>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold">Progress Notes</Label>
+                  <Textarea required className="text-[12px] min-h-[100px]" placeholder="Detailed log of results, feedback, or outreach outcomes..." value={remark} onChange={(e) => setRemark(e.target.value)} />
                 </div>
 
-                <Button type="submit" className="w-full h-9 font-bold" disabled={submitting}>
-                  {submitting ? <Loader2 className="animate-spin" size={16} /> : 'Save Activity'}
+                <Button type="submit" className="w-full h-9 font-bold text-[12px] bg-cyan-600 hover:bg-cyan-700 shadow-md" disabled={submitting}>
+                  {submitting ? <Loader2 className="animate-spin" size={14} /> : 'Record Step & Sync'}
                 </Button>
               </form>
             </CardContent>
           </Card>
         </div>
 
-        <div className="lg:col-span-4">
-          <Card className="rounded-none border-[0.5px] shadow-none h-full">
-            <CardHeader className="p-3 border-b bg-slate-50/30 flex flex-row items-center justify-between">
-              <CardTitle className="text-[12px] uppercase font-bold text-slate-500">Activity Timeline</CardTitle>
-              <HistoryIcon size={14} className="text-slate-400" />
+        <div className="lg:col-span-8">
+          <Card className="h-full shadow-none border-[0.5px]">
+            <CardHeader className="p-3 border-b bg-slate-50/50 flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                 <HistoryIcon size={14} className="text-cyan-600" />
+                 <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Pipeline Velocity & History</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y overflow-y-auto max-h-[800px]">
+              <div className="divide-y">
                 {activities?.map((activity) => (
-                  <div key={activity.id} className="p-4 hover:bg-slate-50/30 transition-colors">
-                    <div className="flex gap-3">
-                      <div className="mt-1 w-2 h-2 rounded-full shrink-0 bg-primary" />
+                  <div key={activity.id} className="p-4 hover:bg-slate-50/10 transition-colors">
+                    <div className="flex gap-4">
+                      <div className="mt-1 w-2.5 h-2.5 rounded-full bg-cyan-600 shrink-0 shadow-sm" />
                       <div className="space-y-1 w-full">
                         <div className="flex items-center justify-between">
-                          <span className="text-[13px] font-bold">{activity.type}</span>
-                          <span className="text-[10px] text-slate-400">{format(parseISO(activity.createdAt), 'MMM d, h:mm a')}</span>
+                          <span className="text-[14px] font-bold text-slate-900">{activity.type}</span>
+                          <span className="text-[11px] text-slate-400 font-medium">Done: {activity.dateDone || format(parseISO(activity.createdAt), 'MMM d, yyyy')}</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                           <div className="text-[11px] text-slate-500">By <span className="font-bold">{activity.agentName || 'System'}</span></div>
-                           <Badge variant="outline" className="text-[9px] h-3.5 px-1.5 font-bold uppercase tracking-tight">{activity.outcomeStatus}</Badge>
+                        <div className="flex items-center gap-3">
+                           <span className="text-[11px] text-slate-500">Captured by <b className="text-slate-700">{activity.agentName || 'System'}</b></span>
+                           {activity.location && (
+                             <Badge variant="outline" className="text-[9px] h-3.5 gap-1 border-emerald-100 text-emerald-700 bg-emerald-50">
+                               <MapPin size={8} /> {activity.location.lat.toFixed(3)}, {activity.location.lng.toFixed(3)}
+                             </Badge>
+                           )}
                         </div>
-                        <p className="text-[13px] text-slate-700 whitespace-pre-wrap mt-1">{activity.remark}</p>
+                        <p className="text-[13px] text-slate-600 whitespace-pre-wrap mt-2 leading-relaxed bg-slate-50/50 p-3 rounded border border-slate-100/50">{activity.remark}</p>
                         
-                        {(activity.nextActionType || activity.nextActionDate) && (
-                          <div className="mt-2 p-1.5 bg-slate-50 border rounded text-[11px] flex items-center gap-2">
-                             <Clock size={12} className="text-primary" />
-                             <span className="font-bold uppercase text-[9px] text-slate-400">Next Action:</span>
-                             <span className="text-slate-600">{activity.nextActionType || 'Pending'}</span>
-                             {activity.nextActionDate && <span className="text-primary font-bold">({activity.nextActionDate})</span>}
+                        {activity.nextActionType && (
+                          <div className="mt-3 flex items-center gap-2 text-[11px] text-amber-700 font-bold bg-amber-50/50 p-2 rounded border border-amber-100/30">
+                             <Clock size={12} /> NEXT ACTION: {activity.nextActionType} {activity.nextActionDate && `ON ${activity.nextActionDate}`}
                           </div>
-                        )}
-
-                        {activity.fileUrl && (
-                          <a 
-                            href={activity.fileUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-primary hover:underline font-medium"
-                          >
-                            <Paperclip size={12} /> View Attached Document <ExternalLink size={10} />
-                          </a>
                         )}
                       </div>
                     </div>
                   </div>
                 ))}
                 {(!activities || activities.length === 0) && (
-                  <div className="p-10 text-center text-slate-400 italic text-[12px]">No activity history yet.</div>
+                  <div className="p-20 text-center flex flex-col items-center gap-2">
+                     <AlertCircle size={32} className="text-slate-200" />
+                     <p className="text-slate-400 text-[12px] italic">Awaiting field activity for this lead.</p>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -383,8 +323,8 @@ export default function LeadDetailPage() {
 
       <AlertDialog open={!!confirmStatus} onOpenChange={() => setConfirmStatus(null)}>
         <AlertDialogContent className="max-w-[400px]">
-          <AlertDialogHeader><AlertDialogTitle>Move Stage?</AlertDialogTitle><AlertDialogDescription className="text-xs">Confirm moving this lead to <strong>{confirmStatus}</strong>?</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel className="h-8 text-xs">Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmStatusChange} className="h-8 text-xs">Apply Change</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>Confirm Stage Migration</AlertDialogTitle><AlertDialogDescription>Manually override the pipeline status for this lead? This bypasses automatic activity logging triggers.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel className="h-8 text-xs">Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmStatusChange} className="h-8 text-xs bg-cyan-600">Sync Change</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </Shell>

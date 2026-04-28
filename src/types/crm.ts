@@ -21,6 +21,13 @@ export interface Tier {
   };
 }
 
+export interface AgentPaymentDetails {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  paymentMethod: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -32,6 +39,7 @@ export interface Agent {
   managerId: string | null;
   tierId: string;
   role: Role;
+  paymentDetails?: AgentPaymentDetails;
 }
 
 export interface Wallet {
@@ -44,6 +52,13 @@ export interface Wallet {
 }
 
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'dormant';
+
+export interface GeoLocation {
+  lat: number;
+  lng: number;
+  address?: string;
+  timestamp: string;
+}
 
 export interface Lead {
   id: string;
@@ -64,6 +79,11 @@ export interface Lead {
   wonAt?: string;
   firstResponseAt?: string;
   contractSignedAt?: string;
+  // New Analytics Fields
+  clientBrief?: string;
+  painPoints?: string;
+  serviceOffering?: string;
+  location?: GeoLocation;
 }
 
 export type ActivityType = 
@@ -78,22 +98,9 @@ export type ActivityType =
   | 'Contract send' 
   | 'Invoice send' 
   | 'Closed won' 
-  | 'Closed lost';
-
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  commissionStructure: Record<string, any>;
-  tierRequired: string;
-  resources: {
-    scripts: any[];
-    docs: any[];
-    videos: any[];
-    manuals: any[];
-    faqs: any[];
-  };
-}
+  | 'Closed lost'
+  | 'Outreach'
+  | 'Site visit';
 
 export interface LeadActivity {
   id: string;
@@ -103,12 +110,12 @@ export interface LeadActivity {
   agentName?: string;
   type: ActivityType;
   scheduledAt: string;
-  nextActionType: string;
-  nextActionDate: string;
+  dateDone?: string;
   remark: string;
   outcomeStatus: string;
   createdAt: string;
   fileUrl?: string;
+  location?: GeoLocation;
 }
 
 export interface Target {
@@ -141,4 +148,5 @@ export interface Withdrawal {
   amount: number;
   status: 'pending' | 'approved' | 'rejected' | 'paid';
   requestedAt: string;
+  bankDetails?: AgentPaymentDetails;
 }

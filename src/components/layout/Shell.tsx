@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -29,7 +30,8 @@ import {
   Coins,
   Menu,
   PlusCircle,
-  Home
+  Home,
+  MapPin
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -130,6 +132,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const agentNav = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { label: 'My leads', icon: Users, href: '/leads' },
+    { label: 'Map view', icon: MapPin, href: '/leads/map' },
     { label: 'Add lead', icon: Plus, href: '/leads/new' },
     { label: 'Activities', icon: Clock, href: '/activities' },
     { label: 'Products', icon: Package, href: '/products' },
@@ -141,6 +144,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     { label: 'Dashboard', icon: LayoutDashboard, href: '/manager/dashboard', sub: 'Team overview' },
     { label: 'My team', icon: Users, href: '/manager/team', sub: 'Agent list & profiles' },
     { label: 'All leads', icon: Users, href: '/manager/leads', sub: 'Team leads with filters' },
+    { label: 'Lead Map', icon: MapPin, href: '/leads/map', sub: 'Field locations' },
     { label: 'Idle leads', icon: AlertTriangle, href: '/manager/idle', sub: 'Leads needing action' },
     { label: 'Reports', icon: BarChart3, href: '/manager/reports', sub: 'Conversion & revenue' },
     { label: 'Targets', icon: Target, href: '/manager/targets', sub: 'Set & review targets' },
@@ -152,6 +156,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', sub: 'Global system overview' },
       { label: 'Agents', icon: Users, href: '/admin/agents', sub: 'All agents CRUD' },
       { label: 'All leads', icon: Users, href: '/admin/leads', sub: 'System-wide leads' },
+      { label: 'Lead Map', icon: MapPin, href: '/leads/map', sub: 'Field visualization' },
+      { label: 'Targets', icon: Target, href: '/admin/targets', sub: 'Performance quotas' },
       { label: 'Tiers', icon: Layers, href: '/admin/tiers', sub: 'Commission & criteria' },
       { label: 'Products', icon: Package, href: '/admin/products', sub: 'Product & resource mgmt' },
       { label: 'Channels', icon: GitBranch, href: '/admin/channels', sub: 'Contact channel tree' },
@@ -162,7 +168,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     ]},
     { section: 'System', items: [
       { label: 'Reports', icon: BarChart3, href: '/admin/reports', sub: 'System-wide analytics' },
-      { label: 'Targets', icon: Target, href: '/admin/targets', sub: 'Set team targets' },
       { label: 'Audit log', icon: HistoryIcon, href: '/admin/audit', sub: 'All system actions' },
       { label: 'Settings', icon: Settings, href: '/admin/settings', sub: 'System config' },
     ]}
@@ -172,13 +177,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (isAdmin) return [
       { label: 'Home', icon: Home, href: '/admin/dashboard' },
       { label: 'Agents', icon: Users, href: '/admin/agents' },
-      { label: 'Finance', icon: Coins, href: '/admin/commissions', badge: pendingCommissions + pendingWithdrawals },
+      { label: 'Map', icon: MapPin, href: '/leads/map' },
       { label: 'Leads', icon: Target, href: '/admin/leads' },
     ];
     if (isManager) return [
       { label: 'Home', icon: Home, href: '/manager/dashboard' },
       { label: 'Team', icon: Users, href: '/manager/team' },
-      { label: 'Idle', icon: AlertTriangle, href: '/manager/idle' },
+      { label: 'Map', icon: MapPin, href: '/leads/map' },
       { label: 'Leads', icon: Target, href: '/manager/leads' },
     ];
     return [
@@ -187,7 +192,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       { label: 'Add', icon: PlusCircle, href: '/leads/new' },
       { label: 'Wallet', icon: Wallet, href: '/wallet' },
     ];
-  }, [isAdmin, isManager, pendingCommissions, pendingWithdrawals]);
+  }, [isAdmin, isManager]);
 
   const themeClasses = {
     active: "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-l-2 border-cyan-600",
@@ -210,7 +215,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
                     "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px] relative",
-                    isActive ? themeClasses.active : "text-slate-600 hover:bg-slate-50"
+                    isActive ? themeClasses.active : "text-sidebar-foreground hover:bg-slate-50"
                   )}
                 >
                   <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
@@ -239,7 +244,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={cn(
                   "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px]",
-                  isActive ? themeClasses.active : "text-slate-600 hover:bg-slate-50"
+                  isActive ? themeClasses.active : "text-sidebar-foreground hover:bg-slate-50"
                 )}
               >
                 <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
@@ -273,7 +278,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop Sidebar */}
       <aside className={cn(
         "hidden md:flex flex-col border-r bg-sidebar transition-all duration-300 ease-in-out z-30 sticky top-0 h-screen",
         isCollapsed ? "w-[48px]" : "w-[200px]"
@@ -286,81 +290,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {!isCollapsed && <span className="text-[13px] font-medium text-sidebar-foreground truncate tracking-tight">InspireHubCRM</span>}
           </div>
           {!isCollapsed && (
-            <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="h-7 w-7">
+            <button onClick={() => setIsCollapsed(true)} className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400">
               <ChevronLeft size={14} />
-            </Button>
+            </button>
           )}
         </div>
 
         <nav className="flex-1 p-2 overflow-y-auto overflow-x-hidden">
           <TooltipProvider delayDuration={0}>
-            {isAdmin ? (
-              <div className="space-y-4">
-                {adminNav.map((section, idx) => (
-                  <div key={idx} className="space-y-0.5">
-                    {!isCollapsed && <p className="text-[10px] font-bold uppercase text-slate-400 px-3 mt-2 mb-1">{section.section}</p>}
-                    {section.items.map((item) => {
-                      const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href));
-                      return (
-                        <Tooltip key={item.href}>
-                          <TooltipTrigger asChild>
-                            <Link 
-                              href={item.href}
-                              className={cn(
-                                "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px] relative",
-                                isActive ? themeClasses.active : cn("text-sidebar-foreground", themeClasses.hover)
-                              )}
-                            >
-                              <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
-                              {!isCollapsed && (
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
-                                  {item.sub && <span className="text-[9px] text-slate-400 truncate font-normal">{item.sub}</span>}
-                                </div>
-                              )}
-                              {item.badge && item.badge > 0 && (
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[9px] font-bold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center">
-                                  {item.badge > 9 ? '9+' : item.badge}
-                                </span>
-                              )}
-                            </Link>
-                          </TooltipTrigger>
-                          {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-0.5">
-                {(isManager ? managerNav : agentNav).map((item) => {
-                  const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                  return (
-                    <Tooltip key={item.href}>
-                      <TooltipTrigger asChild>
-                        <Link 
-                          href={item.href}
-                          className={cn(
-                            "flex items-center h-[36px] px-3 rounded-[6px] transition-colors gap-[10px]",
-                            isActive ? themeClasses.active : cn("text-sidebar-foreground", themeClasses.hover)
-                          )}
-                        >
-                          <item.icon size={14} className={cn("shrink-0", isActive ? themeClasses.icon : "text-slate-400")} />
-                          {!isCollapsed && (
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-[13px] font-medium truncate leading-tight">{item.label}</span>
-                              {(item as any).sub && <span className="text-[9px] text-slate-400 truncate font-normal">{(item as any).sub}</span>}
-                            </div>
-                          )}
-                        </Link>
-                      </TooltipTrigger>
-                      {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            )}
+            <NavItems />
           </TooltipProvider>
         </nav>
 
@@ -386,23 +324,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </div>
           ) : (
             <div className="flex justify-center w-full">
-              <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(false)} className="h-8 w-8">
+              <button onClick={() => setIsCollapsed(false)} className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400">
                 <ChevronRight size={14} />
-              </Button>
+              </button>
             </div>
           )}
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         <header className="h-[48px] border-b bg-card sticky top-0 z-20 flex items-center px-4 justify-between">
           <div className="flex items-center gap-3">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden h-8 w-8">
+                <button className="md:hidden h-8 w-8 flex items-center justify-center rounded-md hover:bg-slate-100">
                   <Menu size={20} />
-                </Button>
+                </button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-[240px] flex flex-col h-full">
                 <SheetHeader className="p-4 border-b bg-slate-50 flex-row items-center gap-2 space-y-0">
@@ -423,7 +360,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       <p className="text-[12px] font-bold truncate">{user.name}</p>
                       <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{user.role}</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 text-slate-400"><LogOut size={16} /></Button>
+                    <button onClick={handleLogout} className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-500"><LogOut size={16} /></button>
                   </div>
                 </div>
               </SheetContent>
@@ -432,44 +369,33 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <div className="text-[12px] font-medium text-muted-foreground hidden md:block">
               InspireHubCRM <span className="mx-1 text-slate-300">/</span> <span className="text-foreground capitalize font-semibold">{pathname.split('/').slice(-1)[0] || 'Dashboard'}</span>
             </div>
-            <div className="md:hidden flex items-center gap-2">
-               <Zap size={16} className="text-primary" />
-               <span className="text-[13px] font-bold">InspireHubCRM</span>
-            </div>
           </div>
 
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-8 w-8">
+                <button className="relative h-8 w-8 flex items-center justify-center rounded-md hover:bg-slate-100">
                   <Bell size={16} />
                   <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[12px] h-3 px-0.5 bg-destructive rounded-full border border-white text-[8px] text-white font-bold">
                     2
                   </span>
-                </Button>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[280px]">
                 <DropdownMenuLabel className="text-[12px]">Notifications</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <div className="max-h-[300px] overflow-y-auto">
-                  <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-[11px] font-bold text-primary uppercase">New Lead Assigned</span>
-                      <span className="text-[9px] text-slate-400">2m ago</span>
-                    </div>
-                    <p className="text-[12px] text-slate-600">TechFlow Inc. has been assigned to your pipeline.</p>
-                  </DropdownMenuItem>
+                <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
+                  <div className="p-2 bg-slate-50 rounded-md border text-[12px]">
+                    <p className="font-bold text-primary text-[10px] uppercase">System Notice</p>
+                    <p>New staff member onboarded.</p>
+                  </div>
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="justify-center text-primary text-[11px] font-bold py-2">
-                  View All Notifications
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <div className="h-4 w-px bg-border mx-1"></div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 text-muted-foreground">
+            <button onClick={handleLogout} className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-slate-100 text-muted-foreground hover:text-red-500">
               <LogOut size={16} />
-            </Button>
+            </button>
           </div>
         </header>
 
@@ -479,10 +405,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </main>
 
-        {/* Mobile Bottom Nav */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t flex items-center justify-around px-2 z-40 shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
            {mobileNavItems.map((item) => {
-             const isActive = pathname === item.href || (item.href !== '/dashboard' && item.href !== '/admin/dashboard' && item.href !== '/manager/dashboard' && pathname.startsWith(item.href));
+             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
              return (
                <Link 
                  key={item.href}
@@ -492,13 +417,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
                    isActive ? "text-primary" : "text-slate-400"
                  )}
                >
-                 <item.icon size={20} className={cn(isActive && "animate-in zoom-in-50")} />
+                 <item.icon size={20} />
                  <span className="text-[10px] font-bold uppercase tracking-tight">{item.label}</span>
-                 {item.badge && item.badge > 0 && (
-                    <span className="absolute top-0 right-3 bg-red-500 text-white text-[8px] font-bold h-3.5 min-w-[14px] px-1 rounded-full flex items-center justify-center border border-white">
-                      {item.badge > 9 ? '9+' : item.badge}
-                    </span>
-                  )}
                </Link>
              );
            })}

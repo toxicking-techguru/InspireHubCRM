@@ -5,7 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Tier, Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { TIERS as DEFAULT_TIERS } from '@/lib/mock-data';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 export default function AdminTiersPage() {
   const { user } = useAuthStore();
@@ -42,6 +43,7 @@ export default function AdminTiersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Naked query first to ensure we see data if index is missing, then sort in memory
   const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
@@ -56,6 +58,20 @@ export default function AdminTiersPage() {
   const { data: agents } = useCollection<Agent>(agentsQuery as any);
 
   const [editValues, setEditValues] = useState<Partial<Tier>>({});
+  const [newTierData, setNewTierData] = useState({
+    name: '',
+    rankLabel: 'Standard',
+    commissionPct: 5,
+    productLimitLabel: 'Few Products',
+    upgradeTargetLabel: 'Monthly sales',
+    upgradeCriteria: {
+      leadsTarget: 10,
+      closedTarget: 2,
+      revenueTarget: 5000,
+      activityScoreTarget: 80,
+      conversionRateTarget: 15
+    }
+  });
 
   const handleStartEdit = (tier: Tier) => {
     setEditingId(tier.id);
@@ -77,6 +93,25 @@ export default function AdminTiersPage() {
     }
   };
 
+  const handleAddTier = async () => {
+    if (!firestore) return;
+    const id = `tier_${Date.now()}`;
+    const nextRank = (tiers.length > 0 ? Math.max(...tiers.map(t => t.rankLevel)) : 0) + 1;
+    
+    try {
+      await setDoc(doc(firestore, 'tiers', id), {
+        ...newTierData,
+        id,
+        rankLevel: nextRank,
+        productLimit: 10,
+      });
+      setIsAddModalOpen(false);
+      toast({ title: "New Tier Created", description: `${newTierData.name} has been added to the hierarchy.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Creation Failed", description: e.message });
+    }
+  };
+
   const handleSave = async (id: string) => {
     if (!firestore) return;
     setSavingId(id);
@@ -91,14 +126,20 @@ export default function AdminTiersPage() {
     }
   };
 
-  if (!user || user.role !== 'Admin') return null;
-
-  const colorConfig: Record<string, string> = {
-    t1: 'border-l-slate-400 bg-slate-50/30',
-    t2: 'border-l-amber-400 bg-amber-50/30',
-    t3: 'border-l-cyan-400 bg-cyan-50/10',
-    t4: 'border-l-cyan-700 bg-cyan-50/20',
+  const handleDeleteTier = async (id: string) => {
+    if (!firestore) return;
+    const hasUsers = agents?.some(a => a.tierId === id);
+    if (hasUsers) {
+      toast({ variant: "destructive", title: "Action Blocked", description: "Cannot delete a tier with assigned users." });
+      return;
+    }
+    if (window.confirm("Permanently remove this tier?")) {
+      await deleteDoc(doc(firestore, 'tiers', id));
+      toast({ title: "Tier Deleted" });
+    }
   };
+
+  if (!user || user.role !== 'Admin') return null;
 
   return (
     <Shell>
@@ -111,21 +152,11 @@ export default function AdminTiersPage() {
             <p className="text-[12px] text-muted-foreground mt-0.5">Define rank levels, commission rates, and qualitative upgrade targets.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="h-6 border-cyan-200 text-cyan-700 font-bold">{tiers.length} LEVELS CONFIGURED</Badge>
+            <Button size="sm" className="h-8 gap-2 bg-cyan-600 hover:bg-cyan-700" onClick={() => setIsAddModalOpen(true)}>
+               <Plus size={14} /> New Tier
+            </Button>
           </div>
         </div>
-
-        {!loading && tiers.length === 0 && (
-          <div className="py-20 border-[0.5px] border-dashed border-cyan-200 rounded-lg flex flex-col items-center justify-center text-slate-400 bg-slate-50/30">
-             <Database size={48} className="mb-4 text-cyan-100" />
-             <p className="text-[15px] font-bold text-slate-600">No Tier Records Found</p>
-             <p className="text-[12px] mb-6">The system hierarchy must be initialized before you can manage agents.</p>
-             <Button className="bg-cyan-600 hover:bg-cyan-700 font-bold uppercase text-[11px]" disabled={isInitializing} onClick={handleInitialize}>
-               {isInitializing ? <Loader2 size={14} className="animate-spin mr-2" /> : <Plus size={14} className="mr-2" />}
-               Initialize Default Tiers
-             </Button>
-          </div>
-        )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {loading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[400px] rounded-lg" />) : 
@@ -135,8 +166,7 @@ export default function AdminTiersPage() {
 
               return (
                 <div key={tier.id} className={cn(
-                  "bg-card border rounded-lg shadow-sm flex flex-col transition-all border-l-4",
-                  colorConfig[tier.id] || "border-l-cyan-400",
+                  "bg-card border rounded-lg shadow-sm flex flex-col transition-all border-l-4 border-l-cyan-500",
                   isEditing && "ring-1 ring-cyan-500 shadow-md scale-[1.02]"
                 )}>
                   <div className="p-4 border-b flex justify-between items-start">
@@ -149,15 +179,22 @@ export default function AdminTiersPage() {
                           {tierAgents.length} Users Assigned
                         </p>
                      </div>
-                     {isEditing ? (
-                       <Button size="sm" className="h-7 bg-cyan-600 hover:bg-cyan-700 px-2 gap-1 text-[10px] font-bold uppercase" onClick={() => handleSave(tier.id)} disabled={savingId === tier.id}>
-                          {savingId === tier.id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
-                       </Button>
-                     ) : (
-                       <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-400 hover:text-cyan-600" onClick={() => handleStartEdit(tier)}>
-                          <Edit2 size={14} />
-                       </Button>
-                     )}
+                     <div className="flex gap-1">
+                        {isEditing ? (
+                          <Button size="sm" className="h-7 bg-cyan-600 hover:bg-cyan-700 px-2 gap-1 text-[10px] font-bold uppercase" onClick={() => handleSave(tier.id)} disabled={savingId === tier.id}>
+                              {savingId === tier.id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+                          </Button>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-400 hover:text-cyan-600" onClick={() => handleStartEdit(tier)}>
+                                <Edit2 size={14} />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-200 hover:text-red-500" onClick={() => handleDeleteTier(tier.id)}>
+                                <Trash2 size={14} />
+                            </Button>
+                          </>
+                        )}
+                     </div>
                   </div>
 
                   <div className="p-4 space-y-5 flex-1">
@@ -190,26 +227,9 @@ export default function AdminTiersPage() {
                                className="h-7 w-[120px] text-right text-[11px] p-1 border-cyan-100" 
                                value={editValues.productLimitLabel} 
                                onChange={(e) => setEditValues({...editValues, productLimitLabel: e.target.value})}
-                               placeholder="e.g. Few Products"
                              />
                            ) : (
                              <span className="text-[12px] font-bold text-slate-700">{tier.productLimitLabel || 'Standard'}</span>
-                           )}
-                        </div>
-
-                        <div className="flex justify-between items-center">
-                           <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase">
-                              <Trophy size={14} className="text-slate-300" /> Upgrade Target
-                           </div>
-                           {isEditing ? (
-                             <Input 
-                               className="h-7 w-[120px] text-right text-[11px] p-1 border-cyan-100" 
-                               value={editValues.upgradeTargetLabel} 
-                               onChange={(e) => setEditValues({...editValues, upgradeTargetLabel: e.target.value})}
-                               placeholder="e.g. Monthly sales"
-                             />
-                           ) : (
-                             <span className="text-[12px] font-bold text-cyan-700 text-right max-w-[100px] truncate">{tier.upgradeTargetLabel || 'N/A'}</span>
                            )}
                         </div>
                      </div>
@@ -249,27 +269,42 @@ export default function AdminTiersPage() {
                         </div>
                      </div>
                   </div>
-
-                  <div className="p-3 bg-slate-50 mt-auto rounded-b-lg border-t flex justify-center">
-                     <Link href={`/admin/agents?tier=${tier.id}`} className="text-[10px] font-bold text-slate-400 hover:text-cyan-600 uppercase flex items-center gap-1">
-                        View Team in Tier <ChevronRight size={10} />
-                     </Link>
-                  </div>
                 </div>
               );
             })
           }
         </div>
 
-        <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg flex items-start gap-4">
-           <Zap className="text-amber-500 mt-0.5 shrink-0" size={18} />
-           <div>
-              <h3 className="text-[14px] font-bold text-amber-900">System Upgrade Engine</h3>
-              <p className="text-[12px] text-amber-700 mt-1 leading-relaxed">
-                 InspireHubCRM monitors the 5 key criteria above. When an agent hits the threshold for the next rank, the system automatically migrates their profile, updates their commission percentage, and unlocks relevant product resources.
-              </p>
-           </div>
-        </div>
+        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+          <DialogContent className="max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Create New Sales Tier</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+               <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold uppercase text-slate-400">Tier Name</Label>
+                  <Input placeholder="e.g. Sapphire" value={newTierData.name} onChange={(e) => setNewTierData({...newTierData, name: e.target.value})} />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold uppercase text-slate-400">Rank Label</Label>
+                    <Input placeholder="e.g. Master" value={newTierData.rankLabel} onChange={(e) => setNewTierData({...newTierData, rankLabel: e.target.value})} />
+                 </div>
+                 <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold uppercase text-slate-400">Commission %</Label>
+                    <Input type="number" value={newTierData.commissionPct} onChange={(e) => setNewTierData({...newTierData, commissionPct: parseFloat(e.target.value)})} />
+                 </div>
+               </div>
+               <div className="p-3 bg-cyan-50 rounded text-[11px] text-cyan-700 italic border border-cyan-100">
+                 Adding a tier dynamically places it at the end of the current hierarchy rank. You can configure upgrade criteria after creation.
+               </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
+              <Button size="sm" className="bg-cyan-600" onClick={handleAddTier} disabled={!newTierData.name}>Create Tier</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Shell>
   );

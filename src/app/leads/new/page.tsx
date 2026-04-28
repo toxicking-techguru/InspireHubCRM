@@ -1,19 +1,20 @@
+
 "use client"
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Product, Lead } from '@/types/crm';
-import { ChevronLeft, Loader2, AlertTriangle, CheckCircle2, Search } from 'lucide-react';
+import { Product, Lead, GeoLocation } from '@/types/crm';
+import { ChevronLeft, Loader2, AlertTriangle, CheckCircle2, Search, MapPin } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 
@@ -30,6 +31,7 @@ export default function NewLeadPage() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ id: string; name: string } | null>(null);
   const [countrySearch, setCountrySearch] = useState('');
   const [showCountryResults, setShowCountryResults] = useState(false);
@@ -47,7 +49,12 @@ export default function NewLeadPage() {
     firstContactChannel: '',
     firstContactSubchannel: '',
     initialNote: '',
+    clientBrief: '',
+    painPoints: '',
+    serviceOffering: ''
   });
+
+  const [location, setLocation] = useState<GeoLocation | null>(null);
 
   // Fetch dynamic channels from Firestore
   const channelsQuery = useMemoFirebase(() => 
@@ -55,7 +62,6 @@ export default function NewLeadPage() {
   , [firestore]);
   const { data: allChannelsRaw, loading: channelsLoading } = useCollection<any>(channelsQuery as any);
 
-  // Group channels for the form in memory
   const mainChannels = useMemo(() => {
     if (!allChannelsRaw) return [];
     return allChannelsRaw
@@ -81,6 +87,31 @@ export default function NewLeadPage() {
     firestore ? collection(firestore, 'products') : null
   , [firestore]);
   const { data: products } = useCollection<Product>(productsQuery as any);
+
+  const handleGetLocation = () => {
+    setLocating(true);
+    if (!navigator.geolocation) {
+      toast({ variant: "destructive", title: "Unsupported", description: "Geolocation is not supported by your browser." });
+      setLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          timestamp: new Date().toISOString()
+        });
+        setLocating(false);
+        toast({ title: "Location Captured", description: `Coords: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}` });
+      },
+      (err) => {
+        toast({ variant: "destructive", title: "Location Denied", description: "Please enable location access to log site visits." });
+        setLocating(false);
+      }
+    );
+  };
 
   const checkDuplicate = async (field: 'clientEmail' | 'clientPhone', value: string) => {
     if (!firestore || !value || !user) return;
@@ -120,6 +151,10 @@ export default function NewLeadPage() {
         status: 'new' as const,
         firstContactChannel: formData.firstContactChannel,
         firstContactSubchannel: formData.firstContactSubchannel,
+        clientBrief: formData.clientBrief,
+        painPoints: formData.painPoints,
+        serviceOffering: formData.serviceOffering,
+        location: location || null,
         createdAt: new Date().toISOString(),
         lastActivityAt: new Date().toISOString(),
       };
@@ -132,8 +167,9 @@ export default function NewLeadPage() {
           clientName: clientName,
           agentId: user.id,
           agentName: user.name,
-          type: 'Call made',
+          type: 'Outreach',
           remark: formData.initialNote,
+          location: location || null,
           createdAt: new Date().toISOString(),
           outcomeStatus: 'recorded'
         });
@@ -160,165 +196,97 @@ export default function NewLeadPage() {
 
   return (
     <Shell>
-      <div className="max-w-[680px] mx-auto space-y-4 py-2">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
-            <ChevronLeft size={18} />
+      <div className="max-w-[720px] mx-auto space-y-4 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
+              <ChevronLeft size={18} />
+            </Button>
+            <h1 className="text-xl font-bold">New Lead Acquisition</h1>
+          </div>
+          <Button 
+            variant={location ? "secondary" : "outline"} 
+            size="sm" 
+            className="h-8 gap-2 text-[12px]" 
+            onClick={handleGetLocation}
+            disabled={locating}
+          >
+            {locating ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} className={location ? "text-emerald-500" : ""} />}
+            {location ? "Location Pinned" : "Log Site Visit Location"}
           </Button>
-          <h1 className="text-xl font-bold">Add New Lead</h1>
         </div>
 
-        {duplicateWarning && (
-          <div className="bg-amber-50 border border-amber-200 p-3 rounded-md flex items-start gap-3 text-amber-900 text-[13px]">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-bold">Potential Duplicate Found</p>
-              <p>A lead named <Link href={`/leads/${duplicateWarning.id}`} className="underline font-semibold">{duplicateWarning.name}</Link> shares this contact info.</p>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-6">
           <Card className="border-slate-200 shadow-sm">
-            <CardContent className="p-5 space-y-6">
+            <CardContent className="p-5 space-y-8">
+              {/* Step 1 */}
               <div className="space-y-4">
-                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">1. Client Information</h2></div>
+                <div className="border-b pb-1"><h2 className="text-[14px] font-bold uppercase tracking-tight text-slate-400">1. Identity & Context</h2></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">First Name <span className="text-red-500">*</span></Label>
-                    <Input required placeholder="John" className="h-9 text-[13px]" value={formData.firstName} onChange={(e) => handleChange('firstName', e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Last Name <span className="text-red-500">*</span></Label>
-                    <Input required placeholder="Doe" className="h-9 text-[13px]" value={formData.lastName} onChange={(e) => handleChange('lastName', e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Phone Number <span className="text-red-500">*</span></Label>
-                    <Input required className="h-9 text-[13px]" onBlur={() => checkDuplicate('clientPhone', formData.clientPhone)} value={formData.clientPhone} onChange={(e) => handleChange('clientPhone', e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Email Address <span className="text-red-500">*</span></Label>
-                    <Input required type="email" className="h-9 text-[13px]" onBlur={() => checkDuplicate('clientEmail', formData.clientEmail)} value={formData.clientEmail} onChange={(e) => handleChange('clientEmail', e.target.value)} />
-                  </div>
+                  <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase text-slate-400">First Name</Label><Input required placeholder="First Name" value={formData.firstName} onChange={(e) => handleChange('firstName', e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase text-slate-400">Last Name</Label><Input required placeholder="Last Name" value={formData.lastName} onChange={(e) => handleChange('lastName', e.target.value)} /></div>
+                  <div className="space-y-1.5 col-span-2"><Label className="text-[11px] font-bold uppercase text-slate-400">Company Name</Label><Input required placeholder="Client Entity / Company Name" value={formData.companyName} onChange={(e) => handleChange('companyName', e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase text-slate-400">Email</Label><Input required type="email" onBlur={() => checkDuplicate('clientEmail', formData.clientEmail)} value={formData.clientEmail} onChange={(e) => handleChange('clientEmail', e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase text-slate-400">Phone</Label><Input required onBlur={() => checkDuplicate('clientPhone', formData.clientPhone)} value={formData.clientPhone} onChange={(e) => handleChange('clientPhone', e.target.value)} /></div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold uppercase text-slate-400">Brief about the client</Label>
+                  <Textarea placeholder="Describe the client entity, their core business, and size..." className="min-h-[60px] text-[13px]" value={formData.clientBrief} onChange={(e) => handleChange('clientBrief', e.target.value)} />
                 </div>
               </div>
 
+              {/* Step 2 */}
               <div className="space-y-4">
-                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">2. Business Context</h2></div>
+                <div className="border-b pb-1"><h2 className="text-[14px] font-bold uppercase tracking-tight text-slate-400">2. Problem & Solution Analysis</h2></div>
+                <div className="space-y-4">
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Pain Point Analysis</Label>
+                      <Textarea placeholder="What specific problems are they trying to solve? List challenges..." className="min-h-[80px] text-[13px]" value={formData.painPoints} onChange={(e) => handleChange('painPoints', e.target.value)} />
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Service Offering Analysis</Label>
+                      <Textarea placeholder="How do our products solve their pain points? Why us?" className="min-h-[80px] text-[13px]" value={formData.serviceOffering} onChange={(e) => handleChange('serviceOffering', e.target.value)} />
+                   </div>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="space-y-4">
+                <div className="border-b pb-1"><h2 className="text-[14px] font-bold uppercase tracking-tight text-slate-400">3. Commercials & Source</h2></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Company Name <span className="text-red-500">*</span></Label>
-                    <Input required placeholder="Acme Corp" className="h-9 text-[13px]" value={formData.companyName} onChange={(e) => handleChange('companyName', e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5 relative">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Country <span className="text-red-500">*</span></Label>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
-                      <Input 
-                        required 
-                        placeholder="Search country..." 
-                        className="pl-8 h-9 text-[13px]" 
-                        value={formData.businessCountry} 
-                        onChange={(e) => {
-                          handleChange('businessCountry', e.target.value);
-                          setCountrySearch(e.target.value);
-                          setShowCountryResults(true);
-                        }} 
-                        onFocus={() => setShowCountryResults(true)}
-                        onBlur={() => setTimeout(() => setShowCountryResults(false), 200)}
-                      />
-                    </div>
-                    {showCountryResults && filteredCountries.length > 0 && (
-                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-40 overflow-y-auto">
-                        {filteredCountries.map(c => (
-                          <div 
-                            key={c} 
-                            className="p-2 text-[12px] hover:bg-slate-50 cursor-pointer"
-                            onMouseDown={() => {
-                              handleChange('businessCountry', c);
-                              setCountrySearch('');
-                              setShowCountryResults(false);
-                            }}
-                          >
-                            {c}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Estimated Budget <span className="text-red-500">*</span></Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                      <Input type="number" required className="pl-6 h-9 text-[13px]" placeholder="0.00" value={formData.estimatedBudget} onChange={(e) => handleChange('estimatedBudget', e.target.value)} />
-                    </div>
-                  </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Estimated Budget (Can be 0 for now)</Label>
+                      <Input type="number" placeholder="0.00" value={formData.estimatedBudget} onChange={(e) => handleChange('estimatedBudget', e.target.value)} />
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Interested Product</Label>
+                      <Select required value={formData.productId} onValueChange={(val) => handleChange('productId', val)}>
+                        <SelectTrigger className="text-[13px]"><SelectValue placeholder="Select Product" /></SelectTrigger>
+                        <SelectContent>{products?.map(p => <SelectItem key={p.id} value={p.id} className="text-[13px]">{p.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Main Channel</Label>
+                      <Select required value={formData.firstContactChannel} onValueChange={(val) => handleChange('firstContactChannel', val)}>
+                        <SelectTrigger className="text-[13px]"><SelectValue placeholder="Select Source" /></SelectTrigger>
+                        <SelectContent>{mainChannels.map((c: any) => <SelectItem key={c.id} value={c.name} className="text-[13px]">{c.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase text-slate-400">Sub-channel</Label>
+                      <Select required disabled={!formData.firstContactChannel || subChannels.length === 0} value={formData.firstContactSubchannel} onValueChange={(val) => handleChange('firstContactSubchannel', val)}>
+                        <SelectTrigger className="text-[13px]"><SelectValue placeholder="Details" /></SelectTrigger>
+                        <SelectContent>{subChannels.map((sc: any) => <SelectItem key={sc.id} value={sc.name} className="text-[13px]">{sc.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">3. Acquisition Channel</h2></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Main Source <span className="text-red-500">*</span></Label>
-                    <Select required value={formData.firstContactChannel} onValueChange={(val) => handleChange('firstContactChannel', val)}>
-                      <SelectTrigger className="h-9 text-[13px]">
-                        <SelectValue placeholder={channelsLoading ? "Loading..." : "Select channel"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mainChannels.map((c: any) => <SelectItem key={c.id} value={c.name} className="text-[13px]">{c.name}</SelectItem>)}
-                        {!channelsLoading && mainChannels.length === 0 && <div className="p-2 text-[11px] text-muted-foreground">No channels configured</div>}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Sub-channel <span className="text-red-500">*</span></Label>
-                    <Select required disabled={!formData.firstContactChannel || subChannels.length === 0} value={formData.firstContactSubchannel} onValueChange={(val) => handleChange('firstContactSubchannel', val)}>
-                      <SelectTrigger className="h-9 text-[13px]">
-                        <SelectValue placeholder={!formData.firstContactChannel ? "Choose main source" : subChannels.length === 0 ? "No details available" : "Select detail"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {subChannels.map((sc: any) => <SelectItem key={sc.id} value={sc.name} className="text-[13px]">{sc.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">4. Product & Assignment</h2></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Product of Interest <span className="text-red-500">*</span></Label>
-                    <Select required value={formData.productId} onValueChange={(val) => handleChange('productId', val)}>
-                      <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select product" /></SelectTrigger>
-                      <SelectContent>
-                        {products?.map(p => <SelectItem key={p.id} value={p.id} className="text-[13px]">{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-slate-400">Assigned Agent</Label>
-                    <div className="h-9 bg-slate-50 border rounded-md flex items-center px-3 text-[12px] text-slate-500 font-medium">
-                      {user.name} (You)
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="border-b pb-1"><h2 className="text-[15px] font-bold">5. Initial Notes</h2></div>
-                <div className="space-y-1.5 relative">
-                  <Textarea placeholder="Client's pain points or context..." className="min-h-[80px] text-[13px]" maxLength={500} value={formData.initialNote} onChange={(e) => handleChange('initialNote', e.target.value)} />
-                  <div className="absolute bottom-2 right-2 text-[10px] font-bold text-slate-400">{formData.initialNote.length}/500</div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-6 pt-4 border-t">
-                <Button type="button" variant="ghost" className="text-[13px]" onClick={() => router.back()} disabled={loading}>Cancel</Button>
-                <Button type="submit" className="h-10 px-8 font-bold bg-primary hover:bg-primary/90" disabled={loading}>
+              <div className="flex items-center justify-end gap-6 pt-6 border-t">
+                <Button type="button" variant="ghost" className="text-[13px]" onClick={() => router.back()}>Cancel</Button>
+                <Button type="submit" className="h-10 px-10 font-bold bg-primary hover:bg-primary/90 shadow-lg" disabled={loading}>
                   {loading ? <Loader2 size={16} className="animate-spin mr-2" /> : <CheckCircle2 size={16} className="mr-2" />}
-                  Save Lead
+                  Register & Open Pipeline
                 </Button>
               </div>
             </CardContent>
