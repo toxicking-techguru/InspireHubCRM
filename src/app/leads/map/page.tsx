@@ -37,18 +37,34 @@ export default function LeadsMapPage() {
   // Load Leaflet modules only on client
   useEffect(() => {
     setIsClient(true);
-    // Dynamically require Leaflet and React-Leaflet to avoid SSR "window" errors
-    const L = require('leaflet');
-    const RL = require('react-leaflet');
-    // Ensure styles are loaded
-    require('leaflet/dist/leaflet.css');
-    require('leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css');
-    require('leaflet-defaulticon-compatibility');
+    
+    // We avoid 'require' for CSS here as it causes HMR module factory errors in Next.js
+    // The main Leaflet CSS is loaded via CDN in layout.tsx
+    
+    const initLeaflet = async () => {
+      try {
+        const L = await import('leaflet');
+        const RL = await import('react-leaflet');
+        
+        // Manual fix for default marker icons if compatibility CSS isn't resolving correctly
+        // This is a robust fallback for Next.js environments
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        });
 
-    setLeafletModules({
-      ...RL,
-      L
-    });
+        setLeafletModules({
+          ...RL,
+          L
+        });
+      } catch (err) {
+        console.error("Failed to load Leaflet modules:", err);
+      }
+    };
+
+    initLeaflet();
   }, []);
 
   const leadsQuery = useMemoFirebase(() => 
