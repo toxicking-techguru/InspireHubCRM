@@ -7,13 +7,11 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, orderBy, limit } from 'firebase/firestore';
 import { Target, Agent } from '@/types/crm';
 import { 
-  Target as TargetIcon, 
   ChevronLeft, 
   ChevronRight, 
   Save, 
   Loader2, 
   History, 
-  User,
   ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,7 +34,6 @@ export default function AdminTargetsPage() {
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
 
-  // Quotas are assigned to operational staff (Agents/Managers). Admins are oversighers and excluded.
   const agentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'agents'), orderBy('name'));
@@ -50,13 +47,14 @@ export default function AdminTargetsPage() {
   // Form State
   const [formData, setFormData] = useState({
     leadsTarget: 10,
+    partnersTarget: 2,
     qualifiedTarget: 5,
     closedTarget: 2,
     revenueTarget: 5000,
     activityScoreTarget: 80
   });
 
-  // Fetch current targets for selection
+  // Fetch current targets
   const targetQuery = useMemoFirebase(() => {
     if (!firestore || !selectedAgentId) return null;
     return query(
@@ -68,7 +66,7 @@ export default function AdminTargetsPage() {
   }, [firestore, selectedAgentId, monthStr]);
   const { data: existingTargets } = useCollection<Target>(targetQuery as any);
 
-  // Fetch history for selected agent
+  // Fetch history
   const historyQuery = useMemoFirebase(() => {
     if (!firestore || !selectedAgentId) return null;
     return query(
@@ -80,16 +78,21 @@ export default function AdminTargetsPage() {
   }, [firestore, selectedAgentId]);
   const { data: history } = useCollection<Target>(historyQuery as any);
 
-  // Auto-fill form if target exists
+  // Auto-fill form
   React.useEffect(() => {
     if (existingTargets?.[0]) {
       const t = existingTargets[0];
       setFormData({
         leadsTarget: t.leadsTarget,
+        partnersTarget: t.partnersTarget || 0,
         qualifiedTarget: t.qualifiedTarget,
         closedTarget: t.closedTarget,
         revenueTarget: t.revenueTarget,
         activityScoreTarget: t.activityScoreTarget
+      });
+    } else {
+      setFormData({
+        leadsTarget: 10, partnersTarget: 2, qualifiedTarget: 5, closedTarget: 2, revenueTarget: 5000, activityScoreTarget: 80
       });
     }
   }, [existingTargets]);
@@ -105,7 +108,7 @@ export default function AdminTargetsPage() {
         ...formData,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "Targets Set", description: `Performance quota updated for ${monthStr}` });
+      toast({ title: "Targets Set", description: `Quota updated for ${monthStr}` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update Failed", description: e.message });
     } finally {
@@ -120,34 +123,33 @@ export default function AdminTargetsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-bold text-cyan-900 flex items-center gap-2">
-               <ShieldCheck className="text-cyan-600" size={20} /> Quota Administration
+            <h1 className="text-[18px] font-bold text-primary flex items-center gap-2">
+               <ShieldCheck size={20} /> Quota Administration
             </h1>
-            <p className="text-[12px] text-muted-foreground mt-0.5">Define system-wide performance targets for sales representatives. (Admins excluded)</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Define sales and partner quotas for operational staff.</p>
           </div>
           <div className="flex items-center gap-2">
              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-               <SelectTrigger className="h-9 w-[240px] text-[12px] bg-white border-cyan-100">
-                 <SelectValue placeholder="Search person to assign targets..." />
+               <SelectTrigger className="h-9 w-[240px] text-[12px] bg-white">
+                 <SelectValue placeholder="Search team member..." />
                </SelectTrigger>
-               <SelectContent>
+               <SelectContent className="bg-white">
                  {targetableStaff.map(a => (
                    <SelectItem key={a.id} value={a.id}>
                      <div className="flex flex-col">
-                       <span>{a.name}</span>
-                       <span className="text-[9px] text-slate-400 uppercase">{a.region} · {a.role}</span>
+                       <span className="font-bold">{a.name}</span>
+                       <span className="text-[9px] text-slate-400 uppercase">{a.role}</span>
                      </div>
                    </SelectItem>
                  ))}
-                 {targetableStaff.length === 0 && <div className="p-2 text-xs text-slate-400">No targetable staff found.</div>}
                </SelectContent>
              </Select>
-             <div className="flex items-center gap-1 bg-slate-50 border rounded-md px-2 h-9">
+             <div className="flex items-center gap-1 bg-white border rounded-md px-2 h-9">
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}>
                   <ChevronLeft size={14} />
                 </Button>
                 <span className="text-[12px] font-bold min-w-[80px] text-center">{format(selectedMonth, 'MMM yyyy')}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedMonth(new Date(selectedMonth.setMonth(selectedMonth.getMonth() + 1)))}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}>
                   <ChevronRight size={14} />
                 </Button>
              </div>
@@ -156,67 +158,65 @@ export default function AdminTargetsPage() {
 
         {selectedAgentId ? (
           <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
-               <div className="bg-card border border-cyan-100 rounded-md shadow-sm overflow-hidden">
-                  <div className="p-3 border-b bg-cyan-50/50">
-                    <h2 className="text-[13px] font-bold uppercase tracking-tight text-cyan-700">Configure Monthly Quota</h2>
+            <div className="lg:col-span-2 space-y-6">
+               <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-3 border-b bg-slate-50">
+                    <h2 className="text-[12px] font-bold uppercase text-slate-500">Configure Monthly Quota</h2>
                   </div>
-                  <div className="p-4 grid md:grid-cols-3 gap-5">
+                  <div className="p-5 grid md:grid-cols-3 gap-5">
                      {[
-                       { id: 'leadsTarget', label: 'Leads Created', type: 'number' },
-                       { id: 'qualifiedTarget', label: 'Qualified Target', type: 'number' },
-                       { id: 'closedTarget', label: 'Closed Deals', type: 'number' },
-                       { id: 'revenueTarget', label: 'Revenue ($)', type: 'number' },
-                       { id: 'activityScoreTarget', label: 'Activity Score', type: 'number' },
+                       { id: 'leadsTarget', label: 'Sales Leads' },
+                       { id: 'partnersTarget', label: 'Partners' },
+                       { id: 'qualifiedTarget', label: 'Qualification' },
+                       { id: 'closedTarget', label: 'Deals Won' },
+                       { id: 'revenueTarget', label: 'Revenue ($)' },
+                       { id: 'activityScoreTarget', label: 'Activity %' },
                      ].map(field => (
                        <div key={field.id} className="space-y-1.5">
-                          <Label className="text-[11px] font-bold uppercase text-slate-400 tracking-tight">{field.label}</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">{field.label}</Label>
                           <Input 
                             type="number" 
-                            className="h-8 text-[13px] border-cyan-50 focus-visible:ring-cyan-600" 
+                            className="h-8 text-[13px] bg-slate-50" 
                             value={(formData as any)[field.id]}
-                            onChange={(e) => setFormData({...formData, [field.id]: parseFloat(e.target.value)})}
+                            onChange={(e) => setFormData({...formData, [field.id]: parseFloat(e.target.value) || 0})}
                           />
                        </div>
                      ))}
                      <div className="flex items-end">
-                        <Button className="w-full h-8 bg-cyan-600 hover:bg-cyan-700 gap-2 text-[12px] font-bold uppercase" onClick={handleSave} disabled={saving}>
-                          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Commit Targets
+                        <Button className="w-full h-8 bg-primary hover:bg-primary/90 gap-2 text-[11px] font-bold uppercase" onClick={handleSave} disabled={saving}>
+                          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Commit
                         </Button>
                      </div>
                   </div>
                </div>
 
                <div className="space-y-2">
-                  <h3 className="text-[14px] font-bold flex items-center gap-2 text-slate-700">
-                    <History size={16} className="text-cyan-400" /> Historical Assignments
+                  <h3 className="text-[14px] font-bold flex items-center gap-2 text-slate-600">
+                    <History size={16} className="text-slate-300" /> Historical Assignments
                   </h3>
-                  <div className="bg-card border rounded-md shadow-sm overflow-hidden">
+                  <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
                     <table className="w-full text-[13px]">
                       <thead>
-                        <tr className="bg-slate-50 h-9 font-semibold text-slate-500 uppercase tracking-wider text-[11px]">
-                          <th className="px-3 text-left">Month</th>
+                        <tr className="bg-slate-50 h-9 text-[11px] text-slate-400 font-bold uppercase">
+                          <th className="px-4">Month</th>
                           <th className="text-center">Leads</th>
-                          <th className="text-center">Qual.</th>
+                          <th className="text-center">Partners</th>
                           <th className="text-center">Won</th>
                           <th className="text-right">Revenue</th>
-                          <th className="text-right px-3">Act. Score</th>
+                          <th className="text-right px-4">Score</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {history?.map((h, i) => (
-                          <tr key={i} className="h-10 hover:bg-slate-50/50 transition-colors">
-                            <td className="px-3 font-bold text-slate-700">{format(parseISO(h.month + '-01'), 'MMMM yyyy')}</td>
-                            <td className="text-center text-slate-600">{h.leadsTarget}</td>
-                            <td className="text-center text-slate-600">{h.qualifiedTarget}</td>
-                            <td className="text-center font-bold text-cyan-700">{h.closedTarget}</td>
+                          <tr key={i} className="h-10 hover:bg-slate-50 transition-colors">
+                            <td className="px-4 font-bold text-slate-700">{format(parseISO(h.month + '-01'), 'MMMM yyyy')}</td>
+                            <td className="text-center">{h.leadsTarget}</td>
+                            <td className="text-center">{h.partnersTarget || 0}</td>
+                            <td className="text-center font-bold text-primary">{h.closedTarget}</td>
                             <td className="text-right font-medium">${h.revenueTarget.toLocaleString()}</td>
-                            <td className="text-right px-3 text-slate-500">{h.activityScoreTarget}%</td>
+                            <td className="text-right px-4 text-slate-500">{h.activityScoreTarget}%</td>
                           </tr>
                         ))}
-                        {(!history || history.length === 0) && (
-                          <tr className="h-24"><td colSpan={6} className="text-center text-slate-300 italic text-[12px]">No historical targets defined for this profile.</td></tr>
-                        )}
                       </tbody>
                     </table>
                   </div>
@@ -224,48 +224,33 @@ export default function AdminTargetsPage() {
             </div>
 
             <div className="space-y-4">
-               <div className="bg-cyan-50 border border-cyan-100 rounded-md p-5 shadow-inner">
+               <div className="bg-primary-50 border border-primary-100 rounded-lg p-5">
                   <div className="flex items-center gap-4 mb-6">
-                     <div className="w-12 h-12 rounded-full bg-white border border-cyan-100 text-cyan-600 flex items-center justify-center font-bold text-lg shadow-sm">
+                     <div className="w-12 h-12 rounded-full bg-white border border-primary-100 text-primary flex items-center justify-center font-bold text-lg shadow-sm">
                        {targetableStaff.find(a => a.id === selectedAgentId)?.name?.[0]}
                      </div>
                      <div>
-                        <p className="text-[15px] font-bold text-cyan-900">{targetableStaff.find(a => a.id === selectedAgentId)?.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                           <Badge variant="outline" className="text-[9px] h-4 bg-white border-cyan-200 text-cyan-700 uppercase tracking-tighter">Current Quota</Badge>
-                           <span className="text-[10px] text-slate-400 font-bold uppercase">{monthStr}</span>
-                        </div>
+                        <p className="text-[15px] font-bold text-primary-900">{targetableStaff.find(a => a.id === selectedAgentId)?.name}</p>
+                        <Badge variant="outline" className="text-[9px] h-4 bg-white border-primary-200 text-primary uppercase">Current Quota</Badge>
                      </div>
                   </div>
-                  <div className="space-y-5">
-                     <div className="p-3 bg-white/60 rounded border border-cyan-100/50 text-[12px] space-y-2">
-                        <div className="flex justify-between">
-                           <span className="text-slate-500">Leads Goal:</span>
-                           <b className="text-cyan-700">{formData.leadsTarget}</b>
-                        </div>
-                        <div className="flex justify-between">
-                           <span className="text-slate-500">Wins Goal:</span>
-                           <b className="text-cyan-700">{formData.closedTarget}</b>
-                        </div>
-                        <div className="flex justify-between">
-                           <span className="text-slate-500">Revenue Goal:</span>
-                           <b className="text-cyan-700">${formData.revenueTarget.toLocaleString()}</b>
-                        </div>
+                  <div className="space-y-4">
+                     <div className="p-3 bg-white rounded border border-primary-100 text-[12px] space-y-2">
+                        <div className="flex justify-between"><span>Leads Goal:</span> <b className="text-primary">{formData.leadsTarget}</b></div>
+                        <div className="flex justify-between"><span>Partners Goal:</span> <b className="text-primary">{formData.partnersTarget}</b></div>
+                        <div className="flex justify-between"><span>Revenue Goal:</span> <b className="text-primary">${formData.revenueTarget.toLocaleString()}</b></div>
                      </div>
-                     <p className="text-[11px] text-cyan-600 leading-tight italic">
-                        Targets set here are immediately visible to the user and their manager. Monthly performance evaluations are based on these benchmarks.
+                     <p className="text-[11px] text-primary-600 leading-tight italic">
+                        Targets set here are immediately visible to the agent and used for monthly evaluation.
                      </p>
                   </div>
                </div>
             </div>
           </div>
         ) : (
-          <div className="py-40 border-[0.5px] border-dashed border-cyan-200 rounded-lg flex flex-col items-center justify-center text-slate-300 bg-slate-50/30">
-             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
-                <TargetIcon size={32} className="text-cyan-100" />
-             </div>
-             <p className="text-[15px] font-bold text-slate-400">Select an operational team member</p>
-             <p className="text-[12px] text-slate-400">Choose an agent or manager from the dropdown to manage their performance benchmarks.</p>
+          <div className="py-40 border-[0.5px] border-dashed border-primary-200 rounded-lg flex flex-col items-center justify-center text-slate-300 bg-white">
+             <ShieldCheck size={48} className="mb-4 opacity-10" />
+             <p className="text-[14px] font-bold text-slate-400">Select an operational team member</p>
           </div>
         )}
       </div>

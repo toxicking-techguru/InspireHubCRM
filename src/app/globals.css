@@ -1,39 +1,39 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: #f8f9fa;
-    --foreground: #212529;
-    --card: #ffffff;
-    --card-foreground: #212529;
-    --popover: #ffffff;
-    --popover-foreground: #212529;
-    --primary: #1b48a3;
-    --primary-foreground: #ffffff;
-    --secondary: #e9ecef;
-    --secondary-foreground: #212529;
-    --muted: #f8f9fa;
-    --muted-foreground: #6c757d;
-    --accent: #2579c8;
-    --accent-foreground: #ffffff;
-    --destructive: #e11d48;
-    --destructive-foreground: #ffffff;
-    --border: #dee2e6;
-    --input: #e9ecef;
-    --ring: #1b48a3;
+    /* Solid Colors (HSL Space Separated) */
+    --background: 210 20% 98%;
+    --foreground: 210 11% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
+    --primary: 220 71% 37%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 14% 93%;
+    --secondary-foreground: 210 11% 15%;
+    --muted: 210 14% 96%;
+    --muted-foreground: 210 8% 46%;
+    --accent: 209 69% 47%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 6 78% 57%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 14% 89%;
+    --input: 210 14% 92%;
+    --ring: 220 71% 37%;
     --radius: 0.375rem;
     
-    --sidebar-background: #ffffff;
-    --sidebar-foreground: #212529;
-    --sidebar-primary: #1b48a3;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #f8f9fa;
-    --sidebar-accent-foreground: #1b48a3;
-    --sidebar-border: #dee2e6;
-    --sidebar-ring: #1b48a3;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 210 11% 15%;
+    --sidebar-primary: 220 71% 37%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 14% 98%;
+    --sidebar-accent-foreground: 220 71% 37%;
+    --sidebar-border: 210 14% 89%;
+    --sidebar-ring: 220 71% 37%;
   }
 }
 

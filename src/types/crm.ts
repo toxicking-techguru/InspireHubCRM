@@ -1,4 +1,3 @@
-
 export type Role = 'Admin' | 'Manager' | 'Agent';
 export type UserStatus = 'active' | 'inactive' | 'suspended';
 export type LeadType = 'lead' | 'partner';
@@ -131,6 +130,7 @@ export interface Target {
   agentId: string;
   month: string;
   leadsTarget: number;
+  partnersTarget: number;
   qualifiedTarget: number;
   closedTarget: number;
   revenueTarget: number;

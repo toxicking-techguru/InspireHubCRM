@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Shell } from '@/components/layout/Shell';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, collection, addDoc, updateDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Lead, LeadActivity, LeadStatus, ActivityType, Tier, GeoLocation, LeadDoc } from '@/types/crm';
+import { Lead, LeadActivity, LeadStatus, ActivityType, LeadDoc, GeoLocation } from '@/types/crm';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,8 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Phone, Mail, Clock, History as HistoryIcon, Calendar as CalendarIcon,
-  Loader2, Activity, MapPin, ClipboardList, Edit2, Save, X, Paperclip,
+  History as HistoryIcon, 
+  Loader2, MapPin, Edit2, Paperclip,
   FileText, ExternalLink, Bold, Italic, List
 } from 'lucide-react';
 import { 
@@ -27,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 const ACTIVITY_TYPES: ActivityType[] = [
   'Call made', 'Intro meeting', 'Follow up', 'Proposal send', 'Demo done', 
@@ -75,8 +74,10 @@ export default function LeadDetailPage() {
     }
   }, [lead]);
 
-  const insertFormat = (tag: string) => {
-     setRemark(prev => prev + (tag === 'bold' ? '**text**' : tag === 'italic' ? '_text_' : '\n- list item'));
+  const insertFormat = (tag: string, field: 'remark' | 'clientBrief' | 'painPoints' | 'serviceOffering' = 'remark') => {
+     const text = tag === 'bold' ? '**text**' : tag === 'italic' ? '_text_' : '\n- list item';
+     if (field === 'remark') setRemark(prev => prev + text);
+     else setEditData(prev => ({ ...prev, [field]: prev[field] + text }));
   };
 
   const handleAddActivity = async (e?: React.FormEvent) => {
@@ -89,7 +90,10 @@ export default function LeadDetailPage() {
         leadId: id as string, clientName: lead.clientName, agentId: user.id, agentName: user.name,
         type, remark, location: location || null, createdAt: now, outcomeStatus: 'recorded'
       });
-      await updateDoc(doc(firestore, 'leads', id as string), { lastActivityAt: now, ...(location ? { location } : {}) });
+      await updateDoc(doc(firestore, 'leads', id as string), { 
+        lastActivityAt: now, 
+        ...(location ? { location } : {}) 
+      });
       setRemark(''); setLocation(null);
       toast({ title: "Activity Logged" });
     } catch (error) {
@@ -123,7 +127,7 @@ export default function LeadDetailPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">{lead.clientName}</h1>
           <StatusBadge status={lead.status} />
-          {lead.type === 'partner' && <Badge className="bg-amber-100 text-amber-800 border-none font-bold uppercase">Partner</Badge>}
+          {lead.type === 'partner' && <Badge className="bg-primary-50 text-primary-700 border-none font-bold uppercase">Partner</Badge>}
         </div>
         <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="h-9 gap-2 border-slate-200">
@@ -133,8 +137,8 @@ export default function LeadDetailPage() {
                await updateDoc(leadRef!, { status: val as LeadStatus, lastActivityAt: new Date().toISOString() });
                toast({ title: "Status Synchronized" });
             }}>
-               <SelectTrigger className="h-9 w-[160px] font-bold"><SelectValue /></SelectTrigger>
-               <SelectContent>{['new','contacted','qualified','proposal','negotiation','won','lost','dormant'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+               <SelectTrigger className="h-9 w-[160px] font-bold bg-white"><SelectValue /></SelectTrigger>
+               <SelectContent className="bg-white">{['new','contacted','qualified','proposal','negotiation','won','lost','dormant'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
             </Select>
         </div>
       </div>
@@ -144,23 +148,24 @@ export default function LeadDetailPage() {
            <Tabs defaultValue="analysis" className="w-full">
               <TabsList className="bg-white border w-full justify-start h-10 p-1 gap-2 mb-4">
                  <TabsTrigger value="analysis" className="text-[12px] font-bold uppercase tracking-tight">Qualification</TabsTrigger>
-                 <TabsTrigger value="docs" className="text-[12px] font-bold uppercase tracking-tight">Documentation ({lead.documents?.length || 0})</TabsTrigger>
+                 <TabsTrigger value="docs" className="text-[12px] font-bold uppercase tracking-tight">Files & Proposals ({lead.documents?.length || 0})</TabsTrigger>
               </TabsList>
               
               <TabsContent value="analysis" className="m-0">
-                 <Card className="shadow-none border-slate-200">
-                    <CardHeader className="bg-slate-50/50 border-b p-3">
+                 <Card className="shadow-none border-slate-200 bg-white">
+                    <CardHeader className="bg-slate-50 border-b p-3">
                        <CardTitle className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Strategic Analysis</CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 space-y-8">
                        <div className="grid grid-cols-2 gap-4">
                           <div><Label className="text-[10px] uppercase font-bold text-slate-400">Industry</Label><p className="font-medium text-slate-800">{lead.industry || 'Not specified'}</p></div>
-                          <div><Label className="text-[10px] uppercase font-bold text-slate-400">Region</Label><p className="font-medium text-slate-800">{lead.businessRegion} ({lead.businessCountry})</p></div>
+                          <div><Label className="text-[10px] uppercase font-bold text-slate-400">Territory</Label><p className="font-medium text-slate-800">{lead.businessRegion} ({lead.businessCountry})</p></div>
+                          <div><Label className="text-[10px] uppercase font-bold text-slate-400">Estimated Budget</Label><p className="font-bold text-primary text-lg">${lead.estimatedBudget?.toLocaleString() || '0'}</p></div>
                        </div>
-                       <div className="space-y-4">
-                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Client Context</Label><p className="text-[14px] leading-relaxed text-slate-600">{lead.clientBrief || '--'}</p></div>
-                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Core Challenges</Label><p className="text-[14px] leading-relaxed text-slate-600">{lead.painPoints || '--'}</p></div>
-                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Proposed Solution</Label><p className="text-[14px] leading-relaxed text-slate-600">{lead.serviceOffering || '--'}</p></div>
+                       <div className="space-y-4 pt-4 border-t">
+                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Client Context</Label><p className="text-[14px] leading-relaxed text-slate-600 whitespace-pre-wrap">{lead.clientBrief || '--'}</p></div>
+                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Core Challenges</Label><p className="text-[14px] leading-relaxed text-slate-600 whitespace-pre-wrap">{lead.painPoints || '--'}</p></div>
+                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Proposed Solution</Label><p className="text-[14px] leading-relaxed text-slate-600 whitespace-pre-wrap">{lead.serviceOffering || '--'}</p></div>
                        </div>
                     </CardContent>
                  </Card>
@@ -170,11 +175,11 @@ export default function LeadDetailPage() {
                  <div className="bg-white border rounded-xl p-4 flex gap-4 items-end shadow-sm">
                     <div className="flex-1 space-y-1.5">
                        <Label className="text-[11px] font-bold uppercase">Document Title</Label>
-                       <Input placeholder="e.g. Solution Proposal v1" value={docName} onChange={e => setDocName(e.target.value)} />
+                       <Input placeholder="e.g. Solution Proposal v1" value={docName} onChange={e => setDocName(e.target.value)} className="bg-white" />
                     </div>
                     <div className="flex-[2] space-y-1.5">
                        <Label className="text-[11px] font-bold uppercase">URL / Link</Label>
-                       <Input placeholder="HTTPS://" value={docUrl} onChange={e => setDocUrl(e.target.value)} />
+                       <Input placeholder="HTTPS://" value={docUrl} onChange={e => setDocUrl(e.target.value)} className="bg-white" />
                     </div>
                     <Button size="sm" className="h-9 gap-2 bg-primary font-bold" onClick={handleAddDoc} disabled={isUploading}>
                        {isUploading ? <Loader2 className="animate-spin"/> : <Paperclip size={16}/>} Link Doc
@@ -182,7 +187,7 @@ export default function LeadDetailPage() {
                  </div>
                  <div className="grid md:grid-cols-2 gap-4">
                     {lead.documents?.map(doc => (
-                       <div key={doc.id} className="bg-white border rounded-lg p-3 flex items-center justify-between group">
+                       <div key={doc.id} className="bg-white border rounded-lg p-3 flex items-center justify-between group hover:border-primary/30 transition-colors">
                           <div className="flex items-center gap-3">
                              <div className="p-2 bg-slate-50 text-slate-400 rounded"><FileText size={18}/></div>
                              <div>
@@ -190,7 +195,7 @@ export default function LeadDetailPage() {
                                 <p className="text-[10px] text-slate-400">{format(parseISO(doc.createdAt), 'MMM d, yyyy')}</p>
                              </div>
                           </div>
-                          <a href={doc.url} target="_blank" className="p-2 hover:bg-slate-100 rounded text-primary transition-colors opacity-0 group-hover:opacity-100">
+                          <a href={doc.url} target="_blank" className="p-2 hover:bg-slate-100 rounded text-primary transition-colors">
                              <ExternalLink size={16} />
                           </a>
                        </div>
@@ -200,16 +205,16 @@ export default function LeadDetailPage() {
               </TabsContent>
            </Tabs>
 
-           <Card className="shadow-none border-slate-200">
-              <CardHeader className="bg-slate-50/50 border-b p-3">
+           <Card className="shadow-none border-slate-200 bg-white">
+              <CardHeader className="bg-slate-50 border-b p-3">
                  <CardTitle className="text-[11px] font-bold uppercase text-slate-400">Log Interaction</CardTitle>
               </CardHeader>
               <CardContent className="p-5">
                  <form onSubmit={handleAddActivity} className="space-y-4">
                     <div className="flex items-center gap-4">
                        <Select value={type} onValueChange={(v) => setType(v as ActivityType)}>
-                          <SelectTrigger className="h-9 w-[180px] font-medium"><SelectValue /></SelectTrigger>
-                          <SelectContent>{ACTIVITY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                          <SelectTrigger className="h-9 w-[180px] font-medium bg-white"><SelectValue /></SelectTrigger>
+                          <SelectContent className="bg-white">{ACTIVITY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                        </Select>
                        <div className="flex-1 flex gap-1 bg-slate-100 p-1 rounded-lg">
                           <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertFormat('bold')}><Bold size={14}/></Button>
@@ -221,12 +226,14 @@ export default function LeadDetailPage() {
                           navigator.geolocation.getCurrentPosition(pos => {
                              setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: new Date().toISOString() });
                              setLocating(false); toast({ title: "Check-in Successful" });
+                          }, () => {
+                             setLocating(false); toast({ variant: "destructive", title: "GPS Error" });
                           });
                        }}>
                           {locating ? <Loader2 size={14} className="animate-spin"/> : <MapPin size={14}/>} {location ? "Location Locked" : "GPS Visit"}
                        </Button>
                     </div>
-                    <Textarea required className="min-h-[100px] text-[13px]" placeholder="Detailed meeting summary, next steps..." value={remark} onChange={e => setRemark(e.target.value)} />
+                    <Textarea required className="min-h-[100px] text-[13px] bg-white" placeholder="Detailed meeting summary, next steps..." value={remark} onChange={e => setRemark(e.target.value)} />
                     <Button type="submit" className="w-full h-10 font-bold uppercase tracking-tight bg-primary shadow-lg" disabled={submitting}>
                        {submitting ? <Loader2 className="animate-spin" /> : "Record Interaction & Synchronize Timer"}
                     </Button>
@@ -236,8 +243,8 @@ export default function LeadDetailPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-           <Card className="h-full shadow-none border-slate-200">
-              <CardHeader className="bg-slate-50/50 border-b p-3 flex flex-row items-center justify-between">
+           <Card className="h-full shadow-none border-slate-200 bg-white">
+              <CardHeader className="bg-slate-50 border-b p-3 flex flex-row items-center justify-between">
                  <CardTitle className="text-[11px] font-bold uppercase text-slate-400">Interaction Log</CardTitle>
                  <HistoryIcon size={14} className="text-slate-300" />
               </CardHeader>
@@ -249,7 +256,7 @@ export default function LeadDetailPage() {
                              <p className="text-[12px] font-bold text-slate-900">{a.type}</p>
                              <span className="text-[10px] font-bold text-slate-400">{format(parseISO(a.createdAt), 'MMM d')}</span>
                           </div>
-                          <p className="text-[12px] text-slate-600 line-clamp-3 leading-snug">{a.remark}</p>
+                          <p className="text-[12px] text-slate-600 line-clamp-3 leading-snug whitespace-pre-wrap">{a.remark}</p>
                           {a.location && <Badge className="h-4 bg-emerald-50 text-emerald-700 text-[9px] uppercase border-none">Verified Visit</Badge>}
                        </div>
                     ))}
@@ -261,17 +268,46 @@ export default function LeadDetailPage() {
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-[600px]">
-          <DialogHeader><DialogTitle>Edit Lead Qualification</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Estimated Budget ($)</Label><Input type="number" value={editData.estimatedBudget} onChange={e => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} /></div>
-             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Client Brief</Label><Textarea value={editData.clientBrief} onChange={e => setEditData({...editData, clientBrief: e.target.value})} className="min-h-[80px]" /></div>
-             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Challenges</Label><Textarea value={editData.painPoints} onChange={e => setEditData({...editData, painPoints: e.target.value})} className="min-h-[80px]" /></div>
-             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Strategy</Label><Textarea value={editData.serviceOffering} onChange={e => setEditData({...editData, serviceOffering: e.target.value})} className="min-h-[80px]" /></div>
+        <DialogContent className="max-w-[600px] bg-white border-none shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-6 border-b bg-slate-50">
+             <DialogTitle className="text-lg font-bold text-slate-900">Edit Lead Qualification</DialogTitle>
+          </DialogHeader>
+          
+          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+             <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold uppercase text-slate-400">Estimated Budget ($)</Label>
+                <Input type="number" value={editData.estimatedBudget} onChange={e => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} className="bg-white font-bold text-primary" />
+             </div>
+
+             {[
+               { id: 'clientBrief', label: 'Client Brief & Industry Context' },
+               { id: 'painPoints', label: 'Core Challenges & Pain Points' },
+               { id: 'serviceOffering', label: 'Proposed Solution Strategy' }
+             ].map(field => (
+               <div key={field.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                     <Label className="text-[11px] font-bold uppercase text-slate-400">{field.label}</Label>
+                     <div className="flex gap-1 bg-slate-100 p-0.5 rounded">
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('bold', field.id as any)}><Bold size={12}/></Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('italic', field.id as any)}><Italic size={12}/></Button>
+                     </div>
+                  </div>
+                  <Textarea 
+                    value={(editData as any)[field.id]} 
+                    onChange={e => setEditData({...editData, [field.id]: e.target.value})} 
+                    className="min-h-[100px] bg-white text-[13px]" 
+                    placeholder="Enter details..."
+                  />
+               </div>
+             ))}
           </div>
-          <DialogFooter><Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button><Button onClick={async () => {
-             await updateDoc(leadRef!, { ...editData }); toast({ title: "Updated" }); setIsEditOpen(false);
-          }}>Save Changes</Button></DialogFooter>
+
+          <DialogFooter className="p-6 border-t bg-slate-50">
+             <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+             <Button className="bg-primary px-8 font-bold" onClick={async () => {
+                await updateDoc(leadRef!, { ...editData }); toast({ title: "Updated" }); setIsEditOpen(false);
+             }}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Shell>
