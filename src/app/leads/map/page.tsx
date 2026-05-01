@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -38,16 +37,12 @@ export default function LeadsMapPage() {
   useEffect(() => {
     setIsClient(true);
     
-    // We avoid 'require' for CSS here as it causes HMR module factory errors in Next.js
-    // The main Leaflet CSS is loaded via CDN in layout.tsx
-    
     const initLeaflet = async () => {
       try {
         const L = await import('leaflet');
         const RL = await import('react-leaflet');
         
-        // Manual fix for default marker icons if compatibility CSS isn't resolving correctly
-        // This is a robust fallback for Next.js environments
+        // Manual fix for default marker icons
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -128,7 +123,7 @@ export default function LeadsMapPage() {
       <Shell>
         <div className="flex items-center justify-center h-[calc(100vh-140px)]">
           <div className="flex flex-col items-center gap-2">
-            <Loader2 className="animate-spin text-cyan-600" size={32} />
+            <Loader2 className="animate-spin text-primary-600" size={32} />
             <p className="text-sm font-medium text-slate-400">Loading map engine...</p>
           </div>
         </div>
@@ -144,7 +139,7 @@ export default function LeadsMapPage() {
         <div className="flex items-center justify-between shrink-0">
            <div>
               <h1 className="text-[18px] font-bold flex items-center gap-2">
-                 <MapPin className="text-cyan-600" size={20} /> Pipeline Territory
+                 <MapPin className="text-primary-600" size={20} /> Pipeline Territory
               </h1>
               <p className="text-[12px] text-muted-foreground">Geographic distribution based on site visits. Search by client, agent, or product.</p>
            </div>
@@ -153,7 +148,7 @@ export default function LeadsMapPage() {
                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                  <Input 
                    placeholder="Search client, staff or product..." 
-                   className="pl-8 h-8 text-[12px] bg-white border-cyan-100" 
+                   className="pl-8 h-8 text-[12px] bg-white border-primary-100" 
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
                  />
@@ -161,7 +156,7 @@ export default function LeadsMapPage() {
            </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row flex-1 border rounded-lg overflow-hidden bg-slate-50 border-cyan-100 shadow-sm min-h-0">
+        <div className="flex flex-col lg:flex-row flex-1 border rounded-lg overflow-hidden bg-slate-50 border-primary-100 shadow-sm min-h-0">
            {/* Sidebar: Lead Directory */}
            <div className="w-full lg:w-[280px] bg-white border-b lg:border-b-0 lg:border-r flex flex-col shrink-0 min-h-0">
               <div className="p-3 border-b bg-slate-50/50 flex justify-between items-center px-4 shrink-0">
@@ -176,13 +171,13 @@ export default function LeadsMapPage() {
                       key={l.id} 
                       onClick={() => setSelectedLeadId(l.id)}
                       className={cn(
-                          "p-3 px-4 hover:bg-cyan-50/30 cursor-pointer transition-colors border-l-4",
-                          selectedLeadId === l.id ? "bg-cyan-50/50 border-cyan-500" : "border-transparent"
+                          "p-3 px-4 hover:bg-primary-50/30 cursor-pointer transition-colors border-l-4",
+                          selectedLeadId === l.id ? "bg-primary-50/50 border-primary-500" : "border-transparent"
                       )}
                      >
                         <div className="flex items-start justify-between mb-1">
                            <p className="font-bold text-slate-800 text-[13px] truncate">{l.clientName}</p>
-                           {l.location && <div className="w-2 h-2 rounded-full bg-cyan-600 shrink-0 mt-1" title="Has GPS Pin" />}
+                           {l.location && <div className="w-2 h-2 rounded-full bg-primary-600 shrink-0 mt-1" title="Has GPS Pin" />}
                         </div>
                         <div className="flex flex-col gap-0.5">
                            <div className="flex items-center justify-between">
@@ -192,7 +187,7 @@ export default function LeadsMapPage() {
                               <Badge variant="outline" className="text-[8px] h-3.5 bg-slate-50 text-slate-400 border-none uppercase px-1">{l.status}</Badge>
                            </div>
                            {user?.role !== 'Agent' && (
-                              <span className="text-[9px] text-cyan-600 font-bold uppercase truncate">Agent: {agent?.name || '...'}</span>
+                              <span className="text-[9px] text-primary-600 font-bold uppercase truncate">Agent: {agent?.name || '...'}</span>
                            )}
                         </div>
                      </div>
@@ -215,7 +210,7 @@ export default function LeadsMapPage() {
                          </Button>
                          <div>
                             <h2 className="text-[13px] font-bold text-slate-900 leading-none">{selectedLead?.clientName}</h2>
-                            <Link href={`/leads/${selectedLead?.id}`} className="text-[10px] font-bold text-cyan-600 uppercase hover:underline">Full Profile →</Link>
+                            <Link href={`/leads/${selectedLead?.id}`} className="text-[10px] font-bold text-primary-600 uppercase hover:underline">Full Profile →</Link>
                          </div>
                       </div>
                       <div className="flex gap-2">
@@ -247,7 +242,7 @@ export default function LeadsMapPage() {
                                     <p className="font-bold text-[12px]">{l.clientName}</p>
                                     <p className="text-[10px] text-slate-500 uppercase font-bold">{l.status}</p>
                                     <hr className="my-1.5" />
-                                    <Link href={`/leads/${l.id}`} className="text-[10px] font-bold text-cyan-600 block hover:underline">OPEN LEAD FILE</Link>
+                                    <Link href={`/leads/${l.id}`} className="text-[10px] font-bold text-primary-600 block hover:underline">OPEN LEAD FILE</Link>
                                   </div>
                                </Popup>
                              </Marker>
@@ -288,7 +283,7 @@ export default function LeadsMapPage() {
                 <div className="flex-1 relative overflow-hidden bg-slate-50">
                    {leadsLoading ? (
                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-20">
-                        <Loader2 className="animate-spin text-cyan-200" size={40} />
+                        <Loader2 className="animate-spin text-primary-200" size={40} />
                      </div>
                    ) : (
                      <div className="h-full w-full">
@@ -309,7 +304,7 @@ export default function LeadsMapPage() {
                                  <div className="p-1">
                                     <p className="font-bold text-[12px]">{l.clientName}</p>
                                     <p className="text-[10px] text-slate-500 uppercase font-bold">{l.status}</p>
-                                    <button onClick={() => setSelectedLeadId(l.id)} className="text-[10px] font-bold text-cyan-600 mt-2 block hover:underline">VIEW JOURNEY</button>
+                                    <button onClick={() => setSelectedLeadId(l.id)} className="text-[10px] font-bold text-primary-600 mt-2 block hover:underline">VIEW JOURNEY</button>
                                  </div>
                               </Popup>
                             </Marker>
@@ -318,8 +313,8 @@ export default function LeadsMapPage() {
                         </MapContainer>
                         {!selectedLeadId && mapPins.length === 0 && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <div className="bg-white/95 border p-8 rounded-xl shadow-2xl max-w-[320px] text-center backdrop-blur-sm border-cyan-100">
-                               <Target size={42} className="mx-auto text-cyan-100 mb-4" />
+                            <div className="bg-white/95 border p-8 rounded-xl shadow-2xl max-w-[320px] text-center backdrop-blur-sm border-primary-100">
+                               <Target size={42} className="mx-auto text-primary-100 mb-4" />
                                <p className="text-[15px] font-bold text-slate-800 mb-1">Global Pipeline Viewer</p>
                                <p className="text-[11px] text-slate-500 leading-relaxed">Field agents must log site visits using the GPS button while recording activity to visualize territory coverage here.</p>
                             </div>

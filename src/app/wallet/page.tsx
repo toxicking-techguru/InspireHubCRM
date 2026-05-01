@@ -130,7 +130,7 @@ export default function WalletPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-cyan-950">Earnings & Wallet</h1>
+            <h1 className="text-xl font-bold text-primary-950">Earnings & Wallet</h1>
             <p className="text-sm text-muted-foreground">Manage your commissions and payout requests.</p>
           </div>
           <Badge variant="outline" className="h-6 gap-2 bg-emerald-50 text-emerald-700 border-emerald-200">
@@ -143,7 +143,7 @@ export default function WalletPage() {
           {[
             { label: 'Total Earned', value: wallet?.totalEarned || 0, color: 'bg-slate-50' },
             { label: 'Pending Commission', value: wallet?.pending || 0, color: 'bg-slate-50' },
-            { label: 'Withdrawable', value: withdrawableBalance, color: 'bg-cyan-50 border-cyan-200' },
+            { label: 'Withdrawable', value: withdrawableBalance, color: 'bg-primary-50 border-primary-200' },
             { label: 'Withdrawn', value: wallet?.withdrawn || 0, color: 'bg-slate-50' },
             { label: 'Net Balance', value: totalBalance, color: 'bg-slate-50' },
           ].map((item, i) => (
@@ -201,7 +201,7 @@ export default function WalletPage() {
                     <p className="text-[10px] text-slate-400 font-medium">Available for transfer: {currencySymbol}{withdrawableBalance.toLocaleString()}</p>
                   </div>
 
-                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md bg-cyan-600 hover:bg-cyan-700" disabled={isSubmitting || withdrawableBalance === 0 || !user.paymentDetails?.accountNumber}>
+                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md bg-primary-600 hover:bg-primary-700" disabled={isSubmitting || withdrawableBalance === 0 || !user.paymentDetails?.accountNumber}>
                     {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}
                     Initiate Transfer
                   </Button>
@@ -236,7 +236,7 @@ export default function WalletPage() {
                     </thead>
                     <tbody className="divide-y">
                       {withdrawalsLoading ? (
-                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-cyan-600" /></td></tr>
+                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-primary-600" /></td></tr>
                       ) : withdrawals?.map((w) => {
                         const isRejected = w.status === 'rejected';
                         return (
@@ -308,12 +308,12 @@ export default function WalletPage() {
                     </thead>
                     <tbody className="divide-y">
                       {commissionsLoading ? (
-                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-cyan-600" /></td></tr>
+                        <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin mx-auto text-primary-600" /></td></tr>
                       ) : commissions?.map((c) => (
                         <tr key={c.id} className="h-10 hover:bg-slate-50/30 transition-colors">
                           <td className="px-4 font-medium text-slate-700">{c.clientName || 'Private Lead'}</td>
                           <td className="text-slate-500">{currencySymbol}{c.dealAmount?.toLocaleString()}</td>
-                          <td className="text-right font-bold text-cyan-700">{currencySymbol}{c.amount.toLocaleString()}</td>
+                          <td className="text-right font-bold text-primary-700">{currencySymbol}{c.amount.toLocaleString()}</td>
                           <td className="px-4 text-right">
                              <Badge variant="outline" className={cn(
                                "text-[9px] uppercase h-3.5 px-1.5 font-bold border-none",

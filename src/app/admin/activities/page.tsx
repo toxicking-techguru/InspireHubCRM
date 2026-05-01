@@ -102,7 +102,7 @@ export default function GlobalActivitiesPage() {
                  </thead>
                  <tbody className="divide-y">
                     {loading ? (
-                       <tr className="h-40"><td colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto text-primary" /></td></tr>
+                       <tr className="h-40"><td colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto text-primary-200" /></td></tr>
                     ) : paginatedActivities.map(a => (
                        <tr key={a.id} className="h-12 hover:bg-slate-50 transition-colors">
                           <td className="px-4 text-slate-500">{format(parseISO(a.createdAt), 'MMM d, HH:mm:ss')}</td>

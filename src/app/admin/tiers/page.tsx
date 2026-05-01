@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useMemo, useState } from 'react';
@@ -146,13 +145,13 @@ export default function AdminTiersPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-bold flex items-center gap-2 text-cyan-900">
-               <Layers className="text-cyan-600" size={20} /> Sales Tiers Configuration
+            <h1 className="text-[18px] font-bold flex items-center gap-2 text-primary-900">
+               <Layers className="text-primary-600" size={20} /> Sales Tiers Configuration
             </h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">Define rank levels, commission rates, and qualitative upgrade targets.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" className="h-8 gap-2 bg-cyan-600 hover:bg-cyan-700" onClick={() => setIsAddModalOpen(true)}>
+            <Button size="sm" className="h-8 gap-2 bg-primary-600 hover:bg-primary-700 font-bold uppercase text-[10px]" onClick={() => setIsAddModalOpen(true)}>
                <Plus size={14} /> New Tier
             </Button>
           </div>
@@ -166,8 +165,8 @@ export default function AdminTiersPage() {
 
               return (
                 <div key={tier.id} className={cn(
-                  "bg-card border rounded-lg shadow-sm flex flex-col transition-all border-l-4 border-l-cyan-500",
-                  isEditing && "ring-1 ring-cyan-500 shadow-md scale-[1.02]"
+                  "bg-card border rounded-lg shadow-sm flex flex-col transition-all border-l-4 border-l-primary-500",
+                  isEditing && "ring-1 ring-primary-500 shadow-md scale-[1.02]"
                 )}>
                   <div className="p-4 border-b flex justify-between items-start">
                      <div>
@@ -181,12 +180,12 @@ export default function AdminTiersPage() {
                      </div>
                      <div className="flex gap-1">
                         {isEditing ? (
-                          <Button size="sm" className="h-7 bg-cyan-600 hover:bg-cyan-700 px-2 gap-1 text-[10px] font-bold uppercase" onClick={() => handleSave(tier.id)} disabled={savingId === tier.id}>
+                          <Button size="sm" className="h-7 bg-primary-600 hover:bg-primary-700 px-2 gap-1 text-[10px] font-bold uppercase" onClick={() => handleSave(tier.id)} disabled={savingId === tier.id}>
                               {savingId === tier.id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
                           </Button>
                         ) : (
                           <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-400 hover:text-cyan-600" onClick={() => handleStartEdit(tier)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-400 hover:text-primary-600" onClick={() => handleStartEdit(tier)}>
                                 <Edit2 size={14} />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 p-0 text-slate-200 hover:text-red-500" onClick={() => handleDeleteTier(tier.id)}>
@@ -224,7 +223,7 @@ export default function AdminTiersPage() {
                            </div>
                            {isEditing ? (
                              <Input 
-                               className="h-7 w-[120px] text-right text-[11px] p-1 border-cyan-100" 
+                               className="h-7 w-[120px] text-right text-[11px] p-1 border-primary-100" 
                                value={editValues.productLimitLabel} 
                                onChange={(e) => setEditValues({...editValues, productLimitLabel: e.target.value})}
                              />
@@ -249,7 +248,7 @@ export default function AdminTiersPage() {
                                 {isEditing ? (
                                   <Input 
                                     type="number" 
-                                    className="h-6 w-16 text-right text-[11px] p-1 border-cyan-100" 
+                                    className="h-6 w-16 text-right text-[11px] p-1 border-primary-100" 
                                     value={(editValues as any).upgradeCriteria?.[item.key]} 
                                     onChange={(e) => {
                                       const newVal = parseFloat(e.target.value);
@@ -295,13 +294,13 @@ export default function AdminTiersPage() {
                     <Input type="number" value={newTierData.commissionPct} onChange={(e) => setNewTierData({...newTierData, commissionPct: parseFloat(e.target.value)})} />
                  </div>
                </div>
-               <div className="p-3 bg-cyan-50 rounded text-[11px] text-cyan-700 italic border border-cyan-100">
+               <div className="p-3 bg-primary-50 rounded text-[11px] text-primary-700 italic border border-primary-100">
                  Adding a tier dynamically places it at the end of the current hierarchy rank. You can configure upgrade criteria after creation.
                </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-              <Button size="sm" className="bg-cyan-600" onClick={handleAddTier} disabled={!newTierData.name}>Create Tier</Button>
+              <Button size="sm" className="bg-primary-600 hover:bg-primary-700 font-bold uppercase text-[11px]" onClick={handleAddTier} disabled={!newTierData.name}>Create Tier</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

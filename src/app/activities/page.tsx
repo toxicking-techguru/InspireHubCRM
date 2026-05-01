@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collectionGroup } from 'firebase/firestore';
+import { collectionGroup, query, orderBy } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
 import { format, parseISO } from 'date-fns';
 import { 
@@ -33,7 +33,7 @@ export default function ActivitiesPage() {
 
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collectionGroup(firestore, 'activities');
+    return query(collectionGroup(firestore, 'activities'), orderBy('createdAt', 'desc'));
   }, [firestore]);
 
   const { data: rawActivities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
