@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { format, subMonths, parseISO } from 'date-fns';
+import { format, addMonths, subMonths, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -198,7 +198,7 @@ export default function AdminTargetsPage() {
                     <table className="w-full text-[13px]">
                       <thead>
                         <tr className="bg-slate-50 h-9 text-[11px] text-slate-400 font-bold uppercase">
-                          <th className="px-4">Month</th>
+                          <th className="px-4 text-left">Month</th>
                           <th className="text-center">Leads</th>
                           <th className="text-center">Partners</th>
                           <th className="text-center">Won</th>

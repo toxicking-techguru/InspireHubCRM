@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -22,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { format, subMonths, parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +45,7 @@ export default function ManagerTargetsPage() {
   // Form State
   const [formData, setFormData] = useState({
     leadsTarget: 10,
+    partnersTarget: 2,
     qualifiedTarget: 5,
     closedTarget: 2,
     revenueTarget: 5000,
@@ -106,10 +106,15 @@ export default function ManagerTargetsPage() {
       const t = existingTargets[0];
       setFormData({
         leadsTarget: t.leadsTarget,
+        partnersTarget: t.partnersTarget || 0,
         qualifiedTarget: t.qualifiedTarget,
         closedTarget: t.closedTarget,
         revenueTarget: t.revenueTarget,
         activityScoreTarget: t.activityScoreTarget
+      });
+    } else {
+      setFormData({
+        leadsTarget: 10, partnersTarget: 2, qualifiedTarget: 5, closedTarget: 2, revenueTarget: 5000, activityScoreTarget: 80
       });
     }
   }, [existingTargets]);
@@ -157,7 +162,7 @@ export default function ManagerTargetsPage() {
                   <ChevronLeft size={14} />
                 </Button>
                 <span className="text-[12px] font-bold min-w-[80px] text-center">{format(selectedMonth, 'MMM yyyy')}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedMonth(new Date(selectedMonth.setMonth(selectedMonth.getMonth() + 1)))}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}>
                   <ChevronRight size={14} />
                 </Button>
              </div>
@@ -173,11 +178,12 @@ export default function ManagerTargetsPage() {
                   </div>
                   <div className="p-4 grid md:grid-cols-3 gap-4">
                      {[
-                       { id: 'leadsTarget', label: 'Leads Created', type: 'number' },
-                       { id: 'qualifiedTarget', label: 'Qualified Target', type: 'number' },
-                       { id: 'closedTarget', label: 'Closed Deals', type: 'number' },
-                       { id: 'revenueTarget', label: 'Revenue ($)', type: 'number' },
-                       { id: 'activityScoreTarget', label: 'Activity Score', type: 'number' },
+                       { id: 'leadsTarget', label: 'Leads Created' },
+                       { id: 'partnersTarget', label: 'Partner Accounts' },
+                       { id: 'qualifiedTarget', label: 'Qualified Target' },
+                       { id: 'closedTarget', label: 'Closed Deals' },
+                       { id: 'revenueTarget', label: 'Revenue ($)' },
+                       { id: 'activityScoreTarget', label: 'Activity Score' },
                      ].map(field => (
                        <div key={field.id} className="space-y-1.5">
                           <Label className="text-[11px] font-bold uppercase text-slate-400">{field.label}</Label>
@@ -185,7 +191,7 @@ export default function ManagerTargetsPage() {
                             type="number" 
                             className="h-8 text-[13px]" 
                             value={(formData as any)[field.id]}
-                            onChange={(e) => setFormData({...formData, [field.id]: parseFloat(e.target.value)})}
+                            onChange={(e) => setFormData({...formData, [field.id]: parseFloat(e.target.value) || 0})}
                           />
                        </div>
                      ))}
@@ -207,7 +213,7 @@ export default function ManagerTargetsPage() {
                         <tr className="bg-slate-50 h-9">
                           <th className="px-3 text-left">Month</th>
                           <th className="text-center">Leads</th>
-                          <th className="text-center">Qual.</th>
+                          <th className="text-center">Partners</th>
                           <th className="text-center">Won</th>
                           <th className="text-right">Revenue</th>
                           <th className="text-right px-3">Score</th>
@@ -218,7 +224,7 @@ export default function ManagerTargetsPage() {
                           <tr key={i} className="h-9 hover:bg-slate-50/50 transition-colors">
                             <td className="px-3 font-medium">{format(parseISO(h.month + '-01'), 'MMM yyyy')}</td>
                             <td className="text-center">{h.leadsTarget}</td>
-                            <td className="text-center">{h.qualifiedTarget}</td>
+                            <td className="text-center">{h.partnersTarget || 0}</td>
                             <td className="text-center font-bold">{h.closedTarget}</td>
                             <td className="text-right">${h.revenueTarget.toLocaleString()}</td>
                             <td className="text-right px-3">{h.activityScoreTarget}</td>
