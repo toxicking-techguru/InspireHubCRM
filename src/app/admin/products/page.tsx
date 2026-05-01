@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { Product, Tier } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,7 +71,7 @@ export default function AdminProductsPage() {
   }, [products, searchTerm]);
 
   const handleAddProduct = async () => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
     const newId = `prod_${Date.now()}`;
     const newProduct = {
       name: 'New Product',
@@ -82,15 +82,45 @@ export default function AdminProductsPage() {
       commissionStructure: { base: 5 }
     };
     await setDoc(doc(firestore, 'products', newId), newProduct);
+    
+    // Audit Log
+    await addDoc(collection(firestore, 'audit_logs'), {
+      timestamp: new Date().toISOString(),
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      actionType: 'CREATE_PRODUCT',
+      entityType: 'Product',
+      entityId: newId,
+      remark: `Added new product: ${newProduct.name}`,
+      newValue: newProduct
+    });
+
     setSelectedProductId(newId);
     toast({ title: "Product Created" });
   };
 
   const handleUpdateProduct = async (data: Partial<Product>) => {
-    if (!firestore || !selectedProductId) return;
+    if (!firestore || !selectedProductId || !user) return;
     setIsSaving(true);
     try {
+      const prevValue = products?.find(p => p.id === selectedProductId);
       await updateDoc(doc(firestore, 'products', selectedProductId), data);
+      
+      // Audit Log
+      await addDoc(collection(firestore, 'audit_logs'), {
+        timestamp: new Date().toISOString(),
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        actionType: 'UPDATE_PRODUCT',
+        entityType: 'Product',
+        entityId: selectedProductId,
+        remark: `Updated product properties for: ${prevValue?.name}`,
+        oldValue: prevValue || null,
+        newValue: data
+      });
+
       toast({ title: "Changes Saved" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Save Failed", description: e.message });
@@ -106,10 +136,25 @@ export default function AdminProductsPage() {
   };
 
   const confirmDelete = async () => {
-    if (!firestore || !productToDeleteId) return;
+    if (!firestore || !productToDeleteId || !user) return;
     
     try {
+      const deletedName = products?.find(p => p.id === productToDeleteId)?.name;
       await deleteDoc(doc(firestore, 'products', productToDeleteId));
+      
+      // Audit Log
+      await addDoc(collection(firestore, 'audit_logs'), {
+        timestamp: new Date().toISOString(),
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        actionType: 'DELETE_PRODUCT',
+        entityType: 'Product',
+        entityId: productToDeleteId,
+        remark: `Deleted product: ${deletedName}`,
+        oldValue: { id: productToDeleteId, name: deletedName }
+      });
+
       if (selectedProductId === productToDeleteId) setSelectedProductId(null);
       toast({ title: "Product Deleted", description: "The item has been removed from the catalog." });
       setProductToDeleteId(null);
@@ -122,7 +167,7 @@ export default function AdminProductsPage() {
 
   return (
     <Shell>
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-cyan-100">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-primary-100">
         {/* Left Panel: List - Hidden on mobile when product is selected */}
         <div className={cn(
           "w-full lg:w-[320px] border-r flex flex-col bg-slate-50/30 shrink-0",
@@ -131,7 +176,7 @@ export default function AdminProductsPage() {
            <div className="p-3 border-b space-y-3">
               <div className="flex items-center justify-between">
                  <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-500">Catalog</h2>
-                 <Button size="icon" variant="ghost" className="h-7 w-7 text-cyan-600 hover:bg-cyan-50" onClick={handleAddProduct}>
+                 <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={handleAddProduct}>
                     <Plus size={16} />
                  </Button>
               </div>
@@ -139,7 +184,7 @@ export default function AdminProductsPage() {
                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                  <Input 
                    placeholder="Search products..." 
-                   className="pl-8 h-8 text-[12px] bg-white border-cyan-50" 
+                   className="pl-8 h-8 text-[12px] bg-white border-primary-50" 
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
                  />
@@ -153,13 +198,13 @@ export default function AdminProductsPage() {
                   key={p.id} 
                   onClick={() => setSelectedProductId(p.id)}
                   className={cn(
-                    "p-3 border-b cursor-pointer transition-colors hover:bg-cyan-50/50 flex flex-col gap-1.5 group relative",
-                    selectedProductId === p.id ? "bg-cyan-50 border-r-2 border-r-cyan-600 shadow-sm" : ""
+                    "p-3 border-b cursor-pointer transition-colors hover:bg-primary-50/50 flex flex-col gap-1.5 group relative",
+                    selectedProductId === p.id ? "bg-primary-50 border-r-2 border-r-primary-600 shadow-sm" : ""
                   )}
                 >
                    <div className="flex items-center justify-between">
                       <span className="text-[13px] font-bold truncate pr-10 text-slate-800">{p.name}</span>
-                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-cyan-100 text-cyan-600 bg-white shrink-0">
+                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-primary-100 text-primary-600 bg-white shrink-0">
                          {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
                       </Badge>
                    </div>
@@ -214,12 +259,12 @@ export default function AdminProductsPage() {
                          </div>
                       </div>
                       <div className="w-full lg:w-[240px] space-y-4">
-                         <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-100 space-y-4">
-                            <h3 className="text-[11px] font-bold text-cyan-700 uppercase flex items-center gap-2"><Settings2 size={14} /> Access Control</h3>
+                         <div className="p-4 bg-primary-50 rounded-lg border border-primary-100 space-y-4">
+                            <h3 className="text-[11px] font-bold text-primary-700 uppercase flex items-center gap-2"><Settings2 size={14} /> Access Control</h3>
                             <div className="space-y-1.5">
                                <Label className="text-[10px] font-bold text-slate-500 uppercase">Min. Tier Required</Label>
                                <Select value={selectedProduct.tierRequired} onValueChange={(v) => handleUpdateProduct({ tierRequired: v })}>
-                                  <SelectTrigger className="h-8 text-[12px] bg-white border-cyan-100">
+                                  <SelectTrigger className="h-8 text-[12px] bg-white border-primary-100">
                                      <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -229,7 +274,7 @@ export default function AdminProductsPage() {
                             </div>
                             <div className="pt-2 flex items-center justify-between">
                                <Label className="text-[10px] font-bold text-slate-500 uppercase">Listing Status</Label>
-                               <Switch className="scale-75 data-[state=checked]:bg-cyan-600" defaultChecked />
+                               <Switch className="scale-75 data-[state=checked]:bg-primary-600" defaultChecked />
                             </div>
                          </div>
                          
@@ -253,11 +298,11 @@ export default function AdminProductsPage() {
                    <div className="pt-6 border-t overflow-x-auto">
                       <Tabs defaultValue="scripts" className="w-full">
                          <TabsList className="bg-slate-100 p-0.5 rounded-md h-9 gap-1 flex w-max lg:w-auto">
-                            <TabsTrigger value="scripts" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><FileCode size={14} /> Scripts</TabsTrigger>
-                            <TabsTrigger value="docs" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><FileText size={14} /> Docs</TabsTrigger>
-                            <TabsTrigger value="videos" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><Video size={14} /> Videos</TabsTrigger>
-                            <TabsTrigger value="manuals" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><BookOpen size={14} /> Manuals</TabsTrigger>
-                            <TabsTrigger value="faqs" className="text-[11px] px-3 gap-2 data-[state=active]:text-cyan-700"><HelpCircle size={14} /> FAQs</TabsTrigger>
+                            <TabsTrigger value="scripts" className="text-[11px] px-3 gap-2 data-[state=active]:text-primary-700"><FileCode size={14} /> Scripts</TabsTrigger>
+                            <TabsTrigger value="docs" className="text-[11px] px-3 gap-2 data-[state=active]:text-primary-700"><FileText size={14} /> Docs</TabsTrigger>
+                            <TabsTrigger value="videos" className="text-[11px] px-3 gap-2 data-[state=active]:text-primary-700"><Video size={14} /> Videos</TabsTrigger>
+                            <TabsTrigger value="manuals" className="text-[11px] px-3 gap-2 data-[state=active]:text-primary-700"><BookOpen size={14} /> Manuals</TabsTrigger>
+                            <TabsTrigger value="faqs" className="text-[11px] px-3 gap-2 data-[state=active]:text-primary-700"><HelpCircle size={14} /> FAQs</TabsTrigger>
                          </TabsList>
                          
                          <div className="mt-4">
@@ -281,7 +326,7 @@ export default function AdminProductsPage() {
                    </div>
                 </div>
                 <div className="p-4 border-t bg-slate-50/50 flex justify-end">
-                    <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 gap-2 h-8 px-6 font-bold uppercase text-[11px]" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
+                    <Button size="sm" className="bg-primary-600 hover:bg-primary-700 gap-2 h-8 px-6 font-bold uppercase text-[11px]" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
                        {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Commit All Changes
                     </Button>
                 </div>
@@ -324,15 +369,31 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({ name: '', url: '' });
   const firestore = useFirestore();
+  const { user } = useAuthStore();
   const { toast } = useToast();
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firestore || !formData.name || !formData.url) return;
+    if (!firestore || !formData.name || !formData.url || !user) return;
     try {
       const productRef = doc(firestore, 'products', productId);
-      const updatedItems = [...items, { ...formData, id: Date.now().toString(), dateAdded: new Date().toISOString() }];
+      const newItem = { ...formData, id: Date.now().toString(), dateAdded: new Date().toISOString() };
+      const updatedItems = [...items, newItem];
       await updateDoc(productRef, { [`resources.${type}`]: updatedItems });
+      
+      // Audit Log
+      await addDoc(collection(firestore, 'audit_logs'), {
+        timestamp: new Date().toISOString(),
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        actionType: 'LINK_RESOURCE',
+        entityType: 'ProductResource',
+        entityId: productId,
+        remark: `Linked ${type} resource "${formData.name}" to product ID: ${productId}`,
+        newValue: newItem
+      });
+
       setFormData({ name: '', url: '' });
       setIsAdding(false);
       toast({ title: "Resource Linked" });
@@ -342,9 +403,24 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
   };
 
   const handleDelete = async (id: string) => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
+    const itemToDelete = items.find(i => i.id === id);
     const updatedItems = items.filter(i => i.id !== id);
     await updateDoc(doc(firestore, 'products', productId), { [`resources.${type}`]: updatedItems });
+    
+    // Audit Log
+    await addDoc(collection(firestore, 'audit_logs'), {
+      timestamp: new Date().toISOString(),
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      actionType: 'UNLINK_RESOURCE',
+      entityType: 'ProductResource',
+      entityId: productId,
+      remark: `Removed ${type} resource "${itemToDelete?.name}" from product ID: ${productId}`,
+      oldValue: itemToDelete
+    });
+
     toast({ title: "Resource Removed" });
   };
 
@@ -352,20 +428,20 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
     <div className="space-y-4">
        <div className="flex items-center justify-between gap-2">
           <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Repository: {type}</h4>
-          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-cyan-600 border-cyan-100" onClick={() => setIsAdding(!isAdding)}>
+          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-primary-600 border-primary-100" onClick={() => setIsAdding(!isAdding)}>
              {isAdding ? 'Cancel' : `+ Add ${type.slice(0, -1)}`}
           </Button>
        </div>
 
        {isAdding && (
-         <form onSubmit={handleAdd} className="p-3 bg-cyan-50/50 border border-cyan-100 rounded-md flex flex-col lg:grid lg:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
+         <form onSubmit={handleAdd} className="p-3 bg-primary-50/50 border border-primary-100 rounded-md flex flex-col lg:grid lg:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
             <div className="lg:col-span-1">
-               <Input required placeholder="Display Name..." className="h-8 text-[12px] bg-white border-cyan-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+               <Input required placeholder="Display Name..." className="h-8 text-[12px] bg-white border-primary-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
             </div>
             <div className="lg:col-span-2">
-               <Input required placeholder="HTTPS URL or File Resource..." className="h-8 text-[12px] bg-white border-cyan-100" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
+               <Input required placeholder="HTTPS URL or File Resource..." className="h-8 text-[12px] bg-white border-primary-100" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
             </div>
-            <Button type="submit" className="h-8 bg-cyan-600 text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
+            <Button type="submit" className="h-8 bg-primary-600 text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
          </form>
        )}
 
@@ -384,7 +460,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
                   {items.map(item => (
                     <tr key={item.id} className="h-10 hover:bg-slate-50 group">
                        <td className="px-3 text-slate-400">
-                          {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'manuals' ? <BookOpen size={14} className="text-emerald-500" /> : type === 'scripts' ? <FileCode size={14} className="text-blue-500" /> : <FileText size={14} className="text-cyan-500" />}
+                          {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'manuals' ? <BookOpen size={14} className="text-emerald-500" /> : type === 'scripts' ? <FileCode size={14} className="text-blue-500" /> : <FileText size={14} className="text-primary-500" />}
                        </td>
                        <td className="font-medium truncate max-w-[150px] lg:max-w-[300px]">
                           <div className="flex flex-col">
@@ -397,7 +473,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
                        </td>
                        <td className="px-3 text-right">
                           <div className="flex items-center justify-end gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                             <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-cyan-600 transition-colors">
+                             <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-primary-600 transition-colors">
                                 <ExternalLink size={14} />
                              </a>
                              <TooltipProvider>

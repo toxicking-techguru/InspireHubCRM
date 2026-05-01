@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, orderBy, doc, writeBatch, increment, addDoc } from 'firebase/firestore';
 import { Commission, Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Coins, 
   CheckCircle2, 
-  XCircle, 
   Loader2, 
   Search, 
-  AlertCircle,
-  TrendingUp,
-  ArrowRight
+  AlertCircle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -54,12 +51,13 @@ export default function AdminCommissionsPage() {
   const pendingAmount = useMemo(() => commissions?.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0) || 0, [commissions]);
 
   const handleApprove = async (commission: Commission) => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
     setIsProcessing(commission.id);
     try {
       const batch = writeBatch(firestore);
       const cRef = doc(firestore, 'commissions', commission.id);
       const wRef = doc(firestore, 'wallets', commission.agentId);
+      const auditRef = doc(collection(firestore, 'audit_logs'));
 
       // 1. Mark commission as approved
       batch.update(cRef, { 
@@ -72,6 +70,19 @@ export default function AdminCommissionsPage() {
       batch.update(wRef, {
         pending: increment(-commission.amount),
         withdrawable: increment(commission.amount)
+      });
+
+      // 3. Log to Audit
+      batch.set(auditRef, {
+        timestamp: new Date().toISOString(),
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        actionType: 'APPROVE_COMMISSION',
+        entityType: 'Commission',
+        entityId: commission.id,
+        remark: `Approved commission of $${commission.amount.toLocaleString()} for ${agents?.find(a => a.id === commission.agentId)?.name}`,
+        newValue: { status: 'approved', amount: commission.amount }
       });
 
       await batch.commit();
@@ -93,21 +104,21 @@ export default function AdminCommissionsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-bold flex items-center gap-2 text-cyan-950">
-               <Coins className="text-cyan-600" size={20} /> Commission Validation
+            <h1 className="text-[18px] font-bold flex items-center gap-2 text-primary-950">
+               <Coins className="text-primary-600" size={20} /> Commission Validation
             </h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">Review deals won and release earnings to agent wallets.</p>
           </div>
         </div>
 
         <div className="grid md:grid-cols-4 gap-3">
-           <div className="bg-cyan-50 border border-cyan-100 p-3 rounded-md shadow-sm">
-              <p className="text-[10px] font-bold uppercase text-cyan-500 mb-1">Queue Size</p>
-              <p className="text-[20px] font-bold text-cyan-950">{pendingCount} Pending</p>
+           <div className="bg-primary-50 border border-primary-100 p-3 rounded-md shadow-sm">
+              <p className="text-[10px] font-bold uppercase text-primary-500 mb-1">Queue Size</p>
+              <p className="text-[20px] font-bold text-primary-950">{pendingCount} Pending</p>
            </div>
-           <div className="bg-cyan-50 border border-cyan-100 p-3 rounded-md shadow-sm">
-              <p className="text-[10px] font-bold uppercase text-cyan-500 mb-1">Total to Release</p>
-              <p className="text-[20px] font-bold text-cyan-950">${pendingAmount.toLocaleString()}</p>
+           <div className="bg-primary-50 border border-primary-100 p-3 rounded-md shadow-sm">
+              <p className="text-[10px] font-bold uppercase text-primary-500 mb-1">Total to Release</p>
+              <p className="text-[20px] font-bold text-primary-950">${pendingAmount.toLocaleString()}</p>
            </div>
         </div>
 
@@ -116,7 +127,7 @@ export default function AdminCommissionsPage() {
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <Input 
                 placeholder="Search agent or client..." 
-                className="pl-8 h-8 text-[12px] bg-white border-cyan-100" 
+                className="pl-8 h-8 text-[12px] bg-white border-primary-100" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -139,7 +150,7 @@ export default function AdminCommissionsPage() {
                  </thead>
                  <tbody className="divide-y">
                     {loading ? (
-                       <tr className="h-40"><td colSpan={7} className="text-center"><Loader2 className="animate-spin mx-auto text-cyan-200" /></td></tr>
+                       <tr className="h-40"><td colSpan={7} className="text-center"><Loader2 className="animate-spin mx-auto text-primary-200" /></td></tr>
                     ) : filteredCommissions.map(c => {
                        const agent = agents?.find(a => a.id === c.agentId);
                        const isPending = c.status === 'pending';
@@ -156,10 +167,10 @@ export default function AdminCommissionsPage() {
                              </td>
                              <td className="font-medium text-slate-700">{c.clientName || 'Private Lead'}</td>
                              <td className="text-right text-slate-500">${c.dealAmount?.toLocaleString() || '0'}</td>
-                             <td className="text-right font-bold text-cyan-700">
+                             <td className="text-right font-bold text-primary-700">
                                 <div className="flex flex-col">
                                    <span>${c.amount.toLocaleString()}</span>
-                                   <span className="text-[9px] text-cyan-400 font-bold uppercase">{c.commissionPct}% Rate</span>
+                                   <span className="text-[9px] text-primary-400 font-bold uppercase">{c.commissionPct}% Rate</span>
                                 </div>
                              </td>
                              <td className="text-center">
@@ -174,7 +185,7 @@ export default function AdminCommissionsPage() {
                                 {isPending ? (
                                    <Button 
                                       size="sm" 
-                                      className="h-7 text-[11px] bg-cyan-600 hover:bg-cyan-700 gap-1 font-bold uppercase"
+                                      className="h-7 text-[11px] bg-primary-600 hover:bg-primary-700 gap-1 font-bold uppercase"
                                       onClick={() => handleApprove(c)}
                                       disabled={processing}
                                    >

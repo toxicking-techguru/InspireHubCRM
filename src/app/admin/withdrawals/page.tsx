@@ -1,11 +1,10 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, orderBy, doc, writeBatch, increment, addDoc } from 'firebase/firestore';
 import { Withdrawal, Agent } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Banknote, 
-  CheckCircle2, 
-  XCircle, 
   Loader2, 
   Clock, 
   Download, 
@@ -60,23 +57,39 @@ export default function AdminWithdrawalsPage() {
   }, [pendingList]);
 
   const handleApprove = async (withdrawal: Withdrawal) => {
-    if (!firestore || !paymentRef.trim()) return;
+    if (!firestore || !paymentRef.trim() || !user) return;
     setIsActioning(true);
     try {
       const batch = writeBatch(firestore);
       const wRef = doc(firestore, 'withdrawals', withdrawal.id);
       const walletRef = doc(firestore, 'wallets', withdrawal.agentId);
+      const auditRef = doc(collection(firestore, 'audit_logs'));
 
-      batch.update(wRef, { 
+      const approvalData = { 
         status: 'paid', 
         processedAt: new Date().toISOString(),
         processedBy: user?.name,
         reference: paymentRef
-      });
+      };
+
+      batch.update(wRef, approvalData);
       
       // We only increment 'withdrawn' because 'withdrawable' was already decremented at request time
       batch.update(walletRef, {
         withdrawn: increment(withdrawal.amount)
+      });
+      
+      // Audit Log
+      batch.set(auditRef, {
+        timestamp: new Date().toISOString(),
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        actionType: 'APPROVE_PAYOUT',
+        entityType: 'Withdrawal',
+        entityId: withdrawal.id,
+        remark: `Disbursed $${withdrawal.amount.toLocaleString()} to ${agents?.find(a => a.id === withdrawal.agentId)?.name}`,
+        newValue: approvalData
       });
       
       await batch.commit();
@@ -91,24 +104,40 @@ export default function AdminWithdrawalsPage() {
   };
 
   const handleReject = async (withdrawal: Withdrawal) => {
-    if (!firestore || !rejectReason.trim()) return;
+    if (!firestore || !rejectReason.trim() || !user) return;
     setIsActioning(true);
     try {
       const batch = writeBatch(firestore);
       const wRef = doc(firestore, 'withdrawals', withdrawal.id);
       const walletRef = doc(firestore, 'wallets', withdrawal.agentId);
+      const auditRef = doc(collection(firestore, 'audit_logs'));
 
-      // 1. Mark request as rejected
-      batch.update(wRef, {
+      const rejectionData = {
         status: 'rejected',
         processedAt: new Date().toISOString(),
         processedBy: user?.name,
         rejectionReason: rejectReason
-      });
+      };
+
+      // 1. Mark request as rejected
+      batch.update(wRef, rejectionData);
 
       // 2. Restore funds to the agent's withdrawable balance
       batch.update(walletRef, {
         withdrawable: increment(withdrawal.amount)
+      });
+
+      // 3. Audit Log
+      batch.set(auditRef, {
+        timestamp: new Date().toISOString(),
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        actionType: 'REJECT_PAYOUT',
+        entityType: 'Withdrawal',
+        entityId: withdrawal.id,
+        remark: `Rejected payout request of $${withdrawal.amount.toLocaleString()} for ${agents?.find(a => a.id === withdrawal.agentId)?.name}. Reason: ${rejectReason}`,
+        newValue: rejectionData
       });
 
       await batch.commit();
@@ -129,24 +158,24 @@ export default function AdminWithdrawalsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-bold flex items-center gap-2 text-cyan-950">
-               <Banknote className="text-cyan-600" size={20} /> Withdrawal Flow Control
+            <h1 className="text-[18px] font-bold flex items-center gap-2 text-primary-950">
+               <Banknote className="text-primary-600" size={20} /> Withdrawal Flow Control
             </h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">Finance Approval → Payout Execution → Automated Wallet Synchronization.</p>
           </div>
-          <Button variant="outline" size="sm" className="h-8 gap-2 border-cyan-200 text-cyan-700">
+          <Button variant="outline" size="sm" className="h-8 gap-2 border-primary-200 text-primary-700">
              <Download size={14} /> Export Queue
           </Button>
         </div>
 
-        <div className="bg-cyan-50 border border-cyan-100 p-3 rounded-md flex items-center gap-6 shadow-sm">
+        <div className="bg-primary-50 border border-primary-100 p-3 rounded-md flex items-center gap-6 shadow-sm">
            <div className="flex items-center gap-2">
-              <span className="text-[20px] font-bold text-cyan-950">${stats.total.toLocaleString()}</span>
-              <span className="text-[11px] font-bold uppercase text-cyan-400 tracking-tight">Total Pending</span>
+              <span className="text-[20px] font-bold text-primary-950">${stats.total.toLocaleString()}</span>
+              <span className="text-[11px] font-bold uppercase text-primary-400 tracking-tight">Total Pending</span>
            </div>
-           <div className="h-4 w-px bg-cyan-200" />
+           <div className="h-4 w-px bg-primary-200" />
            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-bold text-cyan-700">{stats.count} Requests</span>
+              <span className="text-[13px] font-bold text-primary-700">{stats.count} Requests</span>
            </div>
            <div className="flex items-center gap-2 ml-auto">
               <AlertCircle size={14} className={cn(stats.critical > 0 ? "text-red-500" : "text-emerald-500")} />
@@ -156,10 +185,10 @@ export default function AdminWithdrawalsPage() {
 
         <Tabs defaultValue="pending" onValueChange={setActiveTab}>
            <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-9 gap-6 px-1">
-              <TabsTrigger value="pending" className="text-[12px] px-0 h-full border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none">
+              <TabsTrigger value="pending" className="text-[12px] px-0 h-full border-b-2 border-transparent data-[state=active]:border-primary-600 data-[state=active]:bg-transparent data-[state=active]:text-primary-700 shadow-none">
                  Approval Queue
               </TabsTrigger>
-              <TabsTrigger value="all" className="text-[12px] px-0 h-full border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none">
+              <TabsTrigger value="all" className="text-[12px] px-0 h-full border-b-2 border-transparent data-[state=active]:border-primary-600 data-[state=active]:bg-transparent data-[state=active]:text-primary-700 shadow-none">
                  Payout History
               </TabsTrigger>
            </TabsList>
@@ -192,9 +221,9 @@ export default function AdminWithdrawalsPage() {
 
                              return (
                                 <React.Fragment key={w.id}>
-                                   <tr className={cn("h-10 hover:bg-slate-50 group transition-colors", isProcessing && "bg-cyan-50/50")}>
+                                   <tr className={cn("h-10 hover:bg-slate-50 group transition-colors", isProcessing && "bg-primary-50/50")}>
                                       <td className="px-3 font-bold text-slate-800">{agent?.name || 'Unknown'}</td>
-                                      <td className="font-bold text-cyan-700">${w.amount.toLocaleString()}</td>
+                                      <td className="font-bold text-primary-700">${w.amount.toLocaleString()}</td>
                                       <td className="text-slate-500 font-medium">{format(parseISO(w.requestedAt), 'MMM d, yyyy')}</td>
                                       <td className="text-center">
                                          <span className={cn("text-[11px] font-bold uppercase", waitColor)}>{Math.floor(waitHours/24)}d {waitHours%24}h</span>
@@ -203,7 +232,7 @@ export default function AdminWithdrawalsPage() {
                                          **** **** {(w as any).bankDetails?.accountNumber?.slice(-4) || 'XXXX'}
                                       </td>
                                       <td className="px-3 text-right">
-                                         <Button variant="outline" size="sm" className="h-7 text-[11px] font-bold uppercase text-cyan-600 border-cyan-100" onClick={() => setProcessingId(isProcessing ? null : w.id)}>
+                                         <Button variant="outline" size="sm" className="h-7 text-[11px] font-bold uppercase text-primary-600 border-primary-100" onClick={() => setProcessingId(isProcessing ? null : w.id)}>
                                             {isProcessing ? 'Close' : 'Process Request'}
                                          </Button>
                                       </td>
@@ -213,7 +242,7 @@ export default function AdminWithdrawalsPage() {
                                         <td colSpan={6} className="p-4 px-10 border-b">
                                            <div className="flex gap-10">
                                               <div className="w-[300px] space-y-3">
-                                                 <div className="flex items-center gap-2 text-cyan-700 mb-2">
+                                                 <div className="flex items-center gap-2 text-primary-700 mb-2">
                                                     <ShieldCheck size={16} />
                                                     <h4 className="text-[12px] font-bold uppercase">Payment Credentials</h4>
                                                  </div>
@@ -328,4 +357,3 @@ export default function AdminWithdrawalsPage() {
     </Shell>
   );
 }
-

@@ -1,12 +1,11 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
-import { Agent, Tier, UserStatus, Role, Wallet, AgentPaymentDetails } from '@/types/crm';
+import { collection, query, orderBy, doc, setDoc, addDoc } from 'firebase/firestore';
+import { Agent, Tier, UserStatus, Role, Wallet } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -14,13 +13,8 @@ import {
   Download, 
   Loader2, 
   UserPlus, 
-  MoreVertical, 
-  Wallet as WalletIcon,
-  CheckCircle2,
-  XCircle,
-  Edit2,
+  Edit2, 
   ShieldAlert,
-  Info,
   Banknote
 } from 'lucide-react';
 import { TierBadge } from '@/components/ui/tier-badge';
@@ -28,7 +22,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export default function AdminAgentsPage() {
@@ -115,7 +108,7 @@ export default function AdminAgentsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firestore) return;
+    if (!firestore || !user) return;
     setIsSaving(true);
     try {
       const agentId = editingAgent ? editingAgent.id : `agent_${Date.now()}`;
@@ -124,6 +117,7 @@ export default function AdminAgentsPage() {
         managerId: formData.managerId === 'none' ? null : (formData.managerId || null),
         joinDate: editingAgent ? editingAgent.joinDate : new Date().toISOString(),
       };
+      
       await setDoc(doc(firestore, 'agents', agentId), finalData, { merge: true });
       
       if (!editingAgent && formData.role === 'Agent') {
@@ -135,6 +129,20 @@ export default function AdminAgentsPage() {
           withdrawn: 0
         });
       }
+
+      // Log to Audit Trail
+      await addDoc(collection(firestore, 'audit_logs'), {
+        timestamp: new Date().toISOString(),
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        actionType: editingAgent ? 'UPDATE_STAFF' : 'CREATE_STAFF',
+        entityType: 'Agent',
+        entityId: agentId,
+        remark: `${editingAgent ? 'Updated' : 'Registered'} staff member: ${formData.name}`,
+        oldValue: editingAgent || null,
+        newValue: finalData
+      });
 
       toast({ title: editingAgent ? "Staff Updated" : "Staff Registered", description: `${formData.name} record saved.` });
       setIsDrawerOpen(false);
@@ -151,18 +159,18 @@ export default function AdminAgentsPage() {
     <Shell>
       <div className="space-y-4">
         <div className="h-11 flex items-center justify-between gap-4">
-          <h1 className="text-[16px] font-bold shrink-0 text-cyan-950">Team Directory & Onboarding</h1>
+          <h1 className="text-[16px] font-bold shrink-0 text-primary-900">Team Directory & Onboarding</h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-cyan-200 text-cyan-700">
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-primary-200 text-primary-700">
               <Download size={14} /> Export CSV
             </Button>
-            <Button size="sm" className="h-8 text-[12px] bg-cyan-600 hover:bg-cyan-700 gap-2 shadow-md" onClick={handleAdd}>
+            <Button size="sm" className="h-8 text-[12px] bg-primary-600 hover:bg-primary-700 gap-2 shadow-md" onClick={handleAdd}>
               <UserPlus size={14} /> Add Team Member
             </Button>
           </div>
         </div>
 
-        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-cyan-100">
+        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-primary-100">
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
@@ -183,12 +191,12 @@ export default function AdminAgentsPage() {
                     const isAdmin = agent.role === 'Admin';
                     
                     return (
-                      <tr key={agent.id} className={cn("h-10 hover:bg-cyan-50/30 group transition-colors", isAdmin && "bg-slate-50/50")}>
+                      <tr key={agent.id} className={cn("h-10 hover:bg-primary-50/30 group transition-colors", isAdmin && "bg-slate-50/50")}>
                         <td className="px-3">
                            <div className="flex flex-col">
                              <div className="flex items-center gap-1.5">
                                <span className="font-bold text-slate-800">{agent.name}</span>
-                               {isAdmin && <ShieldAlert size={12} className="text-cyan-600" />}
+                               {isAdmin && <ShieldAlert size={12} className="text-primary-600" />}
                              </div>
                              <span className="text-[10px] text-slate-400 font-medium">{agent.email}</span>
                            </div>
@@ -204,12 +212,12 @@ export default function AdminAgentsPage() {
                              <span className={cn("text-[10px] font-bold uppercase", agent.status === 'active' ? "text-emerald-700" : "text-slate-400")}>{agent.status}</span>
                         </td>
                         <td className="text-right">
-                            <div className="font-bold text-cyan-700">
+                            <div className="font-bold text-primary-700">
                                ${(wallet?.withdrawable || 0).toLocaleString()}
                             </div>
                         </td>
                         <td className="px-3 text-right">
-                            <button className="text-slate-400 hover:text-cyan-600" onClick={() => handleEdit(agent)}>
+                            <button className="text-slate-400 hover:text-primary-600" onClick={() => handleEdit(agent)}>
                                 <Edit2 size={14} />
                             </button>
                         </td>
@@ -224,9 +232,9 @@ export default function AdminAgentsPage() {
 
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <SheetContent className="w-[440px] sm:max-w-[440px] p-0 overflow-hidden flex flex-col">
-          <SheetHeader className="p-4 border-b bg-cyan-50">
+          <SheetHeader className="p-4 border-b bg-primary-50">
              <SheetTitle className="text-[16px] font-bold flex items-center gap-2">
-               <UserPlus className="text-cyan-600" size={18} />
+               <UserPlus className="text-primary-600" size={18} />
                {editingAgent ? 'Edit Staff Profile' : 'Register New Staff'}
              </SheetTitle>
           </SheetHeader>
@@ -249,7 +257,7 @@ export default function AdminAgentsPage() {
                 </div>
 
                 <div className="pt-4 border-t space-y-4">
-                   <h3 className="text-[12px] font-bold text-cyan-700 flex items-center gap-2"><Banknote size={14} /> Official Payment Method (Locked for Agent)</h3>
+                   <h3 className="text-[12px] font-bold text-primary-700 flex items-center gap-2"><Banknote size={14} /> Official Payment Method (Locked for Agent)</h3>
                    <div className="space-y-1.5">
                       <Label className="text-[11px] font-bold uppercase text-slate-400">Bank / Provider Name</Label>
                       <Input placeholder="e.g. Standard Chartered" className="h-8 text-[12px]" value={formData.paymentDetails.bankName} onChange={(e) => setFormData({...formData, paymentDetails: {...formData.paymentDetails, bankName: e.target.value}})} />
@@ -267,7 +275,7 @@ export default function AdminAgentsPage() {
                 </div>
 
                 <div className="pt-4 border-t space-y-4">
-                   <h3 className="text-[12px] font-bold text-cyan-700">Assignment & Permissions</h3>
+                   <h3 className="text-[12px] font-bold text-primary-700">Assignment & Permissions</h3>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label className="text-[11px] font-bold uppercase text-slate-400">System Role</Label>
@@ -307,7 +315,7 @@ export default function AdminAgentsPage() {
 
           <SheetFooter className="p-4 border-t bg-slate-50/50">
              <Button variant="ghost" size="sm" onClick={() => setIsDrawerOpen(false)}>Cancel</Button>
-             <Button className="h-9 px-10 bg-cyan-600 hover:bg-cyan-700 font-bold uppercase text-[11px]" disabled={isSaving} onClick={handleSave}>
+             <Button className="h-9 px-10 bg-primary-600 hover:bg-primary-700 font-bold uppercase text-[11px]" disabled={isSaving} onClick={handleSave}>
                 {isSaving ? <Loader2 className="animate-spin" size={14} /> : 'Confirm Save'}
              </Button>
           </SheetFooter>
