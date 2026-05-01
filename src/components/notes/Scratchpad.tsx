@@ -13,6 +13,7 @@ import { Plus, Trash2, Pin, Loader2, StickyNote, Bell, Calendar as CalendarIcon 
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { MarkdownText } from '@/components/ui/markdown-text';
 
 export function Scratchpad({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { user } = useAuthStore();
@@ -82,7 +83,7 @@ export function Scratchpad({ open, onOpenChange }: { open: boolean; onOpenChange
         <div className="p-4 space-y-3 border-b bg-white">
            <Textarea 
              className="min-h-[80px] text-[13px] bg-slate-50 border-slate-200 focus:bg-white transition-colors" 
-             placeholder="Quick thoughts, reminders, client numbers..." 
+             placeholder="Quick thoughts, reminders... Use **bold** or - lists" 
              value={newContent}
              onChange={e => setNewContent(e.target.value)}
            />
@@ -129,7 +130,9 @@ export function Scratchpad({ open, onOpenChange }: { open: boolean; onOpenChange
                        </button>
                     </div>
                  </div>
-                 <p className="text-[13px] text-slate-700 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+                 <div className="text-[13px] text-slate-700 leading-relaxed">
+                    <MarkdownText content={note.content} />
+                 </div>
               </div>
             ))
            )}

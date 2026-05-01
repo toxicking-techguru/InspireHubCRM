@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -15,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { MarkdownText } from '@/components/ui/markdown-text';
 
 export default function GlobalActivitiesPage() {
   const { user } = useAuthStore();
@@ -116,7 +116,11 @@ export default function GlobalActivitiesPage() {
                           <td>
                              <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary bg-primary/5">{a.type}</Badge>
                           </td>
-                          <td className="max-w-[300px] truncate italic text-slate-500" title={a.remark}>{a.remark}</td>
+                          <td className="max-w-[300px]">
+                             <div className="text-[12px] text-slate-500 italic truncate" title={a.remark}>
+                                <MarkdownText content={a.remark} className="line-clamp-1" />
+                             </div>
+                          </td>
                           <td className="px-4 text-right">
                              {a.location ? <MapPin size={14} className="text-emerald-500 inline-block" /> : '--'}
                           </td>

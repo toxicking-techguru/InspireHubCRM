@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -13,7 +12,6 @@ import {
   Filter, 
   Calendar, 
   Clock, 
-  FileText, 
   Loader2,
   AlertCircle,
   CheckCircle2,
@@ -26,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { MarkdownText } from '@/components/ui/markdown-text';
 
 export default function ActivitiesPage() {
   const { user } = useAuthStore();
@@ -214,9 +213,9 @@ export default function ActivitiesPage() {
                           </Badge>
                         </td>
                         <td className="max-w-[400px]">
-                           <p className="truncate text-slate-600 text-[12px]" title={activity.remark}>
-                              {activity.remark}
-                           </p>
+                           <div className="text-slate-600 text-[12px]">
+                              <MarkdownText content={activity.remark} className="line-clamp-2" />
+                           </div>
                         </td>
                         <td className="px-3 text-right">
                           {activity.location ? (

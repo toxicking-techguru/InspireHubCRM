@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { MarkdownText } from '@/components/ui/markdown-text';
 
 const ACTIVITY_TYPES: ActivityType[] = [
   'Call made', 'Intro meeting', 'Follow up', 'Proposal send', 'Demo done', 
@@ -86,14 +87,22 @@ export default function LeadDetailPage() {
     setSubmitting(true);
     try {
       const now = new Date().toISOString();
-      await addDoc(collection(firestore, 'leads', id as string, 'activities'), {
+      const activityData = {
         leadId: id as string, clientName: lead.clientName, agentId: user.id, agentName: user.name,
         type, remark, location: location || null, createdAt: now, outcomeStatus: 'recorded'
-      });
-      await updateDoc(doc(firestore, 'leads', id as string), { 
-        lastActivityAt: now, 
-        ...(location ? { location } : {}) 
-      });
+      };
+      
+      await addDoc(collection(firestore, 'leads', id as string, 'activities'), activityData);
+      
+      const leadUpdate: any = { lastActivityAt: now };
+      if (location) leadUpdate.location = location;
+      
+      // If deal is won or lost, sync main status
+      if (type === 'Closed won') leadUpdate.status = 'won';
+      if (type === 'Closed lost') leadUpdate.status = 'lost';
+      
+      await updateDoc(doc(firestore, 'leads', id as string), leadUpdate);
+      
       setRemark(''); setLocation(null);
       toast({ title: "Activity Logged" });
     } catch (error) {
@@ -118,7 +127,7 @@ export default function LeadDetailPage() {
      }
   };
 
-  if (leadLoading) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin" /></div></Shell>;
+  if (leadLoading) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary" /></div></Shell>;
   if (!lead) return <Shell><div className="py-20 text-center">Lead not found.</div></Shell>;
 
   return (
@@ -127,7 +136,7 @@ export default function LeadDetailPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">{lead.clientName}</h1>
           <StatusBadge status={lead.status} />
-          {lead.type === 'partner' && <Badge className="bg-primary-50 text-primary-700 border-none font-bold uppercase">Partner</Badge>}
+          {lead.type === 'partner' && <Badge className="bg-primary/10 text-primary border-none font-bold uppercase text-[10px]">Partner Account</Badge>}
         </div>
         <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="h-9 gap-2 border-slate-200">
@@ -163,9 +172,24 @@ export default function LeadDetailPage() {
                           <div><Label className="text-[10px] uppercase font-bold text-slate-400">Estimated Budget</Label><p className="font-bold text-primary text-lg">${lead.estimatedBudget?.toLocaleString() || '0'}</p></div>
                        </div>
                        <div className="space-y-4 pt-4 border-t">
-                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Client Context</Label><p className="text-[14px] leading-relaxed text-slate-600 whitespace-pre-wrap">{lead.clientBrief || '--'}</p></div>
-                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Core Challenges</Label><p className="text-[14px] leading-relaxed text-slate-600 whitespace-pre-wrap">{lead.painPoints || '--'}</p></div>
-                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Proposed Solution</Label><p className="text-[14px] leading-relaxed text-slate-600 whitespace-pre-wrap">{lead.serviceOffering || '--'}</p></div>
+                          <div className="space-y-1">
+                             <Label className="text-[10px] uppercase font-bold text-slate-400">Client Context</Label>
+                             <div className="text-[13px] leading-relaxed text-slate-600">
+                                <MarkdownText content={lead.clientBrief || '--'} />
+                             </div>
+                          </div>
+                          <div className="space-y-1">
+                             <Label className="text-[10px] uppercase font-bold text-slate-400">Core Challenges</Label>
+                             <div className="text-[13px] leading-relaxed text-slate-600">
+                                <MarkdownText content={lead.painPoints || '--'} />
+                             </div>
+                          </div>
+                          <div className="space-y-1">
+                             <Label className="text-[10px] uppercase font-bold text-slate-400">Proposed Solution</Label>
+                             <div className="text-[13px] leading-relaxed text-slate-600">
+                                <MarkdownText content={lead.serviceOffering || '--'} />
+                             </div>
+                          </div>
                        </div>
                     </CardContent>
                  </Card>
@@ -174,15 +198,15 @@ export default function LeadDetailPage() {
               <TabsContent value="docs" className="m-0 space-y-4">
                  <div className="bg-white border rounded-xl p-4 flex gap-4 items-end shadow-sm">
                     <div className="flex-1 space-y-1.5">
-                       <Label className="text-[11px] font-bold uppercase">Document Title</Label>
-                       <Input placeholder="e.g. Solution Proposal v1" value={docName} onChange={e => setDocName(e.target.value)} className="bg-white" />
+                       <Label className="text-[11px] font-bold uppercase text-slate-400">Document Title</Label>
+                       <Input placeholder="e.g. Solution Proposal v1" value={docName} onChange={e => setDocName(e.target.value)} className="h-9 bg-white" />
                     </div>
                     <div className="flex-[2] space-y-1.5">
-                       <Label className="text-[11px] font-bold uppercase">URL / Link</Label>
-                       <Input placeholder="HTTPS://" value={docUrl} onChange={e => setDocUrl(e.target.value)} className="bg-white" />
+                       <Label className="text-[11px] font-bold uppercase text-slate-400">URL / Link</Label>
+                       <Input placeholder="HTTPS://" value={docUrl} onChange={e => setDocUrl(e.target.value)} className="h-9 bg-white" />
                     </div>
-                    <Button size="sm" className="h-9 gap-2 bg-primary font-bold" onClick={handleAddDoc} disabled={isUploading}>
-                       {isUploading ? <Loader2 className="animate-spin"/> : <Paperclip size={16}/>} Link Doc
+                    <Button size="sm" className="h-9 gap-2 bg-primary font-bold uppercase text-[11px]" onClick={handleAddDoc} disabled={isUploading}>
+                       {isUploading ? <Loader2 className="animate-spin" size={14}/> : <Paperclip size={14}/>} Link Doc
                     </Button>
                  </div>
                  <div className="grid md:grid-cols-2 gap-4">
@@ -233,7 +257,7 @@ export default function LeadDetailPage() {
                           {locating ? <Loader2 size={14} className="animate-spin"/> : <MapPin size={14}/>} {location ? "Location Locked" : "GPS Visit"}
                        </Button>
                     </div>
-                    <Textarea required className="min-h-[100px] text-[13px] bg-white" placeholder="Detailed meeting summary, next steps..." value={remark} onChange={e => setRemark(e.target.value)} />
+                    <Textarea required className="min-h-[100px] text-[13px] bg-white border-slate-200" placeholder="Detailed meeting summary, next steps..." value={remark} onChange={e => setRemark(e.target.value)} />
                     <Button type="submit" className="w-full h-10 font-bold uppercase tracking-tight bg-primary shadow-lg" disabled={submitting}>
                        {submitting ? <Loader2 className="animate-spin" /> : "Record Interaction & Synchronize Timer"}
                     </Button>
@@ -251,13 +275,15 @@ export default function LeadDetailPage() {
               <CardContent className="p-0">
                  <div className="divide-y max-h-[600px] overflow-auto">
                     {activities?.map(a => (
-                       <div key={a.id} className="p-4 space-y-1.5 hover:bg-slate-50 transition-colors">
+                       <div key={a.id} className="p-4 space-y-2 hover:bg-slate-50 transition-colors">
                           <div className="flex justify-between items-start">
                              <p className="text-[12px] font-bold text-slate-900">{a.type}</p>
                              <span className="text-[10px] font-bold text-slate-400">{format(parseISO(a.createdAt), 'MMM d')}</span>
                           </div>
-                          <p className="text-[12px] text-slate-600 line-clamp-3 leading-snug whitespace-pre-wrap">{a.remark}</p>
-                          {a.location && <Badge className="h-4 bg-emerald-50 text-emerald-700 text-[9px] uppercase border-none">Verified Visit</Badge>}
+                          <div className="text-[12px] text-slate-600 leading-snug">
+                             <MarkdownText content={a.remark} />
+                          </div>
+                          {a.location && <Badge className="h-4 bg-emerald-50 text-emerald-700 text-[9px] uppercase border-none font-bold">Verified Visit</Badge>}
                        </div>
                     ))}
                     {activities?.length === 0 && <div className="p-10 text-center text-slate-300 italic text-sm">No activity recorded yet.</div>}
@@ -290,12 +316,13 @@ export default function LeadDetailPage() {
                      <div className="flex gap-1 bg-slate-100 p-0.5 rounded">
                         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('bold', field.id as any)}><Bold size={12}/></Button>
                         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('italic', field.id as any)}><Italic size={12}/></Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('list', field.id as any)}><List size={12}/></Button>
                      </div>
                   </div>
                   <Textarea 
                     value={(editData as any)[field.id]} 
                     onChange={e => setEditData({...editData, [field.id]: e.target.value})} 
-                    className="min-h-[100px] bg-white text-[13px]" 
+                    className="min-h-[100px] bg-white text-[13px] border-slate-200" 
                     placeholder="Enter details..."
                   />
                </div>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -18,6 +17,7 @@ import { Lead, LeadActivity, Tier, Target as AgentTarget } from '@/types/crm';
 import { format, startOfMonth, parseISO, endOfMonth } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
+import { MarkdownText } from '@/components/ui/markdown-text';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -66,7 +66,7 @@ export default function DashboardPage() {
                  <SelectTrigger className="h-8 w-[160px] border-none font-bold text-[13px] focus:ring-0">
                     <SelectValue />
                  </SelectTrigger>
-                 <SelectContent>
+                 <SelectContent className="bg-white">
                     {[0,1,2,3,4,5].map(i => {
                       const d = startOfMonth(new Date(new Date().setMonth(new Date().getMonth() - i)));
                       const val = format(d, 'yyyy-MM');
@@ -132,10 +132,14 @@ export default function DashboardPage() {
                        </thead>
                        <tbody className="divide-y">
                           {myActivities.slice(0, 6).map(a => (
-                             <tr key={a.id} className="h-10 hover:bg-slate-50 transition-colors">
+                             <tr key={a.id} className="h-11 hover:bg-slate-50 transition-colors">
                                 <td className="px-4 font-bold text-slate-700">{a.clientName}</td>
                                 <td className="text-slate-600">{a.type}</td>
-                                <td className="text-slate-500 italic max-w-[200px] truncate">{a.remark}</td>
+                                <td className="max-w-[200px]">
+                                   <div className="text-slate-500 italic truncate">
+                                      <MarkdownText content={a.remark} className="line-clamp-1" />
+                                   </div>
+                                </td>
                                 <td className="px-4 text-right text-slate-400">{format(parseISO(a.createdAt), 'MMM d, HH:mm')}</td>
                              </tr>
                           ))}
