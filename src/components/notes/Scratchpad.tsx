@@ -13,7 +13,6 @@ import { Plus, Trash2, Pin, Loader2, StickyNote, Bell, Calendar as CalendarIcon 
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/tooltip';
 
 export function Scratchpad({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { user } = useAuthStore();
@@ -23,7 +22,7 @@ export function Scratchpad({ open, onOpenChange }: { open: boolean; onOpenChange
   const [reminderDate, setReminderDate] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  // Simplified query to avoid composite index requirement
+  // Simplified query for scratchpad
   const notesQuery = useMemoFirebase(() => 
     firestore && user ? query(collection(firestore, 'scratchpad'), where('agentId', '==', user.id)) : null
   , [firestore, user?.id]);
