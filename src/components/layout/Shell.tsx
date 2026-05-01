@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -64,9 +63,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
       ]
     },
     {
-      label: 'Reports & Performance',
+      label: 'Performance',
       items: [
-        { label: 'Reports', icon: BarChart3, href: isAdmin ? '/admin/reports' : '/manager/reports' },
+        { label: 'Reports', icon: BarChart3, href: isAdmin ? '/admin/reports' : isManager ? '/manager/reports' : '/reports' },
         { label: 'Targets', icon: Target, href: isAdmin ? '/admin/targets' : isManager ? '/manager/targets' : '/targets' },
         ...(isManager ? [{ label: 'Upgrade Queue', icon: ArrowUpCircle, href: '/manager/upgrade' }] : []),
       ]
