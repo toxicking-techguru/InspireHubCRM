@@ -1,17 +1,17 @@
 
 export type Role = 'Admin' | 'Manager' | 'Agent';
-
 export type UserStatus = 'active' | 'inactive' | 'suspended';
+export type LeadType = 'lead' | 'partner';
 
 export interface Tier {
   id: string;
   name: string;
   rankLevel: number;
-  rankLabel: string; // Entry, Mid, Senior, Elite
+  rankLabel: string;
   commissionPct: number;
   productLimit: number;
-  productLimitLabel: string; // Few Products, More Products, etc.
-  upgradeTargetLabel: string; // Monthly sales target, Retention metrics, etc.
+  productLimitLabel: string;
+  upgradeTargetLabel: string;
   upgradeCriteria: {
     leadsTarget: number;
     closedTarget: number;
@@ -60,6 +60,14 @@ export interface GeoLocation {
   timestamp: string;
 }
 
+export interface LeadDoc {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  createdAt: string;
+}
+
 export interface Lead {
   id: string;
   agentId: string;
@@ -67,40 +75,31 @@ export interface Lead {
   clientPhone: string;
   clientEmail: string;
   companyName?: string;
+  industry?: string;
   businessCountry: string;
+  businessCounty?: string;
   businessRegion: string;
   estimatedBudget: number;
   productId: string;
   status: LeadStatus;
+  type: LeadType;
   firstContactChannel: string;
   firstContactSubchannel: string;
   createdAt: string;
   lastActivityAt: string;
   wonAt?: string;
   firstResponseAt?: string;
-  contractSignedAt?: string;
-  // New Analytics Fields
   clientBrief?: string;
   painPoints?: string;
   serviceOffering?: string;
   location?: GeoLocation;
+  documents?: LeadDoc[];
 }
 
 export type ActivityType = 
-  | 'Call made' 
-  | 'Intro meeting' 
-  | 'Follow up' 
-  | 'Proposal send' 
-  | 'Demo done' 
-  | 'Presentation done' 
-  | 'Negotiation' 
-  | 'Quotation shared' 
-  | 'Contract send' 
-  | 'Invoice send' 
-  | 'Closed won' 
-  | 'Closed lost'
-  | 'Outreach'
-  | 'Site visit';
+  | 'Call made' | 'Intro meeting' | 'Follow up' | 'Proposal send' | 'Demo done' 
+  | 'Presentation done' | 'Negotiation' | 'Quotation shared' | 'Contract send' 
+  | 'Invoice send' | 'Closed won' | 'Closed lost' | 'Outreach' | 'Site visit';
 
 export interface LeadActivity {
   id: string;
@@ -109,13 +108,22 @@ export interface LeadActivity {
   agentId: string;
   agentName?: string;
   type: ActivityType;
-  scheduledAt: string;
-  dateDone?: string;
   remark: string;
+  dateDone?: string;
+  nextActionType?: string;
+  nextActionDate?: string;
   outcomeStatus: string;
   createdAt: string;
-  fileUrl?: string;
   location?: GeoLocation;
+}
+
+export interface UserNote {
+  id: string;
+  agentId: string;
+  content: string;
+  reminderAt?: string;
+  createdAt: string;
+  isPinned: boolean;
 }
 
 export interface Target {

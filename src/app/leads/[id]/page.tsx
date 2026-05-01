@@ -1,12 +1,13 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, collection, addDoc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { doc, collection, addDoc, updateDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Lead, LeadActivity, LeadStatus, ActivityType, Tier, GeoLocation } from '@/types/crm';
+import { Lead, LeadActivity, LeadStatus, ActivityType, Tier, GeoLocation, LeadDoc } from '@/types/crm';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -14,37 +15,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Phone, 
-  Mail, 
-  Globe, 
-  Clock, 
-  History as HistoryIcon, 
-  Calendar as CalendarIcon,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Paperclip,
-  Activity,
-  Zap,
-  ExternalLink,
-  MapPin,
-  ClipboardList,
-  Edit2,
-  Save,
-  X
+  Phone, Mail, Clock, History as HistoryIcon, Calendar as CalendarIcon,
+  Loader2, Activity, MapPin, ClipboardList, Edit2, Save, X, Paperclip,
+  FileText, ExternalLink, Bold, Italic, List
 } from 'lucide-react';
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 
 const ACTIVITY_TYPES: ActivityType[] = [
@@ -62,28 +44,19 @@ export default function LeadDetailPage() {
   const leadRef = useMemoFirebase(() => id && firestore ? doc(firestore, 'leads', id as string) : null, [id, firestore]);
   const { data: lead, loading: leadLoading } = useDoc<Lead>(leadRef as any);
 
-  const activitiesQuery = useMemoFirebase(() => {
-    if (!firestore || !id) return null;
-    return query(collection(firestore, 'leads', id as string, 'activities'), orderBy('createdAt', 'desc'));
-  }, [firestore, id]);
+  const activitiesQuery = useMemoFirebase(() => firestore && id ? query(collection(firestore, 'leads', id as string, 'activities'), orderBy('createdAt', 'desc')) : null, [firestore, id]);
   const { data: activities } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  const tiersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tiers') : null, [firestore]);
-  const { data: tiers } = useCollection<Tier>(tiersQuery as any);
-
-  // Activity Form State
   const [remark, setRemark] = useState('');
   const [type, setType] = useState<ActivityType>('Call made');
-  const [dateDone, setDateDone] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [nextActionType, setNextActionType] = useState('');
-  const [nextActionDate, setNextActionDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [location, setLocation] = useState<GeoLocation | null>(null);
-  const [confirmStatus, setConfirmStatus] = useState<LeadStatus | null>(null);
-
-  // Edit Lead State
   const [isEditDialogOpen, setIsEditOpen] = useState(false);
+  const [docName, setDocName] = useState('');
+  const [docUrl, setDocUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
   const [editData, setEditData] = useState({
     estimatedBudget: 0,
     clientBrief: '',
@@ -102,102 +75,22 @@ export default function LeadDetailPage() {
     }
   }, [lead]);
 
-  const handleGetLocation = () => {
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const newLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: new Date().toISOString() };
-        setLocation(newLoc);
-        setLocating(false);
-        toast({ title: "Location Captured" });
-      },
-      () => {
-        toast({ variant: "destructive", title: "Location Error" });
-        setLocating(false);
-      }
-    );
-  };
-
-  const handleStatusChangeRequest = (newStatus: LeadStatus) => {
-    if (newStatus === lead?.status) return;
-    setConfirmStatus(newStatus);
-  };
-
-  const confirmStatusChange = async () => {
-    if (!leadRef || !confirmStatus) return;
-    try {
-      await updateDoc(leadRef, { status: confirmStatus, lastActivityAt: new Date().toISOString() });
-      toast({ title: "Status Updated", description: `Lead marked as ${confirmStatus}` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Could not update status." });
-    } finally {
-      setConfirmStatus(null);
-    }
-  };
-
-  const handleUpdateLead = async () => {
-    if (!leadRef) return;
-    try {
-      await updateDoc(leadRef, {
-        ...editData,
-        lastActivityAt: new Date().toISOString()
-      });
-      toast({ title: "Qualification Updated" });
-      setIsEditOpen(false);
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
-    }
+  const insertFormat = (tag: string) => {
+     setRemark(prev => prev + (tag === 'bold' ? '**text**' : tag === 'italic' ? '_text_' : '\n- list item'));
   };
 
   const handleAddActivity = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!remark.trim() || !firestore || !id || !user || !lead) return;
     setSubmitting(true);
-
     try {
       const now = new Date().toISOString();
-      const activityData = {
-        leadId: id as string,
-        clientName: lead.clientName,
-        agentId: user.id,
-        agentName: user.name,
-        type,
-        dateDone,
-        remark,
-        nextActionType,
-        nextActionDate,
-        location: location || null,
-        createdAt: now,
-        outcomeStatus: 'recorded'
-      };
-
-      await addDoc(collection(firestore, 'leads', id as string, 'activities'), activityData);
-      
-      const updateData: any = { lastActivityAt: now };
-      if (!lead.firstResponseAt) updateData.firstResponseAt = now;
-      if (type === 'Contract send') updateData.contractSignedAt = now;
-      
-      // CRITICAL: Update the lead's main location so it reflects on the territory map
-      if (location) updateData.location = location; 
-
-      if (type === 'Closed won') {
-        updateData.status = 'won';
-        updateData.wonAt = now;
-        const currentTier = tiers?.find(t => t.id === user.tierId);
-        const commPct = currentTier?.commissionPct || 5;
-        const commAmount = (lead.estimatedBudget * commPct) / 100;
-
-        await addDoc(collection(firestore, 'commissions'), {
-          agentId: user.id, leadId: lead.id, clientName: lead.clientName,
-          dealAmount: lead.estimatedBudget, commissionPct: commPct, amount: commAmount,
-          status: 'pending', triggerType: 'Deal marked Won', createdAt: now
-        });
-      } else if (type === 'Closed lost') {
-        updateData.status = 'lost';
-      }
-
-      await updateDoc(doc(firestore, 'leads', id as string), updateData);
-      setRemark(''); setNextActionType(''); setNextActionDate(''); setLocation(null);
+      await addDoc(collection(firestore, 'leads', id as string, 'activities'), {
+        leadId: id as string, clientName: lead.clientName, agentId: user.id, agentName: user.name,
+        type, remark, location: location || null, createdAt: now, outcomeStatus: 'recorded'
+      });
+      await updateDoc(doc(firestore, 'leads', id as string), { lastActivityAt: now, ...(location ? { location } : {}) });
+      setRemark(''); setLocation(null);
       toast({ title: "Activity Logged" });
     } catch (error) {
       toast({ variant: "destructive", title: "Error" });
@@ -206,257 +99,181 @@ export default function LeadDetailPage() {
     }
   };
 
-  const overdueAction = useMemo(() => {
-    if (!activities) return null;
-    const lastWithAction = activities.find(a => a.nextActionDate);
-    if (!lastWithAction) return null;
-    
-    // A task is checked out if there is an activity created AFTER it
-    const subsequentActivity = activities.find(sub => 
-      sub.createdAt > lastWithAction.createdAt
-    );
-    if (subsequentActivity) return null;
+  const handleAddDoc = async () => {
+     if (!leadRef || !docName || !docUrl) return;
+     setIsUploading(true);
+     try {
+        const newDoc: LeadDoc = { id: Date.now().toString(), name: docName, url: docUrl, type: 'pdf', createdAt: new Date().toISOString() };
+        await updateDoc(leadRef, { documents: arrayUnion(newDoc) });
+        setDocName(''); setDocUrl('');
+        toast({ title: "Document Linked" });
+     } catch (e: any) {
+        toast({ variant: "destructive", title: "Failed", description: e.message });
+     } finally {
+        setIsUploading(false);
+     }
+  };
 
-    return lastWithAction;
-  }, [activities]);
-
-  if (leadLoading) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary" /></div></Shell>;
+  if (leadLoading) return <Shell><div className="flex items-center justify-center py-20"><Loader2 className="animate-spin" /></div></Shell>;
   if (!lead) return <Shell><div className="py-20 text-center">Lead not found.</div></Shell>;
 
   return (
     <Shell>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-[20px] font-bold text-slate-900">{lead.clientName}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{lead.clientName}</h1>
           <StatusBadge status={lead.status} />
+          {lead.type === 'partner' && <Badge className="bg-amber-100 text-amber-800 border-none font-bold uppercase">Partner</Badge>}
         </div>
         <div className="flex items-center gap-2">
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs border-cyan-100 text-cyan-700">
-                  <Edit2 size={14} /> Edit Qualification
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Update Lead Qualification</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                   <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">Estimated Budget ($)</Label>
-                      <Input type="number" value={editData.estimatedBudget} onChange={(e) => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} />
-                   </div>
-                   <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">Client Brief</Label>
-                      <Textarea value={editData.clientBrief} onChange={(e) => setEditData({...editData, clientBrief: e.target.value})} className="min-h-[60px]" />
-                   </div>
-                   <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">Pain Points</Label>
-                      <Textarea value={editData.painPoints} onChange={(e) => setEditData({...editData, painPoints: e.target.value})} className="min-h-[60px]" />
-                   </div>
-                   <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase text-slate-400">Proposed Solution</Label>
-                      <Textarea value={editData.serviceOffering} onChange={(e) => setEditData({...editData, serviceOffering: e.target.value})} className="min-h-[60px]" />
-                   </div>
-                </div>
-                <DialogFooter>
-                   <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-                   <Button className="bg-cyan-600" onClick={handleUpdateLead}>Save Changes</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <Select value={lead.status} onValueChange={(val) => handleStatusChangeRequest(val as LeadStatus)}>
-              <SelectTrigger className="h-8 text-xs min-w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost', 'dormant'].map(s => (
-                  <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
-                ))}
-              </SelectContent>
+            <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="h-9 gap-2 border-slate-200">
+               <Edit2 size={14}/> Edit Qualification
+            </Button>
+            <Select value={lead.status} onValueChange={async (val) => {
+               await updateDoc(leadRef!, { status: val as LeadStatus, lastActivityAt: new Date().toISOString() });
+               toast({ title: "Status Synchronized" });
+            }}>
+               <SelectTrigger className="h-9 w-[160px] font-bold"><SelectValue /></SelectTrigger>
+               <SelectContent>{['new','contacted','qualified','proposal','negotiation','won','lost','dormant'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
             </Select>
         </div>
       </div>
 
-      {overdueAction && (
-        <div className={cn(
-          "mb-6 p-4 rounded-lg flex items-center justify-between animate-in fade-in slide-in-from-top-2 border",
-          overdueAction.nextActionDate! < new Date().toISOString().split('T')[0] 
-            ? "bg-red-50 border-red-100 text-red-700" 
-            : "bg-amber-50 border-amber-100 text-amber-700"
-        )}>
-          <div className="flex items-center gap-4">
-             <CalendarIcon size={20} />
-             <div className="text-[13px]">
-                <p className="font-bold uppercase tracking-tight">Scheduled Next Action</p>
-                <p>Task: <b>{overdueAction.nextActionType}</b> {overdueAction.nextActionDate! < new Date().toISOString().split('T')[0] ? 'was due on' : 'is due on'} {overdueAction.nextActionDate}.</p>
-             </div>
-          </div>
-          <Button 
-            className={cn(
-              "h-8 px-4 text-[11px] font-bold uppercase",
-              overdueAction.nextActionDate! < new Date().toISOString().split('T')[0] ? "bg-red-600" : "bg-amber-600"
-            )}
-            onClick={() => {
-              setType('Follow up');
-              setRemark(`Completed scheduled action: ${overdueAction.nextActionType}`);
-              window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-            }}
-          >
-            Complete Now
-          </Button>
-        </div>
-      )}
+      <div className="grid lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-3 space-y-6">
+           <Tabs defaultValue="analysis" className="w-full">
+              <TabsList className="bg-white border w-full justify-start h-10 p-1 gap-2 mb-4">
+                 <TabsTrigger value="analysis" className="text-[12px] font-bold uppercase tracking-tight">Qualification</TabsTrigger>
+                 <TabsTrigger value="docs" className="text-[12px] font-bold uppercase tracking-tight">Documentation ({lead.documents?.length || 0})</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="analysis" className="m-0">
+                 <Card className="shadow-none border-slate-200">
+                    <CardHeader className="bg-slate-50/50 border-b p-3">
+                       <CardTitle className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Strategic Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-8">
+                       <div className="grid grid-cols-2 gap-4">
+                          <div><Label className="text-[10px] uppercase font-bold text-slate-400">Industry</Label><p className="font-medium text-slate-800">{lead.industry || 'Not specified'}</p></div>
+                          <div><Label className="text-[10px] uppercase font-bold text-slate-400">Region</Label><p className="font-medium text-slate-800">{lead.businessRegion} ({lead.businessCountry})</p></div>
+                       </div>
+                       <div className="space-y-4">
+                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Client Context</Label><p className="text-[14px] leading-relaxed text-slate-600">{lead.clientBrief || '--'}</p></div>
+                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Core Challenges</Label><p className="text-[14px] leading-relaxed text-slate-600">{lead.painPoints || '--'}</p></div>
+                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Proposed Solution</Label><p className="text-[14px] leading-relaxed text-slate-600">{lead.serviceOffering || '--'}</p></div>
+                       </div>
+                    </CardContent>
+                 </Card>
+              </TabsContent>
 
-      <div className="grid lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 space-y-6">
-          <Card className="shadow-none border-[0.5px]">
-            <CardHeader className="p-3 bg-slate-50/50 border-b flex flex-row items-center justify-between">
-               <div className="flex items-center gap-2">
-                 <ClipboardList size={14} className="text-cyan-600" />
-                 <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Qualification & Analysis</CardTitle>
-               </div>
-               <Badge variant="outline" className="text-[10px] bg-white border-cyan-100 text-cyan-700 font-bold uppercase">
-                  Budget: ${lead.estimatedBudget?.toLocaleString() || '0'}
-               </Badge>
-            </CardHeader>
-            <CardContent className="p-5 space-y-8">
-               <div className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                     <div className="group relative">
-                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Brief</Label>
-                        <p className="text-[14px] text-slate-700 leading-relaxed mt-1.5 min-h-[20px]">
-                           {lead.clientBrief || <span className="italic text-slate-300">Click "Edit Qualification" to add detail...</span>}
-                        </p>
-                     </div>
-                     <div>
-                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Core Pain Points</Label>
-                        <p className="text-[14px] text-slate-700 leading-relaxed mt-1.5 min-h-[20px]">
-                           {lead.painPoints || <span className="italic text-slate-300">Analysis pending...</span>}
-                        </p>
-                     </div>
-                  </div>
-                  <div className="space-y-6 border-l pl-8 border-slate-100">
-                     <div>
-                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proposed Solution</Label>
-                        <p className="text-[14px] text-slate-700 leading-relaxed mt-1.5 min-h-[20px]">
-                           {lead.serviceOffering || <span className="italic text-slate-300">Solutioning in progress...</span>}
-                        </p>
-                     </div>
-                     <div className="pt-4 mt-2">
-                        <div className="p-4 bg-cyan-50/50 rounded-xl border border-cyan-100/50 flex flex-col gap-1">
-                           <span className="text-[10px] text-cyan-600 font-bold uppercase tracking-wider">Opportunity Valuation</span>
-                           <span className="font-bold text-cyan-950 text-[22px]">${(lead.estimatedBudget || 0).toLocaleString()}</span>
-                        </div>
-                     </div>
-                  </div>
-               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none border-[0.5px]">
-            <CardHeader className="p-3 bg-slate-50/50 border-b">
-               <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Record Field Activity</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <form onSubmit={handleAddActivity} className="space-y-4">
-                <div className="grid md:grid-cols-3 gap-4">
-                   <div className="space-y-1.5 md:col-span-1">
-                      <Label className="text-[11px] font-bold">Activity Type</Label>
-                      <Select value={type} onValueChange={(val) => setType(val as ActivityType)}>
-                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                         <SelectContent>{ACTIVITY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                      </Select>
-                   </div>
-                   <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold">Completion Date</Label>
-                      <Input type="date" className="h-8 text-[12px]" value={dateDone} onChange={(e) => setDateDone(e.target.value)} />
-                   </div>
-                   <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold">GPS Check-in</Label>
-                      <Button type="button" variant="outline" size="sm" className={cn("w-full h-8 text-[11px] gap-1", location && "text-emerald-600 border-emerald-200 bg-emerald-50")} onClick={handleGetLocation}>
-                         {locating ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} />}
-                         {location ? "Position Locked" : "Log Site Visit"}
-                      </Button>
-                   </div>
-                </div>
-
-                <div className="space-y-1.5 p-3 bg-slate-50 rounded-md border border-slate-100">
-                   <Label className="text-[10px] font-bold uppercase text-slate-400">Set Next Action (Reminder)</Label>
-                   <div className="flex gap-3">
-                      <Input placeholder="What is the next step?" className="h-8 text-[12px] flex-1 bg-white" value={nextActionType} onChange={(e) => setNextActionType(e.target.value)} />
-                      <Input type="date" className="h-8 text-[12px] w-[150px] bg-white" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} />
-                   </div>
-                   <p className="text-[10px] text-slate-400 italic">This creates a reminder. It clears when you log your next activity for this lead.</p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] font-bold">Interaction Remark</Label>
-                  <Textarea required className="text-[12px] min-h-[80px]" placeholder="Summary of outcomes, feedback, or results..." value={remark} onChange={(e) => setRemark(e.target.value)} />
-                </div>
-
-                <Button type="submit" className="w-full h-9 font-bold text-[12px] bg-cyan-600 hover:bg-cyan-700 shadow-md" disabled={submitting}>
-                  {submitting ? <Loader2 className="animate-spin" size={14} /> : 'Sync Activity & Sync Pipeline'}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-4">
-          <Card className="h-full shadow-none border-[0.5px]">
-            <CardHeader className="p-3 border-b bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                 <HistoryIcon size={14} className="text-cyan-600" />
-                 <CardTitle className="text-[11px] uppercase font-bold text-slate-500">Interaction History</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y max-h-[700px] overflow-y-auto">
-                {activities?.map((activity) => (
-                  <div key={activity.id} className="p-4 hover:bg-slate-50/10 transition-colors">
-                    <div className="flex gap-3">
-                      <div className="mt-1.5 w-2 h-2 rounded-full bg-cyan-600 shrink-0" />
-                      <div className="space-y-1.5 w-full">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[13px] font-bold text-slate-900">{activity.type}</span>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase">{activity.dateDone || format(parseISO(activity.createdAt), 'MMM d')}</span>
-                        </div>
-                        <p className="text-[12px] text-slate-600 leading-snug">{activity.remark}</p>
-                        
-                        <div className="flex items-center gap-3">
-                           {activity.location && (
-                             <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 uppercase bg-emerald-50 px-1.5 py-0.5 rounded">
-                               <MapPin size={8} /> Verified visit
-                             </div>
-                           )}
-                           {activity.nextActionType && (
-                             <div className="flex items-center gap-1 text-[9px] font-bold text-amber-600 uppercase bg-amber-50 px-1.5 py-0.5 rounded">
-                               <Clock size={8} /> Task Set
-                             </div>
-                           )}
-                        </div>
-                      </div>
+              <TabsContent value="docs" className="m-0 space-y-4">
+                 <div className="bg-white border rounded-xl p-4 flex gap-4 items-end shadow-sm">
+                    <div className="flex-1 space-y-1.5">
+                       <Label className="text-[11px] font-bold uppercase">Document Title</Label>
+                       <Input placeholder="e.g. Solution Proposal v1" value={docName} onChange={e => setDocName(e.target.value)} />
                     </div>
-                  </div>
-                ))}
-                {(!activities || activities.length === 0) && (
-                  <div className="p-20 text-center flex flex-col items-center gap-2">
-                     <AlertCircle size={32} className="text-slate-200" />
-                     <p className="text-slate-400 text-[11px] italic">Awaiting field activity.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="flex-[2] space-y-1.5">
+                       <Label className="text-[11px] font-bold uppercase">URL / Link</Label>
+                       <Input placeholder="HTTPS://" value={docUrl} onChange={e => setDocUrl(e.target.value)} />
+                    </div>
+                    <Button size="sm" className="h-9 gap-2 bg-primary font-bold" onClick={handleAddDoc} disabled={isUploading}>
+                       {isUploading ? <Loader2 className="animate-spin"/> : <Paperclip size={16}/>} Link Doc
+                    </Button>
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-4">
+                    {lead.documents?.map(doc => (
+                       <div key={doc.id} className="bg-white border rounded-lg p-3 flex items-center justify-between group">
+                          <div className="flex items-center gap-3">
+                             <div className="p-2 bg-slate-50 text-slate-400 rounded"><FileText size={18}/></div>
+                             <div>
+                                <p className="text-[13px] font-bold text-slate-800">{doc.name}</p>
+                                <p className="text-[10px] text-slate-400">{format(parseISO(doc.createdAt), 'MMM d, yyyy')}</p>
+                             </div>
+                          </div>
+                          <a href={doc.url} target="_blank" className="p-2 hover:bg-slate-100 rounded text-primary transition-colors opacity-0 group-hover:opacity-100">
+                             <ExternalLink size={16} />
+                          </a>
+                       </div>
+                    ))}
+                    {(!lead.documents || lead.documents.length === 0) && <p className="col-span-2 text-center py-10 text-slate-300 italic text-sm">No documents attached.</p>}
+                 </div>
+              </TabsContent>
+           </Tabs>
+
+           <Card className="shadow-none border-slate-200">
+              <CardHeader className="bg-slate-50/50 border-b p-3">
+                 <CardTitle className="text-[11px] font-bold uppercase text-slate-400">Log Interaction</CardTitle>
+              </CardHeader>
+              <CardContent className="p-5">
+                 <form onSubmit={handleAddActivity} className="space-y-4">
+                    <div className="flex items-center gap-4">
+                       <Select value={type} onValueChange={(v) => setType(v as ActivityType)}>
+                          <SelectTrigger className="h-9 w-[180px] font-medium"><SelectValue /></SelectTrigger>
+                          <SelectContent>{ACTIVITY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                       </Select>
+                       <div className="flex-1 flex gap-1 bg-slate-100 p-1 rounded-lg">
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertFormat('bold')}><Bold size={14}/></Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertFormat('italic')}><Italic size={14}/></Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertFormat('list')}><List size={14}/></Button>
+                       </div>
+                       <Button type="button" variant="outline" size="sm" className={cn("h-9 gap-2", location && "bg-emerald-50 text-emerald-600 border-emerald-200")} onClick={() => {
+                          setLocating(true);
+                          navigator.geolocation.getCurrentPosition(pos => {
+                             setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: new Date().toISOString() });
+                             setLocating(false); toast({ title: "Check-in Successful" });
+                          });
+                       }}>
+                          {locating ? <Loader2 size={14} className="animate-spin"/> : <MapPin size={14}/>} {location ? "Location Locked" : "GPS Visit"}
+                       </Button>
+                    </div>
+                    <Textarea required className="min-h-[100px] text-[13px]" placeholder="Detailed meeting summary, next steps..." value={remark} onChange={e => setRemark(e.target.value)} />
+                    <Button type="submit" className="w-full h-10 font-bold uppercase tracking-tight bg-primary shadow-lg" disabled={submitting}>
+                       {submitting ? <Loader2 className="animate-spin" /> : "Record Interaction & Synchronize Timer"}
+                    </Button>
+                 </form>
+              </CardContent>
+           </Card>
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+           <Card className="h-full shadow-none border-slate-200">
+              <CardHeader className="bg-slate-50/50 border-b p-3 flex flex-row items-center justify-between">
+                 <CardTitle className="text-[11px] font-bold uppercase text-slate-400">Interaction Log</CardTitle>
+                 <HistoryIcon size={14} className="text-slate-300" />
+              </CardHeader>
+              <CardContent className="p-0">
+                 <div className="divide-y max-h-[600px] overflow-auto">
+                    {activities?.map(a => (
+                       <div key={a.id} className="p-4 space-y-1.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex justify-between items-start">
+                             <p className="text-[12px] font-bold text-slate-900">{a.type}</p>
+                             <span className="text-[10px] font-bold text-slate-400">{format(parseISO(a.createdAt), 'MMM d')}</span>
+                          </div>
+                          <p className="text-[12px] text-slate-600 line-clamp-3 leading-snug">{a.remark}</p>
+                          {a.location && <Badge className="h-4 bg-emerald-50 text-emerald-700 text-[9px] uppercase border-none">Verified Visit</Badge>}
+                       </div>
+                    ))}
+                    {activities?.length === 0 && <div className="p-10 text-center text-slate-300 italic text-sm">No activity recorded yet.</div>}
+                 </div>
+              </CardContent>
+           </Card>
         </div>
       </div>
 
-      <AlertDialog open={!!confirmStatus} onOpenChange={() => setConfirmStatus(null)}>
-        <AlertDialogContent className="max-w-[400px]">
-          <AlertDialogHeader><AlertDialogTitle>Stage Migration</AlertDialogTitle><AlertDialogDescription>Manually update the pipeline stage? This will reset the last activity timer.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel className="h-8 text-xs">Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmStatusChange} className="h-8 text-xs bg-cyan-600">Update Now</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-[600px]">
+          <DialogHeader><DialogTitle>Edit Lead Qualification</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Estimated Budget ($)</Label><Input type="number" value={editData.estimatedBudget} onChange={e => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} /></div>
+             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Client Brief</Label><Textarea value={editData.clientBrief} onChange={e => setEditData({...editData, clientBrief: e.target.value})} className="min-h-[80px]" /></div>
+             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Challenges</Label><Textarea value={editData.painPoints} onChange={e => setEditData({...editData, painPoints: e.target.value})} className="min-h-[80px]" /></div>
+             <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Strategy</Label><Textarea value={editData.serviceOffering} onChange={e => setEditData({...editData, serviceOffering: e.target.value})} className="min-h-[80px]" /></div>
+          </div>
+          <DialogFooter><Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button><Button onClick={async () => {
+             await updateDoc(leadRef!, { ...editData }); toast({ title: "Updated" }); setIsEditOpen(false);
+          }}>Save Changes</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Shell>
   );
 }

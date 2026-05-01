@@ -1,60 +1,39 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 191 91% 36%; /* Cyan 600 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 32% 91.4%;
-    --input: 214.3 32% 91.4%;
-    --ring: 191 91% 36%;
-    --radius: 0.5rem;
+    --background: #f8f9fa;
+    --foreground: #212529;
+    --card: #ffffff;
+    --card-foreground: #212529;
+    --popover: #ffffff;
+    --popover-foreground: #212529;
+    --primary: #1b48a3;
+    --primary-foreground: #ffffff;
+    --secondary: #e9ecef;
+    --secondary-foreground: #212529;
+    --muted: #f8f9fa;
+    --muted-foreground: #6c757d;
+    --accent: #2579c8;
+    --accent-foreground: #ffffff;
+    --destructive: #e74c3c;
+    --destructive-foreground: #ffffff;
+    --border: #dee2e6;
+    --input: #e9ecef;
+    --ring: #1b48a3;
+    --radius: 0.375rem;
     
-    --sidebar-background: 210 40% 98%;
-    --sidebar-foreground: 215 25% 27%;
-    --sidebar-primary: 191 91% 36%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 187 100% 97%;
-    --sidebar-accent-foreground: 191 91% 36%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 191 91% 36%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 191 91% 45%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 191 91% 45%;
+    --sidebar-background: #ffffff;
+    --sidebar-foreground: #212529;
+    --sidebar-primary: #1b48a3;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f8f9fa;
+    --sidebar-accent-foreground: #1b48a3;
+    --sidebar-border: #dee2e6;
+    --sidebar-ring: #1b48a3;
   }
 }
 
@@ -63,43 +42,28 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body text-[13px] leading-tight;
+    @apply bg-background text-foreground font-body text-[13px] leading-tight antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline font-semibold text-slate-900 dark:text-slate-100;
+    @apply font-headline font-semibold text-slate-900;
   }
 }
 
-/* Dense Table Overrides */
+/* UI Density Overrides */
 table {
   @apply w-full border-collapse text-left;
 }
 
-tr {
-  @apply h-9;
-}
-
 th {
-  @apply bg-slate-50 dark:bg-slate-900 p-2 px-3 text-[12px] font-semibold uppercase tracking-wider text-slate-500 border-b sticky top-0 z-10;
+  @apply bg-slate-50 p-2 px-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b;
 }
 
 td {
-  @apply p-2 px-3 border-b align-middle text-[13px];
+  @apply p-2 px-4 border-b align-middle text-[13px] text-slate-600;
 }
 
 /* Scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { @apply bg-slate-200 rounded-full hover:bg-slate-300; }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300;
-}
-
-/* Leaflet Overrides */
-.leaflet-container {
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
+.leaflet-container { width: 100%; height: 100%; z-index: 1; }
