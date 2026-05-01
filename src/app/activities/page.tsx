@@ -64,7 +64,7 @@ export default function ActivitiesPage() {
         sub.leadId === a.leadId && sub.createdAt > a.createdAt
       );
       return !subsequentActivity;
-    }).sort((a, b) => a.nextActionDate.localeCompare(b.nextActionDate));
+    }).sort((a, b) => a.nextActionDate!.localeCompare(b.nextActionDate!));
   }, [activities]);
 
   const filteredActivities = useMemo(() => {
@@ -95,7 +95,7 @@ export default function ActivitiesPage() {
             <Calendar size={16} className="text-primary" />
             <h2 className="text-[14px] font-bold uppercase tracking-tight text-slate-500">Action Tracker (Reminders)</h2>
           </div>
-          <div className="bg-card border rounded-md shadow-sm overflow-hidden border-cyan-100">
+          <div className="bg-card border rounded-md shadow-sm overflow-hidden border-blue-100">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -133,7 +133,7 @@ export default function ActivitiesPage() {
                         </td>
                         <td className="px-3 text-right">
                           <Link href={`/leads/${action.leadId}`}>
-                            <Button size="sm" className="h-7 text-[11px] gap-2 bg-cyan-600 hover:bg-cyan-700 uppercase font-bold tracking-tight">
+                            <Button size="sm" className="h-7 text-[11px] gap-2 bg-primary hover:bg-primary/90 uppercase font-bold tracking-tight">
                                <CheckCircle2 size={12} /> Log Progress
                             </Button>
                           </Link>
@@ -171,7 +171,7 @@ export default function ActivitiesPage() {
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
                 <Input 
                   placeholder="Search remarks or clients..." 
-                  className="pl-8 h-8 text-[12px] bg-white border-cyan-50" 
+                  className="pl-8 h-8 text-[12px] bg-white border-blue-50" 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -209,7 +209,7 @@ export default function ActivitiesPage() {
                           </Link>
                         </td>
                         <td>
-                          <Badge variant="outline" className="text-[9px] px-1.5 h-4 font-bold uppercase border-cyan-100 text-cyan-600 bg-cyan-50/30">
+                          <Badge variant="outline" className="text-[9px] px-1.5 h-4 font-bold uppercase border-blue-100 text-primary bg-primary/5">
                             {activity.type}
                           </Badge>
                         </td>

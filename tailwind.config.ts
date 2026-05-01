@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -26,20 +27,40 @@ export default {
           foreground: 'hsl(var(--popover-foreground))',
         },
         primary: {
-          DEFAULT: '#0891b2', // Vibrant Cyan 600
+          DEFAULT: '#1B48A3', 
           foreground: '#FFFFFF',
+          50: '#e6eef9',
+          100: '#ccddf3',
+          200: '#99bbe7',
+          300: '#6699db',
+          400: '#3377cf',
+          500: '#1b48a3',
+          600: '#013193',
+          700: '#012f8d',
+          800: '#002c83',
+          900: '#001a4f',
         },
         secondary: {
-          DEFAULT: '#A4D2EA', // Sky Blue
-          foreground: '#1E293B',
+          DEFAULT: '#2579C8',
+          foreground: '#FFFFFF',
+          50: '#e8f2fb',
+          100: '#d0e5f7',
+          200: '#a1cbef',
+          300: '#72b1e7',
+          400: '#4397df',
+          500: '#2579c8',
+          600: '#1d61a0',
+          700: '#164978',
+          800: '#0e3050',
+          900: '#071828',
         },
         muted: {
           DEFAULT: '#F1F5F9',
           foreground: '#64748B',
         },
         accent: {
-          DEFAULT: '#ECFEFF', // Ultra Light Cyan
-          foreground: '#0891b2',
+          DEFAULT: '#ECFEFF',
+          foreground: '#1B48A3',
         },
         destructive: {
           DEFAULT: '#E11D48',
@@ -49,21 +70,21 @@ export default {
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         sidebar: {
-          DEFAULT: '#F8FAFC',
-          foreground: '#1E293B',
-          primary: '#0891b2',
+          DEFAULT: '#FFFFFF',
+          foreground: '#212529',
+          primary: '#1B48A3',
           'primary-foreground': '#FFFFFF',
-          accent: '#ECFEFF',
-          'accent-foreground': '#0891b2',
-          border: '#E2E8F0',
-          ring: '#0891b2',
+          accent: '#F8F9FA',
+          'accent-foreground': '#1B48A3',
+          border: '#DEE2E6',
+          ring: '#1B48A3',
         },
       },
       fontSize: {
-        'xs-dense': '0.75rem', // 12px
-        'sm-dense': '0.8125rem', // 13px
-        'base-dense': '0.875rem', // 14px
-        'lg-dense': '1rem', // 16px
+        'xs-dense': '0.75rem',
+        'sm-dense': '0.8125rem',
+        'base-dense': '0.875rem',
+        'lg-dense': '1rem',
       },
       borderRadius: {
         lg: 'var(--radius)',
