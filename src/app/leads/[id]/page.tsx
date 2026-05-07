@@ -251,7 +251,7 @@ export default function LeadDetailPage() {
                     {(!lead.documents || lead.documents.length === 0) && (
                       <div className="col-span-full py-16 flex flex-col items-center justify-center text-slate-300 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                          <Paperclip size={32} className="mb-2 opacity-20" />
-                         <p className="italic text-sm font-medium">Repository is currently empty.</p>
+                         <p className="italic text-sm font-medium text-slate-400">Repository is currently empty.</p>
                       </div>
                     )}
                  </div>

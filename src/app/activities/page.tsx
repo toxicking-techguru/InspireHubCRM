@@ -5,9 +5,9 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query } from 'firebase/firestore';
+import { collection, query, addDoc, updateDoc, doc, collectionGroup } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
-import { format, parseISO, isAfter } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { 
   Search, 
   Calendar, 
@@ -17,7 +17,7 @@ import {
   CheckCircle2,
   ChevronRight,
   MapPin,
-  Filter
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,11 +26,22 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { MarkdownText } from '@/components/ui/markdown-text';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ActivitiesPage() {
   const { user } = useAuthStore();
   const firestore = useFirestore();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Manual Resolve State
+  const [resolveModalOpen, setResolveModalOpen] = useState(false);
+  const [resolvingAction, setResolvingAction] = useState<LeadActivity | null>(null);
+  const [resolveRemark, setResolveRemark] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch all activities globally or per-agent
   const activitiesQuery = useMemoFirebase(() => {
@@ -40,7 +51,7 @@ export default function ActivitiesPage() {
 
   const { data: rawActivities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  // Filter and Sort in memory for maximum reliability without extra indexing
+  // Filter and Sort in memory for maximum reliability
   const activities = useMemo(() => {
     if (!rawActivities || !user) return [];
     return [...rawActivities]
@@ -48,25 +59,16 @@ export default function ActivitiesPage() {
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [rawActivities, user?.id, user?.role]);
 
-  /**
-   * RESOLUTION LOGIC:
-   * A "Next Action" is active ONLY if it is the latest scheduled action for a lead
-   * AND no subsequent activities have been logged for that lead since it was created.
-   */
   const upcomingActions = useMemo(() => {
     if (!activities) return [];
-    
-    // 1. Group by Lead and find the absolute latest scheduled action
     const latestActionsMap: Record<string, LeadActivity> = {};
     
-    // Iterate chronological order (oldest to newest) to let newer scheduled dates override older ones
     [...activities].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach(a => {
       if (a.nextActionDate) {
         latestActionsMap[a.leadId] = a;
       }
     });
 
-    // 2. Filter: Only keep actions where NO newer interaction exists for that lead
     return Object.values(latestActionsMap).filter(action => {
       const newerActivityExists = activities.some(other => 
         other.leadId === action.leadId && 
@@ -91,6 +93,37 @@ export default function ActivitiesPage() {
     });
   }, [activities, searchTerm]);
 
+  const handleResolveAction = async () => {
+    if (!firestore || !resolvingAction || !resolveRemark.trim() || !user) return;
+    setIsSubmitting(true);
+    try {
+      const now = new Date().toISOString();
+      await addDoc(collection(firestore, 'leads', resolvingAction.leadId, 'activities'), {
+        leadId: resolvingAction.leadId,
+        clientName: resolvingAction.clientName,
+        agentId: user.id,
+        agentName: user.name,
+        type: 'Follow up',
+        remark: `RESOLVED PENDING TASK: ${resolveRemark}`,
+        outcomeStatus: 'resolved',
+        createdAt: now,
+      });
+
+      await updateDoc(doc(firestore, 'leads', resolvingAction.leadId), {
+        lastActivityAt: now
+      });
+
+      toast({ title: "Action Resolved", description: "The pending task has been cleared from your queue." });
+      setResolveModalOpen(false);
+      setResolveRemark('');
+      setResolvingAction(null);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Resolution Failed", description: e.message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -101,7 +134,7 @@ export default function ActivitiesPage() {
           <p className="text-sm text-slate-500">Monitor interaction history and manage automated task resolutions.</p>
         </div>
 
-        {/* Action Queue: Dynamic resolution logic based on interaction timeline */}
+        {/* Action Queue */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -114,7 +147,7 @@ export default function ActivitiesPage() {
                    <AlertCircle size={14} className="text-slate-300 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[240px] text-[11px]">
-                  Tasks are "Resolved" automatically when you log a new activity for the lead after the scheduled date.
+                  Tasks are "Resolved" automatically when you log new progress. Tap "Log Progress" to manually override.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -158,11 +191,16 @@ export default function ActivitiesPage() {
                           </span>
                         </td>
                         <td className="px-4 text-right">
-                          <Link href={`/leads/${action.leadId}`}>
-                            <Button size="sm" className="h-8 text-[11px] gap-2 bg-primary hover:bg-primary/90 font-bold uppercase tracking-tight shadow-sm px-4">
+                            <Button 
+                              size="sm" 
+                              className="h-8 text-[11px] gap-2 bg-primary hover:bg-primary/90 font-bold uppercase tracking-tight shadow-sm px-4"
+                              onClick={() => {
+                                setResolvingAction(action);
+                                setResolveModalOpen(true);
+                              }}
+                            >
                                <CheckCircle2 size={12} /> Log Progress
                             </Button>
-                          </Link>
                         </td>
                       </tr>
                     );
@@ -271,6 +309,40 @@ export default function ActivitiesPage() {
           </div>
         </div>
       </div>
+
+      {/* Manual Resolution Modal */}
+      <Dialog open={resolveModalOpen} onOpenChange={setResolveModalOpen}>
+        <DialogContent className="max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+               <CheckCircle2 className="text-emerald-500" size={20} />
+               Manual Action Resolution
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+             <div className="space-y-1.5">
+               <Label className="text-[11px] font-bold uppercase text-slate-400">Activity Remark</Label>
+               <Textarea 
+                 placeholder="Explain how this task was resolved..." 
+                 className="min-h-[100px] text-[13px]" 
+                 value={resolveRemark}
+                 onChange={(e) => setResolveRemark(e.target.value)}
+               />
+               <p className="text-[10px] text-slate-400 italic">This will log a 'Follow up' activity to clear the queue task.</p>
+             </div>
+          </div>
+          <DialogFooter>
+             <Button variant="ghost" size="sm" onClick={() => setResolveModalOpen(false)}>Cancel</Button>
+             <Button 
+               className="bg-primary hover:bg-primary/90 font-bold uppercase text-[11px] px-8" 
+               disabled={isSubmitting || !resolveRemark.trim()}
+               onClick={handleResolveAction}
+             >
+                {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : 'Confirm Resolution'}
+             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Shell>
   );
 }
