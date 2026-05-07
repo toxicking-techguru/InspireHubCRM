@@ -152,11 +152,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
              </div>
           ) : <NavContent />}
         </nav>
-        <div className="p-3 border-t">
-          <Button variant="ghost" className="w-full justify-start h-9 px-3 gap-3 text-[13px] text-slate-600 hover:text-primary hover:bg-primary/5" onClick={() => setIsScratchpadOpen(true)}>
-             <StickyNote size={16} /> {!isCollapsed && "Scratchpad"}
-          </Button>
-        </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
@@ -193,6 +188,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 mr-2">
+               <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full"
+                onClick={() => setIsScratchpadOpen(true)}
+               >
+                  <StickyNote size={18} />
+               </Button>
+            </div>
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full">
                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm">{user.name[0]}</div>
                <span className="text-[12px] font-bold text-slate-700 hidden xs:inline-block truncate max-w-[100px]">{user.name}</span>
