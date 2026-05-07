@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collectionGroup, query } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isAfter } from 'date-fns';
 import { 
   Search, 
   Calendar, 
@@ -15,7 +16,8 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
-  MapPin
+  MapPin,
+  Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +32,7 @@ export default function ActivitiesPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Remove orderBy from query to avoid missing index errors in prototype
+  // Fetch all activities globally or per-agent
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collectionGroup(firestore, 'activities'));
@@ -38,7 +40,7 @@ export default function ActivitiesPage() {
 
   const { data: rawActivities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  // Sort and filter in memory for better reliability
+  // Filter and Sort in memory for maximum reliability without extra indexing
   const activities = useMemo(() => {
     if (!rawActivities || !user) return [];
     return [...rawActivities]
@@ -46,24 +48,31 @@ export default function ActivitiesPage() {
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [rawActivities, user?.id, user?.role]);
 
+  /**
+   * RESOLUTION LOGIC:
+   * A "Next Action" is active ONLY if it is the latest scheduled action for a lead
+   * AND no subsequent activities have been logged for that lead since it was created.
+   */
   const upcomingActions = useMemo(() => {
     if (!activities) return [];
     
-    // Group activities by lead to find the *latest* scheduled action
+    // 1. Group by Lead and find the absolute latest scheduled action
     const latestActionsMap: Record<string, LeadActivity> = {};
     
+    // Iterate chronological order (oldest to newest) to let newer scheduled dates override older ones
     [...activities].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach(a => {
       if (a.nextActionDate) {
         latestActionsMap[a.leadId] = a;
       }
     });
 
-    return Object.values(latestActionsMap).filter(a => {
-      // Logic: A task is "checked out" if there's an activity created *after* this activity's createdAt timestamp
-      const subsequentActivity = activities.find(sub => 
-        sub.leadId === a.leadId && sub.createdAt > a.createdAt
+    // 2. Filter: Only keep actions where NO newer interaction exists for that lead
+    return Object.values(latestActionsMap).filter(action => {
+      const newerActivityExists = activities.some(other => 
+        other.leadId === action.leadId && 
+        other.createdAt > action.createdAt
       );
-      return !subsequentActivity;
+      return !newerActivityExists;
     }).sort((a, b) => (a.nextActionDate || '').localeCompare(b.nextActionDate || ''));
   }, [activities]);
 
@@ -88,22 +97,35 @@ export default function ActivitiesPage() {
     <Shell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Interaction Hub & Task Tracker</h1>
-          <p className="text-sm text-slate-500">Manage field visit logs and verify upcoming project milestones.</p>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Activity Hub</h1>
+          <p className="text-sm text-slate-500">Monitor interaction history and manage automated task resolutions.</p>
         </div>
 
-        {/* Action Tracker Section */}
+        {/* Action Queue: Dynamic resolution logic based on interaction timeline */}
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Calendar size={16} className="text-primary" />
-            <h2 className="text-[13px] font-bold uppercase tracking-widest text-slate-400">Action Queue (Reminders)</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar size={16} className="text-primary" />
+              <h2 className="text-[12px] font-bold uppercase tracking-widest text-slate-400">Action Queue (Live Reminders)</h2>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                   <AlertCircle size={14} className="text-slate-300 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] text-[11px]">
+                  Tasks are "Resolved" automatically when you log a new activity for the lead after the scheduled date.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
+          
           <div className="bg-white border rounded-xl shadow-sm overflow-hidden border-primary/10">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50/50 border-b h-10 text-[11px] font-bold uppercase text-slate-400">
-                    <th className="px-4 text-left min-w-[200px]">Lead / Client</th>
+                    <th className="px-4 text-left min-w-[200px]">Lead Identity</th>
                     <th className="text-left min-w-[180px]">Planned Activity</th>
                     <th className="text-left min-w-[120px]">Target Date</th>
                     <th className="text-right px-4">Resolution</th>
@@ -113,16 +135,17 @@ export default function ActivitiesPage() {
                   {upcomingActions.map((action) => {
                     const isOverdue = action.nextActionDate! < new Date().toISOString().split('T')[0];
                     return (
-                      <tr key={action.id} className={cn("h-12 transition-colors", isOverdue ? "bg-red-50/20" : "hover:bg-slate-50/30")}>
+                      <tr key={action.id} className={cn("h-14 transition-colors", isOverdue ? "bg-red-50/10" : "hover:bg-slate-50/30")}>
                         <td className="px-4">
-                          <Link href={`/leads/${action.leadId}`} className="text-primary font-bold hover:underline">
+                          <Link href={`/leads/${action.leadId}`} className="text-primary font-bold hover:underline block truncate">
                             {action.clientName || 'Unknown Lead'}
                           </Link>
+                          {user.role !== 'Agent' && <span className="text-[10px] text-slate-400">{action.agentName}</span>}
                         </td>
                         <td className="text-slate-600 font-medium">
                            <div className="flex items-center gap-2">
                               <ChevronRight size={14} className="text-slate-300" />
-                              {action.nextActionType || 'Follow up interaction'}
+                              <span className="truncate">{action.nextActionType || 'Follow up interaction'}</span>
                            </div>
                         </td>
                         <td>
@@ -136,7 +159,7 @@ export default function ActivitiesPage() {
                         </td>
                         <td className="px-4 text-right">
                           <Link href={`/leads/${action.leadId}`}>
-                            <Button size="sm" className="h-8 text-[11px] gap-2 bg-primary hover:bg-primary/90 uppercase font-bold tracking-tight shadow-sm">
+                            <Button size="sm" className="h-8 text-[11px] gap-2 bg-primary hover:bg-primary/90 font-bold uppercase tracking-tight shadow-sm px-4">
                                <CheckCircle2 size={12} /> Log Progress
                             </Button>
                           </Link>
@@ -149,13 +172,13 @@ export default function ActivitiesPage() {
                       <td colSpan={4} className="text-center py-12">
                         <div className="flex flex-col items-center gap-3 opacity-20">
                            <CheckCircle2 size={40} className="text-emerald-500" />
-                           <p className="text-[14px] font-bold text-slate-500 italic">All task reminders are checked out. No pending actions found.</p>
+                           <p className="text-[14px] font-bold text-slate-500 italic px-4">No active reminders. Your action queue is resolved.</p>
                         </div>
                       </td>
                     </tr>
                   )}
                   {loading && (
-                    <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin inline-block mr-2" size={14} /> Fetching task queue...</td></tr>
+                    <tr className="h-20"><td colSpan={4} className="text-center"><Loader2 className="animate-spin inline-block mr-2" size={14} /> Syncing pipeline...</td></tr>
                   )}
                 </tbody>
               </table>
@@ -163,18 +186,18 @@ export default function ActivitiesPage() {
           </div>
         </div>
 
-        {/* Global Interaction Log Section */}
-        <div className="space-y-4">
+        {/* Chronological Log */}
+        <div className="space-y-4 pt-4 border-t">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-primary" />
-              <h2 className="text-[13px] font-bold uppercase tracking-widest text-slate-400">Chronological Activity Log</h2>
+              <h2 className="text-[12px] font-bold uppercase tracking-widest text-slate-400">Interaction Timeline</h2>
             </div>
             <div className="relative w-full sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <Input 
-                placeholder="Filter logs by client, agent or remark..." 
-                className="pl-9 h-9 text-[13px] bg-white border-primary/10 shadow-sm" 
+                placeholder="Search remark, lead or agent..." 
+                className="pl-9 h-9 text-[13px] bg-white border-primary/10" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -185,29 +208,29 @@ export default function ActivitiesPage() {
             {loading && activities.length === 0 ? (
               <div className="py-24 flex flex-col items-center justify-center">
                 <Loader2 className="animate-spin text-primary mb-3" size={32} />
-                <p className="text-[13px] text-slate-500 font-medium">Fetching interaction history...</p>
+                <p className="text-[13px] text-slate-500 font-medium">Fetching history...</p>
               </div>
             ) : (
-              <div className={cn("overflow-x-auto transition-opacity", loading && "opacity-50")}>
+              <div className={cn("overflow-x-auto", loading && "opacity-50")}>
                 <table className="w-full">
                   <thead>
                     <tr className="bg-slate-50/50 border-b h-10 text-[11px] font-bold uppercase text-slate-400">
                       <th className="px-4 text-left w-[150px]">Synced At</th>
-                      <th className="text-left w-[180px]">Client identity</th>
-                      <th className="text-left w-[130px]">Category</th>
-                      <th className="text-left min-w-[300px]">Details & Remarks</th>
-                      <th className="text-right px-4 w-[100px]">Visit GPS</th>
+                      <th className="text-left w-[180px]">Client</th>
+                      <th className="text-left w-[130px]">Type</th>
+                      <th className="text-left min-w-[300px]">Remarks</th>
+                      <th className="text-right px-4 w-[100px]">Visit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {filteredActivities.map((activity) => (
-                      <tr key={activity.id} className="h-11 hover:bg-slate-50/30 transition-colors group">
+                      <tr key={activity.id} className="hover:bg-slate-50/30 transition-colors">
                         <td className="px-4 text-slate-400 text-[11px] font-bold">
                           {activity.createdAt ? format(parseISO(activity.createdAt), 'MMM d, HH:mm') : 'Unknown'}
                         </td>
                         <td>
                           <div className="flex flex-col">
-                            <Link href={`/leads/${activity.leadId}`} className="text-slate-900 font-extrabold hover:underline text-[13px] tracking-tight">
+                            <Link href={`/leads/${activity.leadId}`} className="text-slate-900 font-extrabold hover:underline text-[13px] tracking-tight truncate max-w-[160px]">
                               {activity.clientName || 'Lead'}
                             </Link>
                             {user.role !== 'Agent' && (
@@ -227,16 +250,9 @@ export default function ActivitiesPage() {
                         </td>
                         <td className="px-4 text-right">
                           {activity.location ? (
-                            <TooltipProvider>
-                               <Tooltip>
-                                  <TooltipTrigger asChild>
-                                     <div className="inline-flex h-7 w-7 items-center justify-center bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 cursor-help">
-                                        <MapPin size={14} />
-                                     </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="text-[11px] bg-slate-900 text-white border-none p-2">GPS Verification: Site Visit Verified.</TooltipContent>
-                               </Tooltip>
-                            </TooltipProvider>
+                             <div className="inline-flex h-7 w-7 items-center justify-center bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100" title="GPS Verified">
+                                <MapPin size={14} />
+                             </div>
                           ) : (
                              <span className="text-[10px] text-slate-200">--</span>
                           )}
