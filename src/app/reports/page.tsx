@@ -11,10 +11,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, BarChart, Bar
 } from 'recharts';
-import { BarChart3, TrendingUp, Target as TargetIcon, Clock, Zap, Download } from 'lucide-react';
+import { BarChart3, TrendingUp, Target as TargetIcon, Clock, Zap, Download, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format, subMonths, startOfMonth, parseISO, differenceInDays } from 'date-fns';
+import { format, subMonths, startOfMonth, parseISO, differenceInDays, subDays, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const COLORS = ['#1B48A3', '#2579C8', '#164978', '#0E3050', '#071828'];
@@ -29,8 +29,10 @@ export default function AgentReportsPage() {
   , [firestore, user?.id]);
   const { data: myLeads, loading: leadsLoading } = useCollection<Lead>(leadsQuery);
 
-  const activitiesQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'activities') : null, [firestore]);
-  const { data: allActivities } = useCollection<LeadActivity>(activitiesQuery as any);
+  const activitiesQuery = useMemoFirebase(() => 
+    firestore && user ? query(collectionGroup(firestore, 'activities'), where('agentId', '==', user.id)) : null
+  , [firestore, user?.id]);
+  const { data: myActivities } = useCollection<LeadActivity>(activitiesQuery as any);
 
   const targetsQuery = useMemoFirebase(() => 
     firestore && user ? query(collection(firestore, 'targets'), where('agentId', '==', user.id)) : null
@@ -51,6 +53,32 @@ export default function AgentReportsPage() {
       return { month: format(date, 'MMM'), revenue: rev };
     });
   }, [myLeads, dateRange]);
+
+  const dailyActivityData = useMemo(() => {
+    const last14Days = Array.from({ length: 14 }).map((_, i) => {
+      const d = subDays(new Date(), 13 - i);
+      return { date: format(d, 'MMM d'), count: 0, fullDate: startOfDay(d) };
+    });
+
+    if (myActivities) {
+      myActivities.forEach(a => {
+        const aDate = startOfDay(parseISO(a.createdAt));
+        const day = last14Days.find(d => d.fullDate.getTime() === aDate.getTime());
+        if (day) day.count++;
+      });
+    }
+
+    return last14Days;
+  }, [myActivities]);
+
+  const activityDistribution = useMemo(() => {
+    if (!myActivities) return [];
+    const counts: Record<string, number> = {};
+    myActivities.forEach(a => {
+      counts[a.type] = (counts[a.type] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [myActivities]);
 
   const channelData = useMemo(() => {
     if (!myLeads) return [];
@@ -93,14 +121,15 @@ export default function AgentReportsPage() {
            </Button>
         </div>
 
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs defaultValue="growth" className="w-full">
            <TabsList className="bg-white border p-1 rounded-lg h-10 flex w-full overflow-x-auto no-scrollbar justify-start gap-2 px-2 mb-6 shrink-0">
-              <TabsTrigger value="overview" className="text-[12px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Revenue Growth</TabsTrigger>
+              <TabsTrigger value="growth" className="text-[12px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Revenue Growth</TabsTrigger>
+              <TabsTrigger value="daily" className="text-[12px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Daily Engagement</TabsTrigger>
               <TabsTrigger value="accuracy" className="text-[12px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Target Accuracy</TabsTrigger>
               <TabsTrigger value="sources" className="text-[12px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Acquisition Channels</TabsTrigger>
            </TabsList>
 
-           <TabsContent value="overview" className="space-y-6">
+           <TabsContent value="growth" className="space-y-6">
               <div className="bg-white border rounded-xl p-6 h-[400px] shadow-sm">
                  <h3 className="text-[14px] font-bold text-slate-800 mb-6 uppercase tracking-wider">Historical Earnings Trajectory</h3>
                  <ResponsiveContainer width="100%" height="100%">
@@ -118,6 +147,35 @@ export default function AgentReportsPage() {
                        <Area type="monotone" dataKey="revenue" stroke="#1B48A3" strokeWidth={3} fillOpacity={1} fill="url(#colorAgentRev)" />
                     </AreaChart>
                  </ResponsiveContainer>
+              </div>
+           </TabsContent>
+
+           <TabsContent value="daily" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 <div className="bg-white border rounded-xl p-6 h-[350px] shadow-sm">
+                    <h3 className="text-[14px] font-bold text-slate-800 mb-6 uppercase tracking-wider">Your Interaction Pulse (Last 14d)</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                       <BarChart data={dailyActivityData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />
+                          <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                          <Tooltip cursor={{ fill: '#f8fafc' }} />
+                          <Bar dataKey="count" fill="#1B48A3" radius={[2, 2, 0, 0]} />
+                       </BarChart>
+                    </ResponsiveContainer>
+                 </div>
+                 <div className="bg-white border rounded-xl p-6 h-[350px] shadow-sm">
+                    <h3 className="text-[14px] font-bold text-slate-800 mb-6 uppercase tracking-wider">Activity Distribution</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                       <PieChart>
+                          <Pie data={activityDistribution} innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
+                             {activityDistribution.map((_, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip />
+                          <Legend verticalAlign="bottom" iconType="circle" />
+                       </PieChart>
+                    </ResponsiveContainer>
+                 </div>
               </div>
            </TabsContent>
 

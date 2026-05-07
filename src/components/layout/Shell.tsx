@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -17,7 +18,7 @@ import { signOut } from 'firebase/auth';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Scratchpad } from '@/components/notes/Scratchpad';
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -165,6 +166,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
                  </Button>
                </SheetTrigger>
                <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
+                  <SheetHeader className="sr-only">
+                    <SheetTitle>Navigation Menu</SheetTitle>
+                  </SheetHeader>
                   <div className="h-14 border-b flex items-center px-6 gap-3 bg-primary text-white">
                      <Zap size={20} />
                      <span className="font-bold">NexusCRM Mobile</span>

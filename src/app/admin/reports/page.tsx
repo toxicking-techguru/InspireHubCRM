@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -10,12 +11,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend, AreaChart, Area
 } from 'recharts';
-import { Download, Loader2, BarChart3, TrendingUp, Users, Target as TargetIcon, Clock, Zap } from 'lucide-react';
+import { Download, Loader2, BarChart3, TrendingUp, Users, Target as TargetIcon, Clock, Zap, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { format, subMonths, startOfMonth, parseISO, differenceInDays } from 'date-fns';
+import { format, subMonths, startOfMonth, parseISO, differenceInDays, subDays, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -64,6 +65,31 @@ export default function AdminReportsPage() {
       return { month: format(date, 'MMM'), revenue: rev };
     });
   }, [leads, dateRange]);
+
+  const dailyEngagementData = useMemo(() => {
+    if (!activities) return [];
+    const last14Days = Array.from({ length: 14 }).map((_, i) => {
+      const d = subDays(new Date(), 13 - i);
+      return { date: format(d, 'MMM d'), count: 0, fullDate: startOfDay(d) };
+    });
+
+    activities.forEach(a => {
+      const aDate = startOfDay(parseISO(a.createdAt));
+      const day = last14Days.find(d => d.fullDate.getTime() === aDate.getTime());
+      if (day) day.count++;
+    });
+
+    return last14Days;
+  }, [activities]);
+
+  const activityTypeData = useMemo(() => {
+    if (!activities) return [];
+    const counts: Record<string, number> = {};
+    activities.forEach(a => {
+      counts[a.type] = (counts[a.type] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [activities]);
 
   const channelData = useMemo(() => {
     if (!leads) return [];
@@ -121,6 +147,7 @@ export default function AdminReportsPage() {
         <Tabs defaultValue="growth" className="w-full">
           <TabsList className="bg-white border rounded-lg h-10 p-1 flex w-full overflow-x-auto no-scrollbar justify-start gap-2 px-2 mb-4 shrink-0">
             <TabsTrigger value="growth" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Revenue Growth</TabsTrigger>
+            <TabsTrigger value="activities" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Activity Engagement</TabsTrigger>
             <TabsTrigger value="acquisition" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Acquisition Mix</TabsTrigger>
             <TabsTrigger value="performance" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Team Quota Accuracy</TabsTrigger>
             <TabsTrigger value="velocity" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Pipeline Velocity</TabsTrigger>
@@ -167,6 +194,35 @@ export default function AdminReportsPage() {
              </div>
           </TabsContent>
 
+          <TabsContent value="activities" className="space-y-4">
+             <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-white border rounded-xl p-6 h-[340px] shadow-sm">
+                   <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-6">Daily Interaction Volume (Last 14d)</h3>
+                   <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dailyEngagementData}>
+                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                         <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />
+                         <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                         <Tooltip cursor={{ fill: '#f8fafc' }} />
+                         <Bar dataKey="count" fill="#1B48A3" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                   </ResponsiveContainer>
+                </div>
+                <div className="bg-white border rounded-xl p-6 h-[340px] shadow-sm">
+                   <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-6">Effort Distribution by Type</h3>
+                   <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                         <Pie data={activityTypeData} innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
+                            {activityTypeData.map((_, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
+                         </Pie>
+                         <Tooltip />
+                         <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                      </PieChart>
+                   </ResponsiveContainer>
+                </div>
+             </div>
+          </TabsContent>
+
           <TabsContent value="acquisition" className="space-y-4">
              <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-white border rounded-xl p-6 h-[340px] shadow-sm">
@@ -202,10 +258,10 @@ export default function AdminReportsPage() {
                                <tr key={sub} className="h-10 hover:bg-slate-50/50">
                                   <td className="px-6 font-bold text-slate-700">{sub}</td>
                                   <td className="text-center text-slate-500 font-medium">{subLeads.length}</td>
-                                  <td className="text-right px-6 font-bold text-primary">{Math.round((won / subLeads.length) * 100)}%</td>
+                                  <td className="text-right px-6 font-bold text-primary">{subLeads.length > 0 ? Math.round((won / subLeads.length) * 100) : 0}%</td>
                                </tr>
                              );
-                           }).sort((a,b) => (b.props?.children?.[1]?.props?.children || 0) - (a.props?.children?.[1]?.props?.children || 0)).slice(0, 8)}
+                           })}
                         </tbody>
                      </table>
                    </div>
