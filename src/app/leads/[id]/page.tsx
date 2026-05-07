@@ -149,7 +149,7 @@ export default function LeadDetailPage() {
           <StatusBadge status={lead.status} />
           {lead.type === 'partner' && <Badge className="bg-primary/10 text-primary border-none font-bold uppercase text-[10px]">Partner Account</Badge>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="h-9 gap-2 border-slate-200 text-slate-600 bg-white">
                <Edit2 size={14}/> Edit Qualification
             </Button>
@@ -207,7 +207,7 @@ export default function LeadDetailPage() {
               </TabsContent>
 
               <TabsContent value="docs" className="m-0 space-y-4">
-                 <div className="bg-white border rounded-xl p-4 grid md:grid-cols-5 gap-4 items-end shadow-sm">
+                 <div className="bg-white border rounded-xl p-4 grid grid-cols-1 md:grid-cols-5 gap-4 items-end shadow-sm">
                     <div className="md:col-span-2 space-y-1.5">
                        <Label className="text-[11px] font-bold uppercase text-slate-400">Document Title</Label>
                        <Input placeholder="Proposal V1..." value={docName} onChange={e => setDocName(e.target.value)} className="h-9 bg-white" />
@@ -220,7 +220,7 @@ export default function LeadDetailPage() {
                        {isUploading ? <Loader2 className="animate-spin" size={14}/> : <Paperclip size={14}/>} Link File
                     </Button>
                  </div>
-                 <div className="grid md:grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {lead.documents?.map(doc => (
                        <div key={doc.id} className="bg-white border rounded-lg p-3 flex items-center justify-between group hover:border-primary/40 transition-all hover:shadow-md">
                           <div className="flex items-center gap-3">
@@ -251,8 +251,8 @@ export default function LeadDetailPage() {
               </CardHeader>
               <CardContent className="p-4 md:p-6">
                  <form onSubmit={handleAddActivity} className="space-y-5">
-                    <div className="flex flex-wrap items-center gap-3">
-                       <div className="flex-1 min-w-[200px] space-y-1.5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                       <div className="space-y-1.5">
                           <Label className="text-[10px] font-bold uppercase text-slate-400">Interaction Type</Label>
                           <Select value={type} onValueChange={(v) => setType(v as ActivityType)}>
                              <SelectTrigger className="h-9 font-bold bg-white"><SelectValue /></SelectTrigger>
@@ -260,25 +260,46 @@ export default function LeadDetailPage() {
                           </Select>
                        </div>
                        
-                       <div className="flex-1 min-w-[200px] space-y-1.5">
+                       <div className="space-y-1.5">
                           <Label className="text-[10px] font-bold uppercase text-slate-400">Next Action Goal</Label>
                           <Input placeholder="e.g. Contract Sign..." className="h-9" value={nextActionType} onChange={e => setNextActionType(e.target.value)} />
                        </div>
 
-                       <div className="w-[180px] space-y-1.5">
+                       <div className="space-y-1.5">
                           <Label className="text-[10px] font-bold uppercase text-slate-400">Target Date</Label>
                           <Input type="date" className="h-9" value={nextActionDate} onChange={e => setNextActionDate(e.target.value)} />
                        </div>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                        <div className="flex items-center justify-between">
                           <Label className="text-[10px] font-bold uppercase text-slate-400">Meeting Summary / Remarks</Label>
-                          <div className="flex gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                          <div className="flex gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
                              <TooltipProvider>
-                                <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('bold')}><Bold size={14}/></Button></TooltipTrigger><TooltipContent>Bold</TooltipContent></Tooltip>
-                                <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('italic')}><Italic size={14}/></Button></TooltipTrigger><TooltipContent>Italic</TooltipContent></Tooltip>
-                                <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => insertFormat('list')}><List size={14}/></Button></TooltipTrigger><TooltipContent>List</TooltipContent></Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 hover:bg-white hover:text-primary transition-all" onClick={() => insertFormat('bold')}>
+                                      <Bold size={15}/>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Bold</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 hover:bg-white hover:text-primary transition-all" onClick={() => insertFormat('italic')}>
+                                      <Italic size={15}/>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Italic</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 hover:bg-white hover:text-primary transition-all" onClick={() => insertFormat('list')}>
+                                      <List size={15}/>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>List</TooltipContent>
+                                </Tooltip>
                              </TooltipProvider>
                           </div>
                        </div>
@@ -318,7 +339,7 @@ export default function LeadDetailPage() {
                        <div key={a.id} className="p-4 space-y-3 hover:bg-slate-50/50 transition-all border-l-2 border-l-transparent hover:border-l-primary">
                           <div className="flex justify-between items-start">
                              <Badge variant="outline" className="h-5 text-[10px] uppercase font-bold text-primary border-primary/10 bg-primary/5">{a.type}</Badge>
-                             <span className="text-[10px] font-bold text-slate-400 uppercase">{format(parseISO(a.createdAt), 'MMM d, HH:mm')}</span>
+                             <span className="text-[10px] font-bold text-slate-400 uppercase">{a.createdAt ? format(parseISO(a.createdAt), 'MMM d, HH:mm') : 'Unknown'}</span>
                           </div>
                           <div className="text-[13px] text-slate-600 leading-snug">
                              <MarkdownText content={a.remark} />
@@ -378,10 +399,10 @@ export default function LeadDetailPage() {
                <div key={field.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                      <Label className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">{field.label}</Label>
-                     <div className="flex gap-1 bg-slate-100 p-0.5 rounded border border-slate-200">
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertFormat('bold', field.id as any)}><Bold size={14}/></Button>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertFormat('italic', field.id as any)}><Italic size={14}/></Button>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertFormat('list', field.id as any)}><List size={14}/></Button>
+                     <div className="flex gap-1.5 bg-slate-100 p-1 rounded border border-slate-200">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 hover:bg-white" onClick={() => insertFormat('bold', field.id as any)}><Bold size={14}/></Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 hover:bg-white" onClick={() => insertFormat('italic', field.id as any)}><Italic size={14}/></Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 hover:bg-white" onClick={() => insertFormat('list', field.id as any)}><List size={14}/></Button>
                      </div>
                   </div>
                   <Textarea 

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, orderBy } from 'firebase/firestore';
+import { collectionGroup, query } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { 
@@ -25,8 +25,13 @@ export default function GlobalActivitiesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
 
-  const activitiesQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'activities'), orderBy('createdAt', 'desc')) : null, [firestore]);
-  const { data: activities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
+  const activitiesQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'activities')) : null, [firestore]);
+  const { data: rawActivities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
+
+  const activities = useMemo(() => {
+    if (!rawActivities) return [];
+    return [...rawActivities].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }, [rawActivities]);
 
   const filteredActivities = useMemo(() => {
     if (!activities) return [];
@@ -105,7 +110,9 @@ export default function GlobalActivitiesPage() {
                        <tr className="h-40"><td colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto text-primary-200" /></td></tr>
                     ) : paginatedActivities.map(a => (
                        <tr key={a.id} className="h-12 hover:bg-slate-50 transition-colors">
-                          <td className="px-4 text-slate-500">{format(parseISO(a.createdAt), 'MMM d, HH:mm:ss')}</td>
+                          <td className="px-4 text-slate-500">
+                            {a.createdAt ? format(parseISO(a.createdAt), 'MMM d, HH:mm:ss') : 'Unknown'}
+                          </td>
                           <td>
                              <div className="flex items-center gap-2">
                                 <User size={12} className="text-primary" />

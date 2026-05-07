@@ -126,10 +126,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (!user) return <>{children}</>;
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
+    <div className="flex min-h-screen bg-[#F8F9FA] overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className={cn(
-        "hidden md:flex flex-col border-r bg-white transition-all duration-300 z-30 sticky top-0 h-screen",
+        "hidden md:flex flex-col border-r bg-white transition-all duration-300 z-30 sticky top-0 h-screen overflow-hidden",
         isCollapsed ? "w-[64px]" : "w-[240px]"
       )}>
         <div className="h-14 border-b flex items-center px-4 justify-between overflow-hidden shrink-0">
@@ -159,8 +159,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b bg-white sticky top-0 z-20 flex items-center px-4 justify-between shadow-sm">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <header className="h-14 border-b bg-white sticky top-0 z-20 flex items-center px-4 justify-between shadow-sm shrink-0">
           <div className="flex items-center gap-3">
              {/* Mobile Menu Trigger */}
              <Sheet>
@@ -195,8 +195,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full">
                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm">{user.name[0]}</div>
-               <span className="text-[12px] font-bold text-slate-700 hidden xs:inline-block">{user.name}</span>
-               <div className="hidden xs:block"><TierBadge tierId={user.tierId} /></div>
+               <span className="text-[12px] font-bold text-slate-700 hidden xs:inline-block truncate max-w-[100px]">{user.name}</span>
+               <div className="hidden lg:block"><TierBadge tierId={user.tierId} /></div>
             </div>
             <button onClick={handleLogout} className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors border border-transparent hover:border-red-100">
               <LogOut size={18} />
@@ -205,7 +205,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
+          <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
             {children}
           </div>
         </main>

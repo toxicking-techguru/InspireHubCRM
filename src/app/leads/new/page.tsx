@@ -121,15 +121,15 @@ export default function NewLeadPage() {
   return (
     <Shell>
       <div className="max-w-[900px] mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-           <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+           <div className="flex items-center gap-2 w-full">
               <Button variant="ghost" size="icon" onClick={() => router.back()}><ChevronLeft size={18}/></Button>
               <h1 className="text-xl font-bold">New Acquisition</h1>
            </div>
-           <Tabs value={formData.type} onValueChange={(v) => setFormData({...formData, type: v as LeadType})}>
-              <TabsList className="bg-slate-100 p-1">
-                 <TabsTrigger value="lead" className="text-[12px] uppercase font-bold">Standard Lead</TabsTrigger>
-                 <TabsTrigger value="partner" className="text-[12px] uppercase font-bold">Partner Account</TabsTrigger>
+           <Tabs value={formData.type} onValueChange={(v) => setFormData({...formData, type: v as LeadType})} className="w-full sm:w-auto">
+              <TabsList className="bg-slate-100 p-1 w-full sm:w-auto">
+                 <TabsTrigger value="lead" className="flex-1 sm:flex-none text-[12px] uppercase font-bold">Standard Lead</TabsTrigger>
+                 <TabsTrigger value="partner" className="flex-1 sm:flex-none text-[12px] uppercase font-bold">Partner Account</TabsTrigger>
               </TabsList>
            </Tabs>
         </div>
@@ -139,10 +139,10 @@ export default function NewLeadPage() {
               <CardContent className="p-6 space-y-8">
                  <div className="space-y-6">
                     <div className="border-b pb-1"><h2 className="text-[12px] font-bold uppercase text-slate-400">1. Core Identity & Industry</h2></div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">First Name</Label><Input required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} /></div>
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Last Name</Label><Input required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} /></div>
-                       <div className="space-y-1.5 col-span-2"><Label className="text-[11px] font-bold uppercase">Company Name</Label><Input required value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} /></div>
+                       <div className="space-y-1.5 sm:col-span-2"><Label className="text-[11px] font-bold uppercase">Company Name</Label><Input required value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} /></div>
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Primary Industry</Label>
                           <Select value={formData.industry} onValueChange={v => setFormData({...formData, industry: v})}>
                              <SelectTrigger className="h-9"><SelectValue placeholder="Select Industry"/></SelectTrigger>
@@ -155,7 +155,7 @@ export default function NewLeadPage() {
 
                  <div className="space-y-6">
                     <div className="border-b pb-1"><h2 className="text-[12px] font-bold uppercase text-slate-400">2. Qualification & Context</h2></div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Estimated Budget ($)</Label><Input type="number" placeholder="0.00" value={formData.estimatedBudget} onChange={e => setFormData({...formData, estimatedBudget: e.target.value})} /></div>
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Target Product</Label>
                           <Select value={formData.productId} onValueChange={v => setFormData({...formData, productId: v})}>
@@ -191,7 +191,7 @@ export default function NewLeadPage() {
 
                  <div className="space-y-6">
                     <div className="border-b pb-1"><h2 className="text-[12px] font-bold uppercase text-slate-400">3. Territory & Physical Visit</h2></div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Country</Label><Input value={formData.businessCountry} onChange={e => setFormData({...formData, businessCountry: e.target.value})} /></div>
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">County / State</Label><Input value={formData.businessCounty} onChange={e => setFormData({...formData, businessCounty: e.target.value})} /></div>
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Region / Zone</Label><Input value={formData.businessRegion} onChange={e => setFormData({...formData, businessRegion: e.target.value})} /></div>
@@ -208,7 +208,7 @@ export default function NewLeadPage() {
 
                  <div className="space-y-6">
                     <div className="border-b pb-1"><h2 className="text-[12px] font-bold uppercase text-slate-400">4. Acquisition Source</h2></div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Main Source</Label>
                           <Select value={formData.firstContactChannel} onValueChange={v => setFormData({...formData, firstContactChannel: v, firstContactSubchannel: ''})}>
                              <SelectTrigger className="h-9"><SelectValue placeholder="Lead Source"/></SelectTrigger>
@@ -224,9 +224,9 @@ export default function NewLeadPage() {
                     </div>
                  </div>
 
-                 <div className="flex justify-end pt-6 border-t gap-4">
-                    <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
-                    <Button type="submit" className="h-10 px-10 font-bold bg-primary uppercase" disabled={loading}>
+                 <div className="flex flex-col sm:flex-row justify-end pt-6 border-t gap-4">
+                    <Button type="button" variant="ghost" onClick={() => router.back()} className="w-full sm:w-auto">Cancel</Button>
+                    <Button type="submit" className="h-10 px-10 font-bold bg-primary uppercase w-full sm:w-auto" disabled={loading}>
                        {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 size={16} className="mr-2" />} Register Record
                     </Button>
                  </div>

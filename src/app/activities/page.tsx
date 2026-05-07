@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, orderBy } from 'firebase/firestore';
+import { collectionGroup, query } from 'firebase/firestore';
 import { LeadActivity } from '@/types/crm';
 import { format, parseISO } from 'date-fns';
 import { 
@@ -15,8 +15,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
-  MapPin,
-  Filter
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,19 +30,21 @@ export default function ActivitiesPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Remove orderBy from query to avoid missing index errors in prototype
   const activitiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collectionGroup(firestore, 'activities'), orderBy('createdAt', 'desc'));
+    return query(collectionGroup(firestore, 'activities'));
   }, [firestore]);
 
   const { data: rawActivities, loading } = useCollection<LeadActivity>(activitiesQuery as any);
 
+  // Sort and filter in memory for better reliability
   const activities = useMemo(() => {
     if (!rawActivities || !user) return [];
     return [...rawActivities]
-      .filter(a => a.agentId === user.id)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [rawActivities, user?.id]);
+      .filter(a => user.role !== 'Agent' || a.agentId === user.id)
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }, [rawActivities, user?.id, user?.role]);
 
   const upcomingActions = useMemo(() => {
     if (!activities) return [];
@@ -63,7 +64,7 @@ export default function ActivitiesPage() {
         sub.leadId === a.leadId && sub.createdAt > a.createdAt
       );
       return !subsequentActivity;
-    }).sort((a, b) => a.nextActionDate!.localeCompare(b.nextActionDate!));
+    }).sort((a, b) => (a.nextActionDate || '').localeCompare(b.nextActionDate || ''));
   }, [activities]);
 
   const filteredActivities = useMemo(() => {
@@ -71,10 +72,12 @@ export default function ActivitiesPage() {
     return activities.filter(a => {
       const search = searchTerm.toLowerCase();
       const leadName = a.clientName || 'Unknown Lead';
+      const agentName = a.agentName || 'Unknown Agent';
       return (
         a.type.toLowerCase().includes(search) ||
         a.remark.toLowerCase().includes(search) ||
-        leadName.toLowerCase().includes(search)
+        leadName.toLowerCase().includes(search) ||
+        agentName.toLowerCase().includes(search)
       );
     });
   }, [activities, searchTerm]);
@@ -170,7 +173,7 @@ export default function ActivitiesPage() {
             <div className="relative w-full sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <Input 
-                placeholder="Filter logs by client or remark..." 
+                placeholder="Filter logs by client, agent or remark..." 
                 className="pl-9 h-9 text-[13px] bg-white border-primary/10 shadow-sm" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -200,12 +203,17 @@ export default function ActivitiesPage() {
                     {filteredActivities.map((activity) => (
                       <tr key={activity.id} className="h-11 hover:bg-slate-50/30 transition-colors group">
                         <td className="px-4 text-slate-400 text-[11px] font-bold">
-                          {format(parseISO(activity.createdAt), 'MMM d, HH:mm')}
+                          {activity.createdAt ? format(parseISO(activity.createdAt), 'MMM d, HH:mm') : 'Unknown'}
                         </td>
                         <td>
-                          <Link href={`/leads/${activity.leadId}`} className="text-slate-900 font-extrabold hover:underline text-[13px] tracking-tight">
-                            {activity.clientName || 'Lead'}
-                          </Link>
+                          <div className="flex flex-col">
+                            <Link href={`/leads/${activity.leadId}`} className="text-slate-900 font-extrabold hover:underline text-[13px] tracking-tight">
+                              {activity.clientName || 'Lead'}
+                            </Link>
+                            {user.role !== 'Agent' && (
+                              <span className="text-[10px] text-primary font-medium">{activity.agentName || 'Agent'}</span>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <Badge variant="outline" className="text-[9px] px-2 h-4.5 font-bold uppercase border-primary/10 text-primary bg-primary/5">
