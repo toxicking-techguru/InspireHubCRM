@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -107,8 +108,8 @@ export default function TargetsPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
               <ChevronLeft size={16} />
             </Button>
@@ -119,12 +120,12 @@ export default function TargetsPage() {
               <ChevronRight size={16} />
             </Button>
           </div>
-          <Badge variant="outline" className="text-[11px] font-bold uppercase tracking-tight py-1 px-3">
+          <Badge variant="outline" className="text-[11px] font-bold uppercase tracking-tight py-1 px-3 w-full sm:w-auto text-center">
             {targetLoading ? <Loader2 size={12} className="animate-spin" /> : currentTarget ? 'Quota Synchronized' : 'Quotas Not Set'}
           </Badge>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-5 gap-3">
           {metrics.map((metric, i) => {
             const percent = Math.min(Math.round((metric.actual / metric.target) * 100), 100);
             const statusColor = percent >= 100 ? "text-emerald-600" : percent >= 50 ? "text-primary" : "text-slate-400";
@@ -154,37 +155,39 @@ export default function TargetsPage() {
             <h2 className="text-[14px] font-bold text-slate-800">Historical Benchmarks</h2>
           </div>
           <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="bg-slate-50 h-9">
-                    <th className="px-4 text-left">Period</th>
-                    <th className="text-center">Leads</th>
-                    <th className="text-center">Partners</th>
-                    <th className="text-center">Wins</th>
-                    <th className="text-right">Revenue</th>
-                    <th className="text-center">Score</th>
-                    <th className="text-right px-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {history?.map((h) => (
-                    <tr key={h.id} className="h-10 hover:bg-slate-50 transition-colors">
-                      <td className="px-4 font-bold text-slate-700">{format(parseISO(h.month + '-01'), 'MMM yyyy')}</td>
-                      <td className="text-center">{h.leadsTarget}</td>
-                      <td className="text-center">{h.partnersTarget || 0}</td>
-                      <td className="text-center">{h.closedTarget}</td>
-                      <td className="text-right">${h.revenueTarget?.toLocaleString()}</td>
-                      <td className="text-center text-slate-500">{h.activityScoreTarget}%</td>
-                      <td className="px-4 text-right">
-                         <Badge className="bg-emerald-50 text-emerald-700 border-none text-[9px] uppercase px-1.5 h-4">Achieved</Badge>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px] min-w-[700px]">
+                  <thead>
+                    <tr className="bg-slate-50 h-9">
+                      <th className="px-4 text-left">Period</th>
+                      <th className="text-center">Leads</th>
+                      <th className="text-center">Partners</th>
+                      <th className="text-center">Wins</th>
+                      <th className="text-right">Revenue</th>
+                      <th className="text-center">Score</th>
+                      <th className="text-right px-4">Status</th>
                     </tr>
-                  ))}
-                  {(!history || history.length === 0) && (
-                    <tr className="h-20"><td colSpan={7} className="text-center text-slate-300 italic">No historical data available.</td></tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y">
+                    {history?.map((h) => (
+                      <tr key={h.id} className="h-10 hover:bg-slate-50 transition-colors">
+                        <td className="px-4 font-bold text-slate-700">{format(parseISO(h.month + '-01'), 'MMM yyyy')}</td>
+                        <td className="text-center">{h.leadsTarget}</td>
+                        <td className="text-center">{h.partnersTarget || 0}</td>
+                        <td className="text-center font-bold text-primary">{h.closedTarget}</td>
+                        <td className="text-right">${h.revenueTarget?.toLocaleString()}</td>
+                        <td className="text-center text-slate-500">{h.activityScoreTarget}%</td>
+                        <td className="px-4 text-right">
+                           <Badge className="bg-emerald-50 text-emerald-700 border-none text-[9px] uppercase px-1.5 h-4">Achieved</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!history || history.length === 0) && (
+                      <tr className="h-20"><td colSpan={7} className="text-center text-slate-300 italic">No historical data available.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
           </div>
         </div>
       </div>

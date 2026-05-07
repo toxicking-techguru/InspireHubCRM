@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -87,7 +88,7 @@ export default function AgentReportsPage() {
               <h1 className="text-xl font-bold text-slate-900">My Performance Analysis</h1>
               <p className="text-sm text-slate-500">Visualization of your personal sales journey and efficiency milestones.</p>
            </div>
-           <Button variant="outline" size="sm" className="h-9 gap-2 border-slate-200">
+           <Button variant="outline" size="sm" className="h-9 gap-2 border-slate-200 w-full sm:w-auto">
               <Download size={14} /> My Summary Report
            </Button>
         </div>
@@ -150,7 +151,7 @@ export default function AgentReportsPage() {
            </TabsContent>
 
            <TabsContent value="sources" className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div className="bg-white border rounded-xl p-6 h-[350px] shadow-sm">
                     <h3 className="text-[14px] font-bold text-slate-800 mb-6 uppercase tracking-wider">Your Acquisition Mix</h3>
                     <ResponsiveContainer width="100%" height="100%">
@@ -166,7 +167,7 @@ export default function AgentReportsPage() {
                  <div className="bg-white border rounded-xl shadow-sm overflow-hidden flex flex-col">
                     <h3 className="text-[14px] font-bold text-slate-800 p-6 pb-2 uppercase">Sub-channel Conversion</h3>
                     <div className="flex-1 overflow-auto">
-                       <table className="w-full text-[13px]">
+                       <table className="w-full text-[13px] min-w-[300px]">
                           <thead>
                              <tr className="bg-slate-50 h-9 font-bold uppercase text-[10px] text-slate-400">
                                 <th className="px-6 text-left">Sub-source</th>

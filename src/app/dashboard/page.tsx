@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -79,13 +80,13 @@ export default function DashboardPage() {
 
         <AgentStats />
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
            <div className="lg:col-span-2 space-y-6">
               <div className="bg-white border rounded-xl p-5 shadow-sm">
                  <h3 className="text-[14px] font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <TrendingUp size={16} className="text-primary" /> Monthly Target Progress
                  </h3>
-                 <div className="grid md:grid-cols-3 gap-8">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
                     <div className="space-y-2">
                        <div className="flex justify-between text-[11px] font-bold uppercase text-slate-400">
                           <span>Leads Created</span>
@@ -121,7 +122,7 @@ export default function DashboardPage() {
                     <Link href="/activities"><Button variant="ghost" size="sm" className="h-7 text-[11px] font-bold text-primary uppercase">View Log</Button></Link>
                  </div>
                  <div className="overflow-x-auto">
-                    <table className="w-full text-[12px]">
+                    <table className="w-full text-[12px] min-w-[500px]">
                        <thead>
                           <tr className="bg-slate-50 h-8 text-slate-400 font-bold uppercase">
                              <th className="px-4 text-left">Client</th>
