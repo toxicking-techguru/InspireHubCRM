@@ -5,12 +5,12 @@ import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, collectionGroup } from 'firebase/firestore';
-import { Lead, Agent, LeadActivity } from '@/types/crm';
+import { Lead, Agent, LeadActivity, Target } from '@/types/crm';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend, AreaChart, Area 
 } from 'recharts';
-import { Download, Loader2, Clock, Zap } from 'lucide-react';
+import { Download, Loader2, Clock, Zap, Target as TargetIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,6 +36,9 @@ export default function ManagerReportsPage() {
 
   const activitiesQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'activities') : null, [firestore]);
   const { data: allActivities } = useCollection<LeadActivity>(activitiesQuery as any);
+
+  const targetsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'targets') : null, [firestore]);
+  const { data: targets } = useCollection<Target>(targetsQuery as any);
 
   const teamAgents = useMemo(() => {
     if (!allAgents || !user) return [];
@@ -97,17 +100,24 @@ export default function ManagerReportsPage() {
     return months;
   }, [teamLeads]);
 
-  const velocityData = useMemo(() => {
-    if (teamLeads.length === 0 || !allActivities) return [];
-    return teamLeads.filter(l => l.status === 'won').map(l => {
-      const leadActivities = allActivities.filter(a => a.leadId === l.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-      if (leadActivities.length === 0) return null;
-      const start = parseISO(leadActivities[0].createdAt);
-      const end = parseISO(l.wonAt || leadActivities[leadActivities.length-1].createdAt);
-      const days = Math.max(differenceInDays(end, start), 1);
-      return { name: l.clientName, days };
-    }).filter(Boolean).slice(0, 10);
-  }, [teamLeads, allActivities]);
+  const targetPerformance = useMemo(() => {
+    if (!targets || teamAgents.length === 0) return [];
+    const currentMonthStr = format(new Date(), 'yyyy-MM');
+    const teamAgentIds = teamAgents.map(a => a.id);
+    const monthTargets = targets.filter(t => t.month === currentMonthStr && teamAgentIds.includes(t.agentId));
+    
+    return monthTargets.map(t => {
+      const agent = teamAgents.find(a => a.id === t.agentId);
+      const agentWonLeads = teamLeads.filter(l => l.agentId === t.agentId && l.status === 'won' && l.wonAt?.startsWith(currentMonthStr));
+      const actualRevenue = agentWonLeads.reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+      return {
+        name: agent?.name || 'Unknown',
+        target: t.revenueTarget,
+        actual: actualRevenue,
+        pct: t.revenueTarget > 0 ? Math.round((actualRevenue / t.revenueTarget) * 100) : 0
+      };
+    }).sort((a,b) => b.pct - a.pct);
+  }, [targets, teamLeads, teamAgents]);
 
   const exportCSV = () => {
     toast({ title: "Compilation Started", description: "Exporting team datasets to CSV." });
@@ -118,7 +128,7 @@ export default function ManagerReportsPage() {
   return (
     <Shell>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-[18px] font-bold text-cyan-900">Dynamic Team Analytics</h1>
             <p className="text-[12px] text-muted-foreground">Aggregated data from your {teamAgents.length} team members.</p>
@@ -142,16 +152,11 @@ export default function ManagerReportsPage() {
         </div>
 
         <Tabs defaultValue="conversion" className="w-full">
-          <TabsList className="bg-slate-50 border h-9 p-0.5 justify-start gap-4 px-4 rounded-none border-x-0 border-t-0 w-full">
-            {['Conversion', 'Revenue', 'Lead Source', 'Velocity'].map(t => (
-              <TabsTrigger 
-                key={t} 
-                value={t.toLowerCase().replace(' ', '')} 
-                className="text-[12px] h-full rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none font-bold uppercase tracking-tight"
-              >
-                {t}
-              </TabsTrigger>
-            ))}
+          <TabsList className="bg-slate-50 border h-10 p-0.5 flex w-full overflow-x-auto no-scrollbar justify-start gap-4 px-4 rounded-none border-x-0 border-t-0 shrink-0">
+            <TabsTrigger value="conversion" className="text-[12px] h-full rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none font-bold uppercase tracking-tight shrink-0">Conversion</TabsTrigger>
+            <TabsTrigger value="revenue" className="text-[12px] h-full rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none font-bold uppercase tracking-tight shrink-0">Revenue</TabsTrigger>
+            <TabsTrigger value="targets" className="text-[12px] h-full rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none font-bold uppercase tracking-tight shrink-0">Team Targets</TabsTrigger>
+            <TabsTrigger value="leadsource" className="text-[12px] h-full rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-600 data-[state=active]:bg-transparent data-[state=active]:text-cyan-700 shadow-none font-bold uppercase tracking-tight shrink-0">Acquisition Mix</TabsTrigger>
           </TabsList>
 
           <div className="pt-4">
@@ -160,7 +165,7 @@ export default function ManagerReportsPage() {
                 <div className="md:col-span-2 bg-card border rounded-md p-4 h-[240px]">
                   <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-4">Team Pipeline Status</h3>
                   <div className="flex flex-col gap-3 justify-center h-full pb-8">
-                    {['New', 'Qualified', 'Proposal', 'Won'].map((stage, i) => {
+                    {['New', 'Qualified', 'Proposal', 'Won'].map((stage) => {
                       const count = teamLeads.filter(l => l.status === stage.toLowerCase()).length;
                       const total = teamLeads.length || 1;
                       const pct = Math.round((count / total) * 100);
@@ -184,34 +189,6 @@ export default function ManagerReportsPage() {
                    <p className="text-[10px] text-slate-400 font-medium">Across all team acquisition channels</p>
                 </div>
               </div>
-              
-              <div className="bg-card border rounded-md overflow-hidden shadow-sm">
-                <table className="w-full text-[13px]">
-                  <thead>
-                    <tr className="bg-slate-50 h-9">
-                      <th className="px-3 text-left">Agent Name</th>
-                      <th className="text-center">Total Managed</th>
-                      <th className="text-center">Deals Won</th>
-                      <th className="text-right px-3">Conversion Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {conversionData.map((d, i) => (
-                      <tr key={i} className="h-9 hover:bg-slate-50/50">
-                        <td className="px-3 font-bold text-slate-800">{d.name}</td>
-                        <td className="text-center text-slate-500 font-medium">{d.leadsIn}</td>
-                        <td className="text-center text-emerald-600 font-bold">{d.won}</td>
-                        <td className="text-right px-3">
-                          <Badge variant="outline" className="h-4 text-[10px] border-cyan-100 text-cyan-700 font-bold">{d.conversion}%</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                    {conversionData.length === 0 && (
-                       <tr className="h-20"><td colSpan={4} className="text-center text-slate-300 italic">Scanning team performance...</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
             </TabsContent>
 
             <TabsContent value="revenue" className="m-0 space-y-4">
@@ -227,17 +204,32 @@ export default function ManagerReportsPage() {
                     </BarChart>
                   </ResponsiveContainer>
                </div>
-               <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { label: 'Cumulative Revenue', value: `$${teamLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0).toLocaleString()}` },
-                    { label: 'Avg Deal Size', value: `$${teamLeads.filter(l => l.status === 'won').length > 0 ? Math.round(teamLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0) / teamLeads.filter(l => l.status === 'won').length).toLocaleString() : 0}` },
-                    { label: 'Active Pipeline', value: `$${teamLeads.filter(l => !['won', 'lost', 'dormant'].includes(l.status)).reduce((sum, l) => sum + (l.estimatedBudget || 0), 0).toLocaleString()}` },
-                  ].map((m, i) => (
-                    <div key={i} className="bg-slate-50 border rounded-md p-3">
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{m.label}</p>
-                      <p className="text-[20px] font-bold text-cyan-800 leading-none">{m.value}</p>
-                    </div>
-                  ))}
+            </TabsContent>
+
+            <TabsContent value="targets" className="m-0 space-y-4">
+               <div className="bg-card border rounded-md p-6">
+                  <h3 className="text-[12px] font-bold text-slate-500 uppercase mb-6 flex items-center gap-2">
+                     <TargetIcon size={14} /> Team Performance vs Targets
+                  </h3>
+                  <div className="space-y-6">
+                    {targetPerformance.map((p, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between items-end">
+                           <div>
+                              <p className="text-[13px] font-bold text-slate-800">{p.name}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">Actual: ${p.actual.toLocaleString()} / Target: ${p.target.toLocaleString()}</p>
+                           </div>
+                           <span className={cn("text-[14px] font-bold", p.pct >= 100 ? "text-emerald-600" : "text-cyan-700")}>{p.pct}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                           <div className={cn("h-full transition-all duration-1000", p.pct >= 100 ? "bg-emerald-500" : "bg-cyan-600")} style={{ width: `${Math.min(p.pct, 100)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    {targetPerformance.length === 0 && (
+                      <div className="py-12 text-center text-slate-400 italic">No team quotas set for the current evaluation cycle.</div>
+                    )}
+                  </div>
                </div>
             </TabsContent>
 
@@ -248,16 +240,8 @@ export default function ManagerReportsPage() {
                   <div className="flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie
-                          data={sourceData}
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {sourceData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
+                        <Pie data={sourceData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                          {sourceData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
                         <Tooltip contentStyle={{ fontSize: '11px', borderRadius: '4px' }} />
                         <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
@@ -266,67 +250,35 @@ export default function ManagerReportsPage() {
                   </div>
                 </div>
                 <div className="bg-card border rounded-md overflow-hidden">
-                   <table className="w-full text-[12px]">
-                      <thead>
-                        <tr className="bg-slate-50 h-9">
-                          <th className="px-3 text-left">Main Source</th>
-                          <th className="text-center">Count</th>
-                          <th className="text-right px-3">Rev Contribution</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {sourceData.sort((a, b) => b.value - a.value).map((d, i) => {
-                          const rev = teamLeads
-                            .filter(l => l.status === 'won' && l.firstContactChannel === d.name)
-                            .reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
-                          return (
-                            <tr key={i} className="h-9 hover:bg-slate-50">
-                              <td className="px-3 font-medium text-slate-700">{d.name}</td>
-                              <td className="text-center font-bold text-slate-600">{d.value}</td>
-                              <td className="text-right px-3 font-bold text-cyan-700">${rev.toLocaleString()}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                   </table>
+                   <div className="p-3 border-b bg-slate-50/50">
+                      <h4 className="text-[11px] font-bold uppercase text-slate-400">Granular Sub-source Breakdown</h4>
+                   </div>
+                   <div className="overflow-x-auto">
+                     <table className="w-full text-[12px]">
+                        <thead>
+                          <tr className="bg-slate-50 h-9">
+                            <th className="px-3 text-left">Sub-channel</th>
+                            <th className="text-center">Leads</th>
+                            <th className="text-right px-3">Revenue Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {teamLeads && Array.from(new Set(teamLeads.map(l => l.firstContactSubchannel || 'Direct'))).map((sub, i) => {
+                            const subLeads = teamLeads.filter(l => (l.firstContactSubchannel || 'Direct') === sub);
+                            const rev = subLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+                            return (
+                              <tr key={i} className="h-9 hover:bg-slate-50">
+                                <td className="px-3 font-medium text-slate-700">{sub}</td>
+                                <td className="text-center font-bold text-slate-600">{subLeads.length}</td>
+                                <td className="text-right px-3 font-bold text-cyan-700">${rev.toLocaleString()}</td>
+                              </tr>
+                            );
+                          }).sort((a,b) => (b as any).props?.children?.[1]?.props?.children - (a as any).props?.children?.[1]?.props?.children).slice(0, 10)}
+                        </tbody>
+                     </table>
+                   </div>
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="velocity" className="m-0 space-y-4">
-               <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-card border rounded-md p-6 h-[340px]">
-                     <h3 className="text-[12px] font-bold text-slate-500 uppercase mb-6 flex items-center gap-2"><Clock size={14} /> Team Cycle Time (First Log to Won)</h3>
-                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={velocityData} layout="vertical">
-                           <XAxis type="number" fontSize={10} label={{ value: 'Days', position: 'insideBottom', offset: -5 }} />
-                           <YAxis dataKey="name" type="category" width={80} fontSize={10} />
-                           <Tooltip />
-                           <Bar dataKey="days" fill="#0891b2" radius={[0, 2, 2, 0]} />
-                        </BarChart>
-                     </ResponsiveContainer>
-                  </div>
-                  <div className="bg-card border rounded-md p-6">
-                     <h3 className="text-[12px] font-bold text-slate-500 uppercase mb-4">High-Velocity Team Deals</h3>
-                     <div className="space-y-3">
-                        {velocityData.sort((a,b) => a.days - b.days).slice(0, 5).map((v, i) => (
-                          <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-md border border-slate-100">
-                             <div className="space-y-0.5">
-                                <p className="text-[13px] font-bold text-slate-800">{v.name}</p>
-                                <p className="text-[10px] text-emerald-600 font-bold uppercase flex items-center gap-1"><Zap size={10} /> High Momentum</p>
-                             </div>
-                             <div className="text-right">
-                                <p className="text-[16px] font-bold text-cyan-700">{v.days} Days</p>
-                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">Total Cycle</p>
-                             </div>
-                          </div>
-                        ))}
-                        {velocityData.length === 0 && (
-                           <div className="p-10 text-center text-slate-400 italic text-[11px]">Awaiting won deals for cycle analysis.</div>
-                        )}
-                     </div>
-                  </div>
-               </div>
             </TabsContent>
           </div>
         </Tabs>

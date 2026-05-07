@@ -5,12 +5,12 @@ import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, collectionGroup } from 'firebase/firestore';
-import { Lead, Agent, LeadActivity } from '@/types/crm';
+import { Lead, Agent, LeadActivity, Target } from '@/types/crm';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend, AreaChart, Area
 } from 'recharts';
-import { Download, Loader2, BarChart3, TrendingUp, Users, Target, Clock, Zap } from 'lucide-react';
+import { Download, Loader2, BarChart3, TrendingUp, Users, Target as TargetIcon, Clock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,6 +35,9 @@ export default function AdminReportsPage() {
 
   const activitiesQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'activities') : null, [firestore]);
   const { data: activities } = useCollection<LeadActivity>(activitiesQuery as any);
+
+  const targetsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'targets') : null, [firestore]);
+  const { data: targets } = useCollection<Target>(targetsQuery as any);
 
   const velocityData = useMemo(() => {
     if (!leads || !activities) return [];
@@ -72,12 +75,30 @@ export default function AdminReportsPage() {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [leads]);
 
+  const targetPerformance = useMemo(() => {
+    if (!targets || !leads) return [];
+    const currentMonthStr = format(new Date(), 'yyyy-MM');
+    const monthTargets = targets.filter(t => t.month === currentMonthStr);
+    
+    return monthTargets.map(t => {
+      const agent = agents?.find(a => a.id === t.agentId);
+      const agentWonLeads = leads.filter(l => l.agentId === t.agentId && l.status === 'won' && l.wonAt?.startsWith(currentMonthStr));
+      const actualRevenue = agentWonLeads.reduce((sum, l) => sum + (l.estimatedBudget || 0), 0);
+      return {
+        name: agent?.name || 'Unknown',
+        target: t.revenueTarget,
+        actual: actualRevenue,
+        pct: t.revenueTarget > 0 ? Math.round((actualRevenue / t.revenueTarget) * 100) : 0
+      };
+    }).sort((a,b) => b.pct - a.pct);
+  }, [targets, leads, agents]);
+
   if (!user || user.role !== 'Admin') return null;
 
   return (
     <Shell>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-[18px] font-bold text-slate-900 flex items-center gap-2"><BarChart3 size={20} className="text-primary" /> System Analytics Engine</h1>
             <p className="text-[12px] text-muted-foreground">Comprehensive reporting including cycle time, revenue trajectory, and channel attribution.</p>
@@ -98,10 +119,11 @@ export default function AdminReportsPage() {
         </div>
 
         <Tabs defaultValue="growth" className="w-full">
-          <TabsList className="bg-white border rounded-lg h-10 p-1 justify-start gap-4 px-4 mb-4">
-            <TabsTrigger value="growth" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white">Revenue Growth</TabsTrigger>
-            <TabsTrigger value="acquisition" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white">Acquisition Mix</TabsTrigger>
-            <TabsTrigger value="velocity" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white">Pipeline Velocity</TabsTrigger>
+          <TabsList className="bg-white border rounded-lg h-10 p-1 flex w-full overflow-x-auto no-scrollbar justify-start gap-2 px-2 mb-4 shrink-0">
+            <TabsTrigger value="growth" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Revenue Growth</TabsTrigger>
+            <TabsTrigger value="acquisition" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Acquisition Mix</TabsTrigger>
+            <TabsTrigger value="performance" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Team Quota Accuracy</TabsTrigger>
+            <TabsTrigger value="velocity" className="text-[11px] font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Pipeline Velocity</TabsTrigger>
           </TabsList>
 
           <TabsContent value="growth" className="space-y-4">
@@ -160,27 +182,63 @@ export default function AdminReportsPage() {
                    </ResponsiveContainer>
                 </div>
                 <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                   <table className="w-full text-[13px]">
-                      <thead>
-                         <tr className="bg-slate-50 h-9 font-bold uppercase text-[10px] text-slate-400">
-                            <th className="px-6">Channel</th>
-                            <th className="text-center">Count</th>
-                            <th className="text-right px-6">Conversion</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                         {channelData.sort((a,b) => b.value - a.value).map(d => {
-                           const won = leads?.filter(l => l.status === 'won' && l.firstContactChannel === d.name).length || 0;
-                           return (
-                             <tr key={d.name} className="h-10 hover:bg-slate-50/50">
-                                <td className="px-6 font-bold text-slate-700">{d.name}</td>
-                                <td className="text-center text-slate-500 font-medium">{d.value}</td>
-                                <td className="text-right px-6 font-bold text-primary">{Math.round((won / d.value) * 100)}%</td>
-                             </tr>
-                           );
-                         })}
-                      </tbody>
-                   </table>
+                   <div className="p-3 border-b bg-slate-50/50">
+                      <h4 className="text-[11px] font-bold uppercase text-slate-400">Sub-channel Analysis</h4>
+                   </div>
+                   <div className="overflow-x-auto">
+                     <table className="w-full text-[13px]">
+                        <thead>
+                           <tr className="bg-slate-50 h-9 font-bold uppercase text-[10px] text-slate-400">
+                              <th className="px-6">Source Detail</th>
+                              <th className="text-center">Leads</th>
+                              <th className="text-right px-6">Conversion</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                           {leads && Array.from(new Set(leads.map(l => l.firstContactSubchannel || 'Direct'))).map(sub => {
+                             const subLeads = leads.filter(l => (l.firstContactSubchannel || 'Direct') === sub);
+                             const won = subLeads.filter(l => l.status === 'won').length;
+                             return (
+                               <tr key={sub} className="h-10 hover:bg-slate-50/50">
+                                  <td className="px-6 font-bold text-slate-700">{sub}</td>
+                                  <td className="text-center text-slate-500 font-medium">{subLeads.length}</td>
+                                  <td className="text-right px-6 font-bold text-primary">{Math.round((won / subLeads.length) * 100)}%</td>
+                               </tr>
+                             );
+                           }).sort((a,b) => (b.props?.children?.[1]?.props?.children || 0) - (a.props?.children?.[1]?.props?.children || 0)).slice(0, 8)}
+                        </tbody>
+                     </table>
+                   </div>
+                </div>
+             </div>
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-4">
+             <div className="bg-white border rounded-xl p-6 shadow-sm overflow-hidden">
+                <h3 className="text-[12px] font-bold text-slate-500 uppercase mb-6 flex items-center gap-2">
+                   <TargetIcon size={14} /> Revenue Quota Accuracy (Current Month)
+                </h3>
+                <div className="space-y-6 max-w-4xl">
+                   {targetPerformance.map((p, i) => (
+                     <div key={i} className="space-y-2">
+                        <div className="flex justify-between items-end">
+                           <div>
+                              <p className="text-[13px] font-bold text-slate-800">{p.name}</p>
+                              <p className="text-[10px] text-slate-400 uppercase font-bold">Goal: ${p.target.toLocaleString()}</p>
+                           </div>
+                           <div className="text-right">
+                              <span className={cn("text-[14px] font-bold", p.pct >= 100 ? "text-emerald-600" : "text-primary")}>{p.pct}%</span>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">Achieved</p>
+                           </div>
+                        </div>
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                           <div className={cn("h-full transition-all duration-1000", p.pct >= 100 ? "bg-emerald-500" : "bg-primary")} style={{ width: `${Math.min(p.pct, 100)}%` }} />
+                        </div>
+                     </div>
+                   ))}
+                   {targetPerformance.length === 0 && (
+                      <div className="py-12 text-center text-slate-400 italic">No targets set for the current period.</div>
+                   )}
                 </div>
              </div>
           </TabsContent>
@@ -222,7 +280,7 @@ export default function AdminReportsPage() {
                               </div>
                            </div>
                          );
-                      }).filter(Boolean).slice(0, 5)}
+                      }).filter(Boolean).sort((a,b) => (b as any).props?.children?.[1]?.props?.children?.[0]?.props?.children - (a as any).props?.children?.[1]?.props?.children?.[0]?.props?.children).slice(0, 5)}
                    </div>
                 </div>
              </div>
