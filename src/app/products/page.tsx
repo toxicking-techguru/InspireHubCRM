@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -32,6 +31,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProductsPage() {
@@ -228,7 +234,7 @@ export default function ProductsPage() {
                 <Label className="text-[11px] font-bold uppercase text-slate-400">Default Access Tier</Label>
                 <Select value={newProduct.tierRequired} onValueChange={v => setNewProduct({...newProduct, tierRequired: v})}>
                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                   <SelectContent>
+                   <SelectContent className="bg-white">
                       {tiers?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                    </SelectContent>
                 </Select>
