@@ -55,6 +55,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         { label: 'Leads', icon: Users, href: isAdmin ? '/admin/leads' : isManager ? '/manager/leads' : '/leads' },
         { label: 'Map View', icon: MapPin, href: '/leads/map' },
         { label: 'Activities', icon: Clock, href: isAdmin || isManager ? '/admin/activities' : '/activities' },
+        ...(!isAdmin ? [{ label: 'Products', icon: Package, href: '/products' }] : []),
       ]
     },
     {
