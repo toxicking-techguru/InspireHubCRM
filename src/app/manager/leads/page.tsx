@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -17,8 +16,7 @@ import {
   MoreVertical, 
   Loader2, 
   UserPlus, 
-  CheckSquare, 
-  Square,
+  Plus,
   ChevronRight,
   AlertCircle
 } from 'lucide-react';
@@ -63,11 +61,13 @@ export default function ManagerAllLeadsPage() {
     return leads.filter(l => {
       const search = searchTerm.toLowerCase();
       const matchesSearch = l.clientName.toLowerCase().includes(search) || l.clientEmail.toLowerCase().includes(search);
-      // Manager only sees their team's leads (simplified for MVP, usually filtered by agentIds)
+      // Manager only sees their team's leads
       const agentIds = agents?.map(a => a.id) || [];
-      return matchesSearch && agentIds.includes(l.agentId);
+      // Also show manager's own leads if any
+      const isOwner = l.agentId === user?.id;
+      return matchesSearch && (agentIds.includes(l.agentId) || isOwner);
     });
-  }, [leads, searchTerm, agents]);
+  }, [leads, searchTerm, agents, user?.id]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -114,7 +114,7 @@ export default function ManagerAllLeadsPage() {
       l.clientEmail,
       l.clientPhone,
       l.status,
-      agents?.find(a => a.id === l.agentId)?.name || 'Unknown',
+      agents?.find(a => a.id === l.agentId)?.name || 'Manager',
       l.createdAt
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -134,40 +134,45 @@ export default function ManagerAllLeadsPage() {
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="h-11 flex items-center justify-between gap-4">
-          <h1 className="text-[16px] font-bold">All Team Leads</h1>
+          <h1 className="text-[16px] font-bold">Team Pipeline</h1>
           <div className="flex-1 max-w-[240px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
               placeholder="Search leads..." 
-              className="pl-8 h-8 text-[13px]" 
+              className="pl-8 h-8 text-[13px] border-primary-100" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex items-center gap-2">
             {selectedLeads.length > 0 && (
-              <Button size="sm" className="h-8 text-[12px] bg-cyan-600 hover:bg-cyan-700 gap-2" onClick={() => setIsReassignModalOpen(true)}>
+              <Button size="sm" className="h-8 text-[12px] bg-primary hover:bg-primary/90 gap-2" onClick={() => setIsReassignModalOpen(true)}>
                 <UserPlus size={14} /> Reassign ({selectedLeads.length})
               </Button>
             )}
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2" onClick={exportCSV}>
+            <Link href="/leads/new">
+              <Button size="sm" className="h-8 text-[12px] gap-2 bg-primary hover:bg-primary/90">
+                <Plus size={14} /> Add Lead
+              </Button>
+            </Link>
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-primary-100 text-primary-700" onClick={exportCSV}>
               <Download size={14} /> Export CSV
             </Button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="bg-card border rounded-md shadow-sm overflow-hidden">
+        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-primary-50">
           {leadsLoading ? (
             <div className="py-20 flex flex-col items-center">
               <Loader2 className="animate-spin text-primary mb-2" />
-              <p className="text-[13px] text-muted-foreground">Loading team leads...</p>
+              <p className="text-[13px] text-muted-foreground">Syncing team pipeline...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-slate-50 border-b h-9">
+                  <tr className="bg-slate-50/80 border-b h-9">
                     <th className="w-[40px] px-3">
                       <Checkbox 
                         checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
@@ -186,6 +191,7 @@ export default function ManagerAllLeadsPage() {
                 <tbody className="divide-y">
                   {filteredLeads.map((lead) => {
                     const agent = agents?.find(a => a.id === lead.agentId);
+                    const isManagerOwn = lead.agentId === user.id;
                     const days = Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24));
                     const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
                     
@@ -197,7 +203,7 @@ export default function ManagerAllLeadsPage() {
                             onCheckedChange={() => toggleLeadSelection(lead.id)}
                           />
                         </td>
-                        <td className="font-medium">
+                        <td className="font-bold text-slate-800">
                           <div className="flex items-center gap-1.5 truncate">
                             {lead.clientName}
                             {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
@@ -205,28 +211,31 @@ export default function ManagerAllLeadsPage() {
                         </td>
                         <td>
                           <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-[9px] font-bold">
-                              {agent?.name.split(' ').map(n => n[0]).join('') || '??'}
+                            <div className={cn(
+                              "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold",
+                              isManagerOwn ? "bg-primary text-white" : "bg-slate-100 text-slate-600"
+                            )}>
+                              {isManagerOwn ? 'ME' : (agent?.name.split(' ').map(n => n[0]).join('') || '??')}
                             </div>
-                            <span className="text-[12px] truncate">{agent?.name || 'Unassigned'}</span>
+                            <span className="text-[12px] truncate text-slate-700">{isManagerOwn ? 'Self (Manager)' : (agent?.name || 'Unassigned')}</span>
                           </div>
                         </td>
-                        <td className="text-[12px] truncate">
+                        <td className="text-[12px] truncate text-slate-600">
                            {products?.find(p => p.id === lead.productId)?.name || 'Standard'}
                         </td>
                         <td><StatusBadge status={lead.status} /></td>
-                        <td className="text-[12px] text-slate-500">
+                        <td className="text-[12px] text-slate-400">
                           {lead.lastActivityAt ? formatDistanceToNow(new Date(lead.lastActivityAt)) + ' ago' : 'Never'}
                         </td>
                         <td>
                           <div className="flex items-center gap-1.5">
                             <div className={cn("w-1.5 h-1.5 rounded-full", days < 8 ? "bg-emerald-500" : days < 22 ? "bg-amber-500" : "bg-red-500")} />
-                            <span className="text-[12px]">{days}</span>
+                            <span className="text-[12px] text-slate-600">{days}</span>
                           </div>
                         </td>
                         <td className="px-3 text-right">
                           <Link href={`/leads/${lead.id}`}>
-                            <Button variant="ghost" size="sm" className="h-6 text-primary hover:underline text-[12px] p-0 px-2">View</Button>
+                            <Button variant="ghost" size="sm" className="h-6 text-primary hover:underline text-[11px] font-bold uppercase tracking-tight p-0 px-2">View</Button>
                           </Link>
                         </td>
                       </tr>
@@ -235,7 +244,7 @@ export default function ManagerAllLeadsPage() {
                   {filteredLeads.length === 0 && (
                     <tr className="h-20">
                       <td colSpan={8} className="text-center text-muted-foreground italic text-[13px]">
-                        No leads found matching current filters.
+                        No pipeline records match your current criteria.
                       </td>
                     </tr>
                   )}
@@ -250,29 +259,30 @@ export default function ManagerAllLeadsPage() {
       <Dialog open={isReassignModalOpen} onOpenChange={setIsReassignModalOpen}>
         <DialogContent className="max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Reassign {selectedLeads.length} Leads</DialogTitle>
+            <DialogTitle className="text-primary">Reassign {selectedLeads.length} Records</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
              <div className="space-y-1.5">
-               <label className="text-[12px] font-bold">Target Agent</label>
+               <label className="text-[11px] font-bold uppercase text-slate-400">Target Team Member</label>
                <Select value={targetAgentId} onValueChange={setTargetAgentId}>
-                 <SelectTrigger className="h-9 text-[13px]">
+                 <SelectTrigger className="h-9 text-[13px] border-primary-50">
                    <SelectValue placeholder="Select new agent..." />
                  </SelectTrigger>
-                 <SelectContent>
+                 <SelectContent className="bg-white">
+                   <SelectItem value={user.id}>Self (Manager)</SelectItem>
                    {agents?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                  </SelectContent>
                </Select>
              </div>
-             <p className="text-[12px] text-muted-foreground flex items-start gap-2 bg-slate-50 p-3 rounded border">
-                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                This will transfer all selected leads and update their last activity timestamp. This action is logged.
+             <p className="text-[11px] text-slate-500 flex items-start gap-2 bg-slate-50 p-3 rounded border">
+                <AlertCircle size={14} className="shrink-0 mt-0.5 text-primary" />
+                Transferring ownership will reset the idle timers for these leads and log the event in the system audit trail.
              </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setIsReassignModalOpen(false)}>Cancel</Button>
-            <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700" onClick={handleBulkReassign} disabled={!targetAgentId || isProcessing}>
-              {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Confirm Transfer'}
+            <Button variant="ghost" size="sm" onClick={() => setIsReassignModalOpen(false)}>Cancel</Button>
+            <Button size="sm" className="bg-primary hover:bg-primary/90 font-bold uppercase text-[11px] px-6" onClick={handleBulkReassign} disabled={!targetAgentId || isProcessing}>
+              {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Transfer Ownership'}
             </Button>
           </DialogFooter>
         </DialogContent>

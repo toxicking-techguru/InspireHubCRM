@@ -1,11 +1,10 @@
-
 "use client"
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, setDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, setDoc, addDoc, writeBatch } from 'firebase/firestore';
 import { Product, Tier } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +44,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   AlertDialog, 
-  AlertDialogAction, 
   AlertDialogCancel, 
   AlertDialogContent, 
   AlertDialogDescription, 
@@ -89,7 +87,7 @@ export default function AdminProductsPage() {
     return products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [products, searchTerm]);
 
-  // Auto-selection of first item
+  // Auto-selection of first item on load
   useEffect(() => {
     if (!loading && filteredProducts.length > 0 && !selectedProductId && !selectionMode) {
       setSelectedProductId(filteredProducts[0].id);
@@ -166,7 +164,7 @@ export default function AdminProductsPage() {
 
             if (name) {
               const newId = `prod_bulk_${Date.now()}_${count}`;
-              const newProduct = {
+              const productData = {
                 name,
                 description,
                 tierRequired: 't1',
@@ -175,7 +173,7 @@ export default function AdminProductsPage() {
                 commissionStructure: { base: 5 },
                 importedAt: new Date().toISOString()
               };
-              batch.set(doc(firestore, 'products', newId), newProduct);
+              batch.set(doc(firestore, 'products', newId), productData);
               count++;
             }
           }
@@ -254,13 +252,13 @@ export default function AdminProductsPage() {
                  <div className="flex items-center gap-1">
                     {!selectionMode ? (
                       <>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600" onClick={() => setSelectionMode(true)}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectionMode(true)}>
                            <CheckSquare size={16} />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600" onClick={() => setIsImportModalOpen(true)}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setIsImportModalOpen(true)}>
                            <FileUp size={16} />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600" onClick={handleAddProduct}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={handleAddProduct}>
                            <Plus size={16} />
                         </Button>
                       </>
@@ -308,7 +306,7 @@ export default function AdminProductsPage() {
                   onClick={() => !selectionMode && setSelectedProductId(p.id)}
                   className={cn(
                     "p-3 border-b cursor-pointer transition-colors hover:bg-primary-50/30 flex items-center gap-3",
-                    selectedProductId === p.id && !selectionMode ? "bg-primary-50 border-r-2 border-r-primary-600 shadow-sm" : ""
+                    selectedProductId === p.id && !selectionMode ? "bg-primary-50 border-r-2 border-r-primary shadow-sm" : ""
                   )}
                 >
                    {selectionMode && (
@@ -317,7 +315,7 @@ export default function AdminProductsPage() {
                    <div className="flex-1 min-w-0 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
                          <span className="text-[13px] font-bold truncate text-slate-800">{p.name}</span>
-                         <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-primary-100 text-primary-600 bg-white shrink-0">
+                         <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-primary-100 text-primary bg-white shrink-0">
                             {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
                          </Badge>
                       </div>
@@ -350,13 +348,13 @@ export default function AdminProductsPage() {
            </div>
         </div>
 
-        {/* Product Workspace */}
+        {/* Product Workspace - Keyed by ID to fix switching bug */}
         <div className={cn(
           "flex-1 flex flex-col overflow-hidden bg-white",
           !selectedProductId && "hidden lg:flex"
         )}>
            {selectedProduct ? (
-             <div className="flex-1 flex flex-col overflow-hidden">
+             <div className="flex-1 flex flex-col overflow-hidden" key={selectedProduct.id}>
                 <div className="p-3 border-b lg:hidden flex items-center">
                   <Button variant="ghost" size="sm" className="h-8 gap-2 text-[12px]" onClick={() => setSelectedProductId(null)}>
                     <ChevronLeft size={16} /> Back to Catalog
@@ -402,7 +400,7 @@ export default function AdminProductsPage() {
                                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
                                      <TrendingUp size={12} className="text-primary-400" /> Commission
                                   </div>
-                                  <span className="text-[13px] font-bold text-primary-700">
+                                  <span className="text-[13px] font-bold text-primary">
                                      {tiers?.find(t => t.id === selectedProduct.tierRequired)?.commissionPct || 5}%
                                   </span>
                                </div>
@@ -498,7 +496,8 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
     try {
       const newItem = { ...formData, id: Date.now().toString(), dateAdded: new Date().toISOString() };
       const updatedItems = [...items, newItem];
-      await updateDoc(doc(firestore, 'products', productId), { [`resources.${type}`]: updatedItems });
+      const fieldPath = type === 'script' ? 'scripts' : type === 'docs' ? 'docs' : type === 'video' ? 'videos' : type === 'manual' ? 'manuals' : 'faqs';
+      await updateDoc(doc(firestore, 'products', productId), { [`resources.${fieldPath}`]: updatedItems });
       setFormData({ name: '', url: '' });
       setIsAdding(false);
       toast({ title: "Resource Linked" });
@@ -510,7 +509,8 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
   const handleDelete = async (id: string) => {
     if (!firestore) return;
     const updatedItems = items.filter(i => i.id !== id);
-    await updateDoc(doc(firestore, 'products', productId), { [`resources.${type}`]: updatedItems });
+    const fieldPath = type === 'script' ? 'scripts' : type === 'docs' ? 'docs' : type === 'video' ? 'videos' : type === 'manual' ? 'manuals' : 'faqs';
+    await updateDoc(doc(firestore, 'products', productId), { [`resources.${fieldPath}`]: updatedItems });
     toast({ title: "Resource Removed" });
   };
 
@@ -518,7 +518,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
     <div className="space-y-4">
        <div className="flex items-center justify-between">
           <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Repository: {type}</h4>
-          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-primary-600 border-primary-100" onClick={() => setIsAdding(!isAdding)}>
+          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-primary border-primary-100" onClick={() => setIsAdding(!isAdding)}>
              {isAdding ? 'Cancel' : `+ Add ${type.slice(0, -1)}`}
           </Button>
        </div>
@@ -544,7 +544,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
                 {items.map(item => (
                   <tr key={item.id} className="h-10 hover:bg-slate-50 group">
                      <td className="px-3 text-slate-400">
-                        {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : <FileText size={14} className="text-primary-500" />}
+                        {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : <FileText size={14} className="text-primary" />}
                      </td>
                      <td className="truncate font-medium">{item.name}</td>
                      <td className="px-3 text-right">
