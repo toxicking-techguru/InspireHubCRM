@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Package, 
   Plus, 
@@ -30,7 +31,10 @@ import {
   Settings2, 
   ChevronLeft,
   Upload,
-  FileUp
+  FileUp,
+  CheckSquare,
+  Square,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -47,6 +51,7 @@ import {
   AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import * as XLSX from 'xlsx';
 
 export default function AdminProductsPage() {
   const { user } = useAuthStore();
@@ -57,9 +62,13 @@ export default function AdminProductsPage() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [productToDeleteId, setProductToDeleteId] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  // Bulk Deletion State
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedProductIds] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   // Data Fetching
   const productsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'products'), orderBy('name')) : null, [firestore]);
@@ -104,7 +113,7 @@ export default function AdminProductsPage() {
     toast({ title: "Product Created" });
   };
 
-  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !firestore || !user) return;
 
@@ -113,41 +122,48 @@ export default function AdminProductsPage() {
 
     reader.onload = async (event) => {
       try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r?\n/).filter(line => line.trim());
-        if (lines.length < 2) throw new Error("File is empty or missing data rows.");
-
-        const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        const nameIdx = headers.indexOf('cost item');
-        const descIdx = headers.indexOf('description');
-
-        if (nameIdx === -1) throw new Error("Required column 'cost item' not found.");
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert to JSON with headers
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        if (jsonData.length === 0) throw new Error("File is empty or missing data rows.");
 
         const batch = writeBatch(firestore);
         let count = 0;
 
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-          const name = values[nameIdx];
-          // Fallback: If description is missing or empty, use the name as description
-          const rawDesc = descIdx !== -1 ? values[descIdx] : '';
-          const description = rawDesc.trim() || name;
+        for (const row of jsonData as any[]) {
+          // Normalize keys to find "cost item" and "description"
+          const rowKeys = Object.keys(row);
+          const nameKey = rowKeys.find(k => k.toLowerCase().trim() === 'cost item');
+          const descKey = rowKeys.find(k => k.toLowerCase().trim() === 'description');
 
-          if (name) {
-            const newId = `prod_bulk_${Date.now()}_${i}`;
-            const newProduct = {
-              name,
-              description: description,
-              tierRequired: 't1',
-              status: 'active',
-              resources: { scripts: [], docs: [], videos: [], manuals: [], faqs: [] },
-              commissionStructure: { base: 5 },
-              importedAt: new Date().toISOString()
-            };
-            batch.set(doc(firestore, 'products', newId), newProduct);
-            count++;
+          if (nameKey) {
+            const name = String(row[nameKey] || '').trim();
+            const rawDesc = descKey ? String(row[descKey] || '').trim() : '';
+            const description = rawDesc || name; // Fallback to name if description is empty
+
+            if (name) {
+              const newId = `prod_bulk_${Date.now()}_${count}`;
+              const newProduct = {
+                name,
+                description,
+                tierRequired: 't1',
+                status: 'active',
+                resources: { scripts: [], docs: [], videos: [], manuals: [], faqs: [] },
+                commissionStructure: { base: 5 },
+                importedAt: new Date().toISOString()
+              };
+              batch.set(doc(firestore, 'products', newId), newProduct);
+              count++;
+            }
           }
         }
+
+        if (count === 0) throw new Error("Required column 'cost item' not found in the sheet.");
 
         await batch.commit();
         
@@ -159,7 +175,7 @@ export default function AdminProductsPage() {
           actionType: 'BULK_IMPORT_PRODUCTS',
           entityType: 'System',
           entityId: 'catalog',
-          remark: `Bulk imported ${count} products via CSV.`
+          remark: `Bulk imported ${count} products via spreadsheet.`
         });
 
         toast({ title: "Import Successful", description: `${count} products added to catalog.` });
@@ -172,7 +188,7 @@ export default function AdminProductsPage() {
       }
     };
 
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const handleUpdateProduct = async (data: Partial<Product>) => {
@@ -203,31 +219,54 @@ export default function AdminProductsPage() {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!firestore || !productToDeleteId || !user) return;
+  const confirmBulkDelete = async () => {
+    if (!firestore || selectedIds.length === 0 || !user) return;
+    setIsSaving(true);
     try {
-      const deletedName = products?.find(p => p.id === productToDeleteId)?.name;
-      const prevValue = products?.find(p => p.id === productToDeleteId);
+      const batch = writeBatch(firestore);
+      selectedIds.forEach(id => {
+        batch.delete(doc(firestore, 'products', id));
+      });
       
-      await deleteDoc(doc(firestore, 'products', productToDeleteId));
+      await batch.commit();
       
       await addDoc(collection(firestore, 'audit_logs'), {
         timestamp: new Date().toISOString(),
         actorId: user.id,
         actorName: user.name,
         actorRole: user.role,
-        actionType: 'DELETE_PRODUCT',
+        actionType: 'BULK_DELETE_PRODUCTS',
         entityType: 'Product',
-        entityId: productToDeleteId,
-        remark: `Permanently removed product: ${deletedName}`,
-        oldValue: prevValue || null
+        entityId: 'multiple',
+        remark: `Permanently removed ${selectedIds.length} products from the catalog.`
       });
 
-      if (selectedProductId === productToDeleteId) setSelectedProductId(null);
-      toast({ title: "Product Deleted" });
-      setProductToDeleteId(null);
+      if (selectedProductId && selectedIds.includes(selectedProductId)) {
+        setSelectedProductId(null);
+      }
+      
+      setSelectedProductIds([]);
+      setSelectionMode(false);
+      setIsBulkDeleteDialogOpen(false);
+      toast({ title: "Bulk Removal Complete", description: `${selectedIds.length} records purged.` });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
+      toast({ variant: "destructive", title: "Operation Failed", description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedProductIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProductIds(filteredProducts.map(p => p.id));
+    } else {
+      setSelectedProductIds([]);
     }
   };
 
@@ -235,64 +274,106 @@ export default function AdminProductsPage() {
 
   return (
     <Shell>
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-primary-100">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-primary-100 shadow-sm">
+        {/* Sidebar Catalog */}
         <div className={cn(
           "w-full lg:w-[320px] border-r flex flex-col bg-slate-50/30 shrink-0",
-          selectedProductId && "hidden lg:flex"
+          selectedProductId && !selectionMode && "hidden lg:flex"
         )}>
-           <div className="p-3 border-b space-y-3">
+           <div className="p-3 border-b space-y-3 bg-white">
               <div className="flex items-center justify-between">
                  <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-500">Catalog</h2>
                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={() => setIsImportModalOpen(true)}>
-                       <FileUp size={16} />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={handleAddProduct}>
-                       <Plus size={16} />
-                    </Button>
+                    {!selectionMode ? (
+                      <>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={() => setSelectionMode(true)}>
+                           <CheckSquare size={16} />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={() => setIsImportModalOpen(true)}>
+                           <FileUp size={16} />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={handleAddProduct}>
+                           <Plus size={16} />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:bg-slate-50" onClick={() => { setSelectionMode(false); setSelectedProductIds([]); }}>
+                         <X size={16} />
+                      </Button>
+                    )}
                  </div>
               </div>
-              <div className="relative">
-                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                 <Input 
-                   placeholder="Search products..." 
-                   className="pl-8 h-8 text-[12px] bg-white border-primary-50" 
-                   value={searchTerm}
-                   onChange={(e) => setSearchTerm(e.target.value)}
-                 />
-              </div>
+
+              {selectionMode ? (
+                <div className="flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+                   <div className="flex items-center gap-2">
+                      <Checkbox 
+                        id="select-all" 
+                        checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0} 
+                        onCheckedChange={toggleAll} 
+                      />
+                      <label htmlFor="select-all" className="text-[11px] font-bold text-slate-500 uppercase cursor-pointer">All ({selectedIds.length})</label>
+                   </div>
+                   <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="h-7 text-[10px] font-bold uppercase gap-1"
+                    disabled={selectedIds.length === 0}
+                    onClick={() => setIsBulkDeleteDialogOpen(true)}
+                   >
+                     <Trash2 size={12} /> Bulk Delete
+                   </Button>
+                </div>
+              ) : (
+                <div className="relative">
+                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                   <Input 
+                     placeholder="Search products..." 
+                     className="pl-8 h-8 text-[12px] bg-white border-primary-50" 
+                     value={searchTerm}
+                     onChange={(e) => setSearchTerm(e.target.value)}
+                   />
+                </div>
+              )}
            </div>
+
            <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-slate-200" /></div>
               ) : filteredProducts.map(p => (
                 <div 
                   key={p.id} 
-                  onClick={() => setSelectedProductId(p.id)}
+                  onClick={() => !selectionMode && setSelectedProductId(p.id)}
                   className={cn(
-                    "p-3 border-b cursor-pointer transition-colors hover:bg-primary-50/50 flex flex-col gap-1.5 group relative",
-                    selectedProductId === p.id ? "bg-primary-50 border-r-2 border-r-primary-600 shadow-sm" : ""
+                    "p-3 border-b cursor-pointer transition-colors hover:bg-primary-50/30 flex items-center gap-3 group relative",
+                    selectedProductId === p.id && !selectionMode ? "bg-primary-50 border-r-2 border-r-primary-600 shadow-sm" : ""
                   )}
                 >
-                   <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-bold truncate pr-10 text-slate-800">{p.name}</span>
-                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-primary-100 text-primary-600 bg-white shrink-0">
-                         {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
-                      </Badge>
+                   {selectionMode && (
+                     <Checkbox 
+                        checked={selectedIds.includes(p.id)} 
+                        onCheckedChange={() => toggleSelect(p.id)}
+                        onClick={(e) => e.stopPropagation()}
+                     />
+                   )}
+                   <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      <div className="flex items-center justify-between gap-2">
+                         <span className="text-[13px] font-bold truncate text-slate-800">{p.name}</span>
+                         <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-primary-100 text-primary-600 bg-white shrink-0">
+                            {tiers?.find(t => t.id === p.tierRequired)?.name || 'Base'}
+                         </Badge>
+                      </div>
+                      <p className="text-[10px] text-slate-400 truncate">{p.description}</p>
                    </div>
-                   <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10"
-                    onClick={(e) => { e.stopPropagation(); setProductToDeleteId(p.id); }}
-                   >
-                     <Trash2 size={14} />
-                   </Button>
                 </div>
               ))}
+              {!loading && filteredProducts.length === 0 && (
+                 <div className="p-10 text-center text-slate-300 italic text-[11px]">No items found.</div>
+              )}
            </div>
         </div>
 
+        {/* Product Workspace */}
         <div className={cn(
           "flex-1 flex flex-col overflow-hidden bg-white",
           !selectedProductId && "hidden lg:flex"
@@ -334,24 +415,20 @@ export default function AdminProductsPage() {
                                   <SelectTrigger className="h-8 text-[12px] bg-white border-primary-100">
                                      <SelectValue />
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="bg-white">
                                      {tiers?.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.rankLabel})</SelectItem>)}
                                   </SelectContent>
                                </Select>
                             </div>
                          </div>
-                         
-                         <Button variant="destructive" size="sm" className="w-full h-9 font-bold uppercase text-[11px] gap-2 shadow-md" onClick={() => setProductToDeleteId(selectedProduct.id)}>
-                            <Trash2 size={14} /> Remove Product
-                         </Button>
                       </div>
                    </div>
 
-                   <div className="pt-6 border-t overflow-x-auto">
+                   <div className="pt-6 border-t">
                       <Tabs defaultValue="scripts" className="w-full">
-                         <TabsList className="bg-slate-100 p-0.5 rounded-md h-9 gap-1 flex w-max lg:w-auto">
+                         <TabsList className="bg-slate-100 p-0.5 rounded-md h-9 gap-1 flex w-full overflow-x-auto no-scrollbar justify-start">
                             {['scripts', 'docs', 'videos', 'manuals', 'faqs'].map(tab => (
-                               <TabsTrigger key={tab} value={tab} className="text-[11px] px-3 gap-2 data-[state=active]:text-primary-700 capitalize">
+                               <TabsTrigger key={tab} value={tab} className="text-[11px] px-3 gap-2 data-[state=active]:text-primary-700 capitalize shrink-0">
                                   {tab === 'scripts' ? <FileCode size={14} /> : tab === 'docs' ? <FileText size={14} /> : tab === 'videos' ? <Video size={14} /> : tab === 'manuals' ? <BookOpen size={14} /> : <HelpCircle size={14} />}
                                   {tab}
                                </TabsTrigger>
@@ -368,16 +445,16 @@ export default function AdminProductsPage() {
                    </div>
                 </div>
                 <div className="p-4 border-t bg-slate-50/50 flex justify-end">
-                    <Button size="sm" className="bg-primary-600 hover:bg-primary-700 gap-2 h-8 px-6 font-bold uppercase text-[11px]" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 gap-2 h-8 px-6 font-bold uppercase text-[11px] shadow-sm" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
                        {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Commit All Changes
                     </Button>
                 </div>
              </div>
            ) : (
-             <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-8 text-center">
+             <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-8 text-center bg-slate-50/20">
                 <Package size={64} className="mb-4 opacity-10" />
-                <p className="text-[15px] font-bold">Catalog Administration</p>
-                <p className="text-[12px]">Select a product from the left to configure access and materials.</p>
+                <p className="text-[15px] font-bold text-slate-500 uppercase tracking-widest">Catalog Administration</p>
+                <p className="text-[12px] max-w-[280px] mx-auto mt-2">Select a product from the left to configure access and materials, or enter batch mode to prune the catalog.</p>
              </div>
            )}
         </div>
@@ -388,35 +465,34 @@ export default function AdminProductsPage() {
         <DialogContent className="max-w-[440px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-               <FileUp className="text-primary-600" size={20} />
+               <FileUp className="text-primary" size={20} />
                Bulk Catalog Import
             </DialogTitle>
             <DialogDescription className="text-xs">
-               Upload a .csv file with columns <b>cost item</b> and optional <b>description</b>.
+               Upload <b>.xlsx</b> or <b>.csv</b> files with columns <b>cost item</b> and optional <b>description</b>.
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-6">
              <div 
-               className="border-2 border-dashed border-primary-100 rounded-xl p-10 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-primary-50/30 transition-colors cursor-pointer"
+               className="border-2 border-dashed border-primary/20 rounded-xl p-10 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer"
                onClick={() => fileInputRef.current?.click()}
              >
                 {isImporting ? (
-                  <Loader2 className="animate-spin text-primary-600 mb-2" size={32} />
+                  <Loader2 className="animate-spin text-primary mb-2" size={32} />
                 ) : (
-                  <Upload className="text-primary-300 mb-2" size={32} />
+                  <Upload className="text-primary/30 mb-2" size={32} />
                 )}
-                <p className="text-[13px] font-bold text-slate-600">Select Catalog File (.csv)</p>
-                <p className="text-[11px] text-slate-400 mt-1">UTF-8 Comma Separated</p>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleCSVImport} />
+                <p className="text-[13px] font-bold text-slate-600">Select Spreadsheet File</p>
+                <p className="text-[11px] text-slate-400 mt-1">Excel (.xlsx) or CSV supported</p>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".csv, .xlsx, .xls" onChange={handleImport} />
              </div>
              
              <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 space-y-2">
-                <p className="text-[10px] font-bold uppercase text-primary-600">Format Reference:</p>
-                <div className="font-mono text-[9px] text-slate-500 bg-white p-2 border rounded">
-                   No, Cost Item, Description<br/>
-                   1, Deployment Cost, Initial setup fee<br/>
-                   2, Customization Cost, (Uses name if desc missing)
+                <p className="text-[10px] font-bold uppercase text-primary-600">Required Columns:</p>
+                <div className="font-mono text-[10px] text-slate-500 bg-white p-2 border rounded">
+                   cost item | description (optional)
                 </div>
+                <p className="text-[9px] text-slate-400 italic">Description defaults to Item Name if left blank.</p>
              </div>
           </div>
           <DialogFooter>
@@ -425,19 +501,28 @@ export default function AdminProductsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Deletion Modal */}
-      <AlertDialog open={!!productToDeleteId} onOpenChange={(open) => !open && setProductToDeleteId(null)}>
+      {/* Bulk Deletion Modal */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
         <AlertDialogContent className="max-w-[400px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600">Remove Product?</AlertDialogTitle>
-            <AlertDialogDescription className="text-[13px]">
-              This will permanently delete the product and all linked sales materials. This action is irreversible and will be logged.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="h-8 text-[11px] font-bold uppercase">Cancel</AlertDialogCancel>
-            <AlertDialogAction className="h-8 text-[11px] font-bold uppercase bg-red-600" onClick={confirmDelete}>Confirm Delete</AlertDialogAction>
-          </AlertDialogFooter>
+           <AlertDialogHeader>
+              <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                 <Trash2 size={20} /> Batch Removal
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-[13px]">
+                 You are about to permanently delete <b>{selectedIds.length}</b> products and all their associated sales materials. This action is irreversible.
+              </AlertDialogDescription>
+           </AlertDialogHeader>
+           <AlertDialogFooter>
+              <AlertDialogCancel className="h-8 text-[11px] font-bold uppercase">Cancel</AlertDialogCancel>
+              <Button 
+                variant="destructive" 
+                className="h-8 text-[11px] font-bold uppercase px-6 shadow-md" 
+                onClick={confirmBulkDelete}
+                disabled={isSaving}
+              >
+                 {isSaving ? <Loader2 className="animate-spin" size={14} /> : 'Delete Records'}
+              </Button>
+           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </Shell>
@@ -492,11 +577,11 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
             <div className="lg:col-span-2">
                <Input required placeholder="HTTPS URL or File Resource..." className="h-8 text-[12px] bg-white border-primary-100" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
             </div>
-            <Button type="submit" className="h-8 bg-primary-600 text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
+            <Button type="submit" className="h-8 bg-primary text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
          </form>
        )}
 
-       <div className="border rounded-md overflow-hidden">
+       <div className="border rounded-md overflow-hidden bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
                <thead>
@@ -520,7 +605,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
                        </td>
                        <td className="px-3 text-right">
                           <div className="flex items-center justify-end gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                             <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-primary-600 transition-colors">
+                             <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-primary transition-colors">
                                 <ExternalLink size={14} />
                              </a>
                              <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500" onClick={() => handleDelete(item.id)}>
