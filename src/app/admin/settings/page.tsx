@@ -185,7 +185,6 @@ function DangerZone({ user }: { user: any }) {
       }
 
       // 3. Purge all agents EXCEPT the current user
-      const agentSnap = await getDocs(collection(firestore, agentSnap.docs[0]?.ref.parent.id === 'agents' ? 'agents' : 'agents'));
       const agentsColSnap = await getDocs(collection(firestore, 'agents'));
       for (const d of agentsColSnap.docs) {
         if (d.id !== user.id) {
@@ -195,7 +194,7 @@ function DangerZone({ user }: { user: any }) {
 
       toast({ 
         title: "System Purge Complete", 
-        description: "All demo records removed. System is now ready for production." 
+        description: "All records removed. System is now ready for production." 
       });
       setIsPurgeDialogOpen(false);
       setPurgeInput('');
