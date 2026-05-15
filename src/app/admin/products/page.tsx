@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Package, 
@@ -29,11 +28,9 @@ import {
   PlayCircle, 
   BookOpen, 
   Settings2, 
-  Code,
   ChevronLeft,
   Upload,
-  FileUp,
-  Download
+  FileUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -132,13 +129,15 @@ export default function AdminProductsPage() {
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
           const name = values[nameIdx];
-          const description = descIdx !== -1 ? values[descIdx] : '';
+          // Fallback: If description is missing or empty, use the name as description
+          const rawDesc = descIdx !== -1 ? values[descIdx] : '';
+          const description = rawDesc.trim() || name;
 
           if (name) {
             const newId = `prod_bulk_${Date.now()}_${i}`;
             const newProduct = {
               name,
-              description: description || 'No description provided.',
+              description: description,
               tierRequired: 't1',
               status: 'active',
               resources: { scripts: [], docs: [], videos: [], manuals: [], faqs: [] },
@@ -208,6 +207,8 @@ export default function AdminProductsPage() {
     if (!firestore || !productToDeleteId || !user) return;
     try {
       const deletedName = products?.find(p => p.id === productToDeleteId)?.name;
+      const prevValue = products?.find(p => p.id === productToDeleteId);
+      
       await deleteDoc(doc(firestore, 'products', productToDeleteId));
       
       await addDoc(collection(firestore, 'audit_logs'), {
@@ -218,8 +219,8 @@ export default function AdminProductsPage() {
         actionType: 'DELETE_PRODUCT',
         entityType: 'Product',
         entityId: productToDeleteId,
-        remark: `Deleted product: ${deletedName}`,
-        oldValue: { id: productToDeleteId, name: deletedName }
+        remark: `Permanently removed product: ${deletedName}`,
+        oldValue: prevValue || null
       });
 
       if (selectedProductId === productToDeleteId) setSelectedProductId(null);
@@ -339,6 +340,10 @@ export default function AdminProductsPage() {
                                </Select>
                             </div>
                          </div>
+                         
+                         <Button variant="destructive" size="sm" className="w-full h-9 font-bold uppercase text-[11px] gap-2 shadow-md" onClick={() => setProductToDeleteId(selectedProduct.id)}>
+                            <Trash2 size={14} /> Remove Product
+                         </Button>
                       </div>
                    </div>
 
@@ -387,7 +392,7 @@ export default function AdminProductsPage() {
                Bulk Catalog Import
             </DialogTitle>
             <DialogDescription className="text-xs">
-               Upload a .csv file with columns <b>cost item</b> and <b>description</b>.
+               Upload a .csv file with columns <b>cost item</b> and optional <b>description</b>.
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-6">
@@ -408,9 +413,9 @@ export default function AdminProductsPage() {
              <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 space-y-2">
                 <p className="text-[10px] font-bold uppercase text-primary-600">Format Reference:</p>
                 <div className="font-mono text-[9px] text-slate-500 bg-white p-2 border rounded">
-                   cost item, description<br/>
-                   Cloud Server 2024, High performance VPS<br/>
-                   Nexus ERP, Enterprise management suite
+                   No, Cost Item, Description<br/>
+                   1, Deployment Cost, Initial setup fee<br/>
+                   2, Customization Cost, (Uses name if desc missing)
                 </div>
              </div>
           </div>
@@ -426,12 +431,12 @@ export default function AdminProductsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-600">Remove Product?</AlertDialogTitle>
             <AlertDialogDescription className="text-[13px]">
-              This will permanently delete the product and all linked sales materials.
+              This will permanently delete the product and all linked sales materials. This action is irreversible and will be logged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-8 text-[11px] font-bold uppercase">Cancel</AlertDialogCancel>
-            <AlertDialogAction className="h-8 text-[11px] font-bold uppercase bg-red-600" onClick={confirmDelete}>Confirm</AlertDialogAction>
+            <AlertDialogAction className="h-8 text-[11px] font-bold uppercase bg-red-600" onClick={confirmDelete}>Confirm Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
