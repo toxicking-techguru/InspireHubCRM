@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -33,8 +33,11 @@ import {
   Upload,
   FileUp,
   CheckSquare,
-  Square,
-  X
+  X,
+  ChevronRight,
+  TrendingUp,
+  ChevronFirst,
+  ChevronLast
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -65,6 +68,10 @@ export default function AdminProductsPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Bulk Deletion State
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedProductIds] = useState<string[]>([]);
@@ -77,12 +84,26 @@ export default function AdminProductsPage() {
   const tiersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'tiers'), orderBy('rankLevel')) : null, [firestore]);
   const { data: tiers } = useCollection<Tier>(tiersQuery as any);
 
-  const selectedProduct = products?.find(p => p.id === selectedProductId);
-
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     return products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [products, searchTerm]);
+
+  // Auto-selection of first item
+  useEffect(() => {
+    if (!loading && filteredProducts.length > 0 && !selectedProductId && !selectionMode) {
+      setSelectedProductId(filteredProducts[0].id);
+    }
+  }, [filteredProducts, selectedProductId, loading, selectionMode]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(start, start + itemsPerPage);
+  }, [filteredProducts, currentPage]);
+
+  const selectedProduct = products?.find(p => p.id === selectedProductId);
 
   const handleAddProduct = async () => {
     if (!firestore || !user) return;
@@ -126,17 +147,14 @@ export default function AdminProductsPage() {
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        
-        // Convert to JSON with headers
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         
-        if (jsonData.length === 0) throw new Error("File is empty or missing data rows.");
+        if (jsonData.length === 0) throw new Error("File is empty.");
 
         const batch = writeBatch(firestore);
         let count = 0;
 
         for (const row of jsonData as any[]) {
-          // Normalize keys to find "cost item" and "description"
           const rowKeys = Object.keys(row);
           const nameKey = rowKeys.find(k => k.toLowerCase().trim() === 'cost item');
           const descKey = rowKeys.find(k => k.toLowerCase().trim() === 'description');
@@ -144,7 +162,7 @@ export default function AdminProductsPage() {
           if (nameKey) {
             const name = String(row[nameKey] || '').trim();
             const rawDesc = descKey ? String(row[descKey] || '').trim() : '';
-            const description = rawDesc || name; // Fallback to name if description is empty
+            const description = rawDesc || name; 
 
             if (name) {
               const newId = `prod_bulk_${Date.now()}_${count}`;
@@ -163,22 +181,8 @@ export default function AdminProductsPage() {
           }
         }
 
-        if (count === 0) throw new Error("Required column 'cost item' not found in the sheet.");
-
         await batch.commit();
-        
-        await addDoc(collection(firestore, 'audit_logs'), {
-          timestamp: new Date().toISOString(),
-          actorId: user.id,
-          actorName: user.name,
-          actorRole: user.role,
-          actionType: 'BULK_IMPORT_PRODUCTS',
-          entityType: 'System',
-          entityId: 'catalog',
-          remark: `Bulk imported ${count} products via spreadsheet.`
-        });
-
-        toast({ title: "Import Successful", description: `${count} products added to catalog.` });
+        toast({ title: "Import Successful", description: `${count} products added.` });
         setIsImportModalOpen(false);
       } catch (err: any) {
         toast({ variant: "destructive", title: "Import Failed", description: err.message });
@@ -195,22 +199,7 @@ export default function AdminProductsPage() {
     if (!firestore || !selectedProductId || !user) return;
     setIsSaving(true);
     try {
-      const prevValue = products?.find(p => p.id === selectedProductId);
       await updateDoc(doc(firestore, 'products', selectedProductId), data);
-      
-      await addDoc(collection(firestore, 'audit_logs'), {
-        timestamp: new Date().toISOString(),
-        actorId: user.id,
-        actorName: user.name,
-        actorRole: user.role,
-        actionType: 'UPDATE_PRODUCT',
-        entityType: 'Product',
-        entityId: selectedProductId,
-        remark: `Updated product properties for: ${prevValue?.name}`,
-        oldValue: prevValue || null,
-        newValue: data
-      });
-
       toast({ title: "Changes Saved" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Save Failed", description: e.message });
@@ -224,31 +213,15 @@ export default function AdminProductsPage() {
     setIsSaving(true);
     try {
       const batch = writeBatch(firestore);
-      selectedIds.forEach(id => {
-        batch.delete(doc(firestore, 'products', id));
-      });
-      
+      selectedIds.forEach(id => batch.delete(doc(firestore, 'products', id)));
       await batch.commit();
       
-      await addDoc(collection(firestore, 'audit_logs'), {
-        timestamp: new Date().toISOString(),
-        actorId: user.id,
-        actorName: user.name,
-        actorRole: user.role,
-        actionType: 'BULK_DELETE_PRODUCTS',
-        entityType: 'Product',
-        entityId: 'multiple',
-        remark: `Permanently removed ${selectedIds.length} products from the catalog.`
-      });
-
-      if (selectedProductId && selectedIds.includes(selectedProductId)) {
-        setSelectedProductId(null);
-      }
+      if (selectedProductId && selectedIds.includes(selectedProductId)) setSelectedProductId(null);
       
       setSelectedProductIds([]);
       setSelectionMode(false);
       setIsBulkDeleteDialogOpen(false);
-      toast({ title: "Bulk Removal Complete", description: `${selectedIds.length} records purged.` });
+      toast({ title: "Batch Removal Complete" });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Operation Failed", description: err.message });
     } finally {
@@ -257,17 +230,12 @@ export default function AdminProductsPage() {
   };
 
   const toggleSelect = (id: string) => {
-    setSelectedProductIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+    setSelectedProductIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
   const toggleAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedProductIds(filteredProducts.map(p => p.id));
-    } else {
-      setSelectedProductIds([]);
-    }
+    if (checked) setSelectedProductIds(paginatedProducts.map(p => p.id));
+    else setSelectedProductIds([]);
   };
 
   if (!user || user.role !== 'Admin') return null;
@@ -277,7 +245,7 @@ export default function AdminProductsPage() {
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-140px)] border rounded-md overflow-hidden bg-card border-primary-100 shadow-sm">
         {/* Sidebar Catalog */}
         <div className={cn(
-          "w-full lg:w-[320px] border-r flex flex-col bg-slate-50/30 shrink-0",
+          "w-full lg:w-[340px] border-r flex flex-col bg-slate-50/30 shrink-0",
           selectedProductId && !selectionMode && "hidden lg:flex"
         )}>
            <div className="p-3 border-b space-y-3 bg-white">
@@ -286,75 +254,65 @@ export default function AdminProductsPage() {
                  <div className="flex items-center gap-1">
                     {!selectionMode ? (
                       <>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={() => setSelectionMode(true)}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600" onClick={() => setSelectionMode(true)}>
                            <CheckSquare size={16} />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={() => setIsImportModalOpen(true)}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600" onClick={() => setIsImportModalOpen(true)}>
                            <FileUp size={16} />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600 hover:bg-primary-50" onClick={handleAddProduct}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-600" onClick={handleAddProduct}>
                            <Plus size={16} />
                         </Button>
                       </>
                     ) : (
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:bg-slate-50" onClick={() => { setSelectionMode(false); setSelectedProductIds([]); }}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400" onClick={() => { setSelectionMode(false); setSelectedProductIds([]); }}>
                          <X size={16} />
                       </Button>
                     )}
                  </div>
               </div>
 
-              {selectionMode ? (
-                <div className="flex items-center justify-between animate-in fade-in slide-in-from-top-1">
-                   <div className="flex items-center gap-2">
-                      <Checkbox 
-                        id="select-all" 
-                        checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0} 
-                        onCheckedChange={toggleAll} 
-                      />
-                      <label htmlFor="select-all" className="text-[11px] font-bold text-slate-500 uppercase cursor-pointer">All ({selectedIds.length})</label>
-                   </div>
-                   <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    className="h-7 text-[10px] font-bold uppercase gap-1"
-                    disabled={selectedIds.length === 0}
-                    onClick={() => setIsBulkDeleteDialogOpen(true)}
-                   >
-                     <Trash2 size={12} /> Bulk Delete
-                   </Button>
-                </div>
-              ) : (
-                <div className="relative">
-                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                   <Input 
-                     placeholder="Search products..." 
-                     className="pl-8 h-8 text-[12px] bg-white border-primary-50" 
-                     value={searchTerm}
-                     onChange={(e) => setSearchTerm(e.target.value)}
-                   />
-                </div>
-              )}
+              <div className="relative">
+                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                 <Input 
+                   placeholder="Search products..." 
+                   className="pl-8 h-8 text-[12px] bg-white border-primary-50" 
+                   value={searchTerm}
+                   onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                 />
+              </div>
            </div>
 
            <div className="flex-1 overflow-y-auto">
+              {selectionMode && (
+                <div className="p-2 px-3 border-b flex items-center justify-between bg-primary-50/50">
+                   <div className="flex items-center gap-2">
+                      <Checkbox 
+                        id="select-all" 
+                        checked={selectedIds.length > 0 && selectedIds.length === paginatedProducts.length} 
+                        onCheckedChange={toggleAll} 
+                      />
+                      <label htmlFor="select-all" className="text-[10px] font-bold text-primary-700 uppercase cursor-pointer">Page ({selectedIds.length})</label>
+                   </div>
+                   <Button variant="destructive" size="sm" className="h-6 text-[9px] font-bold uppercase" disabled={selectedIds.length === 0} onClick={() => setIsBulkDeleteDialogOpen(true)}>
+                     Delete Selected
+                   </Button>
+                </div>
+              )}
+
               {loading ? (
                 <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-slate-200" /></div>
-              ) : filteredProducts.map(p => (
+              ) : paginatedProducts.map(p => (
                 <div 
                   key={p.id} 
                   onClick={() => !selectionMode && setSelectedProductId(p.id)}
                   className={cn(
-                    "p-3 border-b cursor-pointer transition-colors hover:bg-primary-50/30 flex items-center gap-3 group relative",
+                    "p-3 border-b cursor-pointer transition-colors hover:bg-primary-50/30 flex items-center gap-3",
                     selectedProductId === p.id && !selectionMode ? "bg-primary-50 border-r-2 border-r-primary-600 shadow-sm" : ""
                   )}
                 >
                    {selectionMode && (
-                     <Checkbox 
-                        checked={selectedIds.includes(p.id)} 
-                        onCheckedChange={() => toggleSelect(p.id)}
-                        onClick={(e) => e.stopPropagation()}
-                     />
+                     <Checkbox checked={selectedIds.includes(p.id)} onCheckedChange={() => toggleSelect(p.id)} onClick={(e) => e.stopPropagation()} />
                    )}
                    <div className="flex-1 min-w-0 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
@@ -370,6 +328,25 @@ export default function AdminProductsPage() {
               {!loading && filteredProducts.length === 0 && (
                  <div className="p-10 text-center text-slate-300 italic text-[11px]">No items found.</div>
               )}
+           </div>
+
+           {/* Pagination Footer */}
+           <div className="p-2 border-t bg-white flex items-center justify-between shrink-0">
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Page {currentPage} / {totalPages || 1}</span>
+              <div className="flex gap-1">
+                 <Button variant="ghost" size="icon" className="h-7 w-7" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
+                    <ChevronFirst size={14} />
+                 </Button>
+                 <Button variant="ghost" size="icon" className="h-7 w-7" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+                    <ChevronLeft size={14} />
+                 </Button>
+                 <Button variant="ghost" size="icon" className="h-7 w-7" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                    <ChevronRight size={14} />
+                 </Button>
+                 <Button variant="ghost" size="icon" className="h-7 w-7" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(totalPages)}>
+                    <ChevronLast size={14} />
+                 </Button>
+              </div>
            </div>
         </div>
 
@@ -406,7 +383,7 @@ export default function AdminProductsPage() {
                             />
                          </div>
                       </div>
-                      <div className="w-full lg:w-[240px] space-y-4">
+                      <div className="w-full lg:w-[260px] space-y-4">
                          <div className="p-4 bg-primary-50 rounded-lg border border-primary-100 space-y-4">
                             <h3 className="text-[11px] font-bold text-primary-700 uppercase flex items-center gap-2"><Settings2 size={14} /> Access Control</h3>
                             <div className="space-y-1.5">
@@ -419,6 +396,17 @@ export default function AdminProductsPage() {
                                      {tiers?.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.rankLabel})</SelectItem>)}
                                   </SelectContent>
                                </Select>
+                            </div>
+                            <div className="pt-2 border-t border-primary-100">
+                               <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                                     <TrendingUp size={12} className="text-primary-400" /> Commission
+                                  </div>
+                                  <span className="text-[13px] font-bold text-primary-700">
+                                     {tiers?.find(t => t.id === selectedProduct.tierRequired)?.commissionPct || 5}%
+                                  </span>
+                               </div>
+                               <p className="text-[9px] text-slate-400 mt-1 italic">Inherited from the required access tier.</p>
                             </div>
                          </div>
                       </div>
@@ -445,8 +433,8 @@ export default function AdminProductsPage() {
                    </div>
                 </div>
                 <div className="p-4 border-t bg-slate-50/50 flex justify-end">
-                    <Button size="sm" className="bg-primary hover:bg-primary/90 gap-2 h-8 px-6 font-bold uppercase text-[11px] shadow-sm" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
-                       {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Commit All Changes
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 gap-2 h-8 px-6 font-bold uppercase text-[11px]" disabled={isSaving} onClick={() => handleUpdateProduct({})}>
+                       {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Commit Changes
                     </Button>
                 </div>
              </div>
@@ -454,7 +442,7 @@ export default function AdminProductsPage() {
              <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-8 text-center bg-slate-50/20">
                 <Package size={64} className="mb-4 opacity-10" />
                 <p className="text-[15px] font-bold text-slate-500 uppercase tracking-widest">Catalog Administration</p>
-                <p className="text-[12px] max-w-[280px] mx-auto mt-2">Select a product from the left to configure access and materials, or enter batch mode to prune the catalog.</p>
+                <p className="text-[12px] max-w-[280px] mx-auto mt-2">Select a product to configure access or materials. Use pagination below the list to navigate the catalog.</p>
              </div>
            )}
         </div>
@@ -464,40 +452,17 @@ export default function AdminProductsPage() {
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
         <DialogContent className="max-w-[440px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-               <FileUp className="text-primary" size={20} />
-               Bulk Catalog Import
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-               Upload <b>.xlsx</b> or <b>.csv</b> files with columns <b>cost item</b> and optional <b>description</b>.
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><FileUp className="text-primary" size={20} /> Bulk Import</DialogTitle>
+            <DialogDescription className="text-xs">Excel/CSV with columns <b>cost item</b> and <b>description</b>.</DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-6">
-             <div 
-               className="border-2 border-dashed border-primary/20 rounded-xl p-10 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer"
-               onClick={() => fileInputRef.current?.click()}
-             >
-                {isImporting ? (
-                  <Loader2 className="animate-spin text-primary mb-2" size={32} />
-                ) : (
-                  <Upload className="text-primary/30 mb-2" size={32} />
-                )}
-                <p className="text-[13px] font-bold text-slate-600">Select Spreadsheet File</p>
-                <p className="text-[11px] text-slate-400 mt-1">Excel (.xlsx) or CSV supported</p>
+             <div className="border-2 border-dashed border-primary/20 rounded-xl p-10 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-primary/5 transition-all cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                {isImporting ? <Loader2 className="animate-spin text-primary mb-2" size={32} /> : <Upload className="text-primary/30 mb-2" size={32} />}
+                <p className="text-[13px] font-bold">Select Spreadsheet</p>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".csv, .xlsx, .xls" onChange={handleImport} />
              </div>
-             
-             <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 space-y-2">
-                <p className="text-[10px] font-bold uppercase text-primary-600">Required Columns:</p>
-                <div className="font-mono text-[10px] text-slate-500 bg-white p-2 border rounded">
-                   cost item | description (optional)
-                </div>
-                <p className="text-[9px] text-slate-400 italic">Description defaults to Item Name if left blank.</p>
-             </div>
           </div>
-          <DialogFooter>
-             <Button variant="ghost" size="sm" onClick={() => setIsImportModalOpen(false)}>Cancel</Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="ghost" size="sm" onClick={() => setIsImportModalOpen(false)}>Cancel</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -505,21 +470,12 @@ export default function AdminProductsPage() {
       <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
         <AlertDialogContent className="max-w-[400px]">
            <AlertDialogHeader>
-              <AlertDialogTitle className="text-destructive flex items-center gap-2">
-                 <Trash2 size={20} /> Batch Removal
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-[13px]">
-                 You are about to permanently delete <b>{selectedIds.length}</b> products and all their associated sales materials. This action is irreversible.
-              </AlertDialogDescription>
+              <AlertDialogTitle className="text-destructive">Confirm Batch Delete</AlertDialogTitle>
+              <AlertDialogDescription>Permanently delete <b>{selectedIds.length}</b> items and materials?</AlertDialogDescription>
            </AlertDialogHeader>
            <AlertDialogFooter>
               <AlertDialogCancel className="h-8 text-[11px] font-bold uppercase">Cancel</AlertDialogCancel>
-              <Button 
-                variant="destructive" 
-                className="h-8 text-[11px] font-bold uppercase px-6 shadow-md" 
-                onClick={confirmBulkDelete}
-                disabled={isSaving}
-              >
+              <Button variant="destructive" className="h-8 text-[11px] font-bold uppercase px-6" onClick={confirmBulkDelete} disabled={isSaving}>
                  {isSaving ? <Loader2 className="animate-spin" size={14} /> : 'Delete Records'}
               </Button>
            </AlertDialogFooter>
@@ -540,11 +496,9 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
     e.preventDefault();
     if (!firestore || !formData.name || !formData.url || !user) return;
     try {
-      const productRef = doc(firestore, 'products', productId);
       const newItem = { ...formData, id: Date.now().toString(), dateAdded: new Date().toISOString() };
       const updatedItems = [...items, newItem];
-      await updateDoc(productRef, { [`resources.${type}`]: updatedItems });
-      
+      await updateDoc(doc(firestore, 'products', productId), { [`resources.${type}`]: updatedItems });
       setFormData({ name: '', url: '' });
       setIsAdding(false);
       toast({ title: "Resource Linked" });
@@ -554,7 +508,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
   };
 
   const handleDelete = async (id: string) => {
-    if (!firestore || !user) return;
+    if (!firestore) return;
     const updatedItems = items.filter(i => i.id !== id);
     await updateDoc(doc(firestore, 'products', productId), { [`resources.${type}`]: updatedItems });
     toast({ title: "Resource Removed" });
@@ -562,7 +516,7 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
 
   return (
     <div className="space-y-4">
-       <div className="flex items-center justify-between gap-2">
+       <div className="flex items-center justify-between">
           <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Repository: {type}</h4>
           <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 font-bold uppercase text-primary-600 border-primary-100" onClick={() => setIsAdding(!isAdding)}>
              {isAdding ? 'Cancel' : `+ Add ${type.slice(0, -1)}`}
@@ -571,56 +525,38 @@ function ResourceManager({ type, items, productId }: { type: string, items: any[
 
        {isAdding && (
          <form onSubmit={handleAdd} className="p-3 bg-primary-50/50 border border-primary-100 rounded-md flex flex-col lg:grid lg:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
-            <div className="lg:col-span-1">
-               <Input required placeholder="Display Name..." className="h-8 text-[12px] bg-white border-primary-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-            </div>
-            <div className="lg:col-span-2">
-               <Input required placeholder="HTTPS URL or File Resource..." className="h-8 text-[12px] bg-white border-primary-100" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} />
-            </div>
-            <Button type="submit" className="h-8 bg-primary text-[11px] font-bold uppercase tracking-tight">Save Item</Button>
+            <div className="lg:col-span-1"><Input required placeholder="Name..." className="h-8 text-[12px]" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} /></div>
+            <div className="lg:col-span-2"><Input required placeholder="URL..." className="h-8 text-[12px]" value={formData.url} onChange={(e) => setFormData({...formData, url: e.target.value})} /></div>
+            <Button type="submit" className="h-8 bg-primary text-[11px] font-bold uppercase">Save Item</Button>
          </form>
        )}
 
        <div className="border rounded-md overflow-hidden bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
-               <thead>
-                  <tr className="bg-slate-50/80 border-b h-8 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">
-                     <th className="px-3 text-left w-10"></th>
-                     <th className="text-left">Resource Name</th>
-                     <th className="text-right px-3 w-[100px]">Actions</th>
+          <table className="w-full text-[13px]">
+             <thead>
+                <tr className="bg-slate-50/80 border-b h-8 text-[11px] font-bold text-slate-500 uppercase">
+                   <th className="px-3 w-10"></th>
+                   <th>Resource Name</th>
+                   <th className="text-right px-3 w-[100px]">Actions</th>
+                </tr>
+             </thead>
+             <tbody className="divide-y">
+                {items.map(item => (
+                  <tr key={item.id} className="h-10 hover:bg-slate-50 group">
+                     <td className="px-3 text-slate-400">
+                        {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : <FileText size={14} className="text-primary-500" />}
+                     </td>
+                     <td className="truncate font-medium">{item.name}</td>
+                     <td className="px-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                           <a href={item.url} target="_blank" className="p-1.5 text-slate-400 hover:text-primary"><ExternalLink size={14} /></a>
+                           <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-300 hover:text-red-500"><Trash2 size={14} /></button>
+                        </div>
+                     </td>
                   </tr>
-               </thead>
-               <tbody className="divide-y bg-white">
-                  {items.map(item => (
-                    <tr key={item.id} className="h-10 hover:bg-slate-50 group">
-                       <td className="px-3 text-slate-400">
-                          {type === 'videos' ? <PlayCircle size={14} className="text-red-500" /> : type === 'manuals' ? <BookOpen size={14} className="text-emerald-500" /> : type === 'scripts' ? <FileCode size={14} className="text-blue-500" /> : <FileText size={14} className="text-primary-500" />}
-                       </td>
-                       <td className="font-medium truncate max-w-[150px] lg:max-w-[300px]">
-                          <div className="flex flex-col">
-                             <span className="text-slate-800 truncate">{item.name}</span>
-                             <span className="text-[10px] text-slate-400 font-mono truncate">{item.url}</span>
-                          </div>
-                       </td>
-                       <td className="px-3 text-right">
-                          <div className="flex items-center justify-end gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                             <a href={item.url} target="_blank" className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-primary transition-colors">
-                                <ExternalLink size={14} />
-                             </a>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500" onClick={() => handleDelete(item.id)}>
-                                <Trash2 size={14} />
-                             </Button>
-                          </div>
-                       </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr className="h-20 text-center"><td colSpan={3} className="text-slate-400 italic text-[12px]">No materials uploaded.</td></tr>
-                  )}
-               </tbody>
-            </table>
-          </div>
+                ))}
+             </tbody>
+          </table>
        </div>
     </div>
   );
