@@ -106,7 +106,6 @@ export default function LoginPage() {
       let userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
 
       // 4. Late Migration Check: If UID record is missing but an email-based record exists
-      // This handles users who were created in Auth but whose Firestore profile wasn't keyed to UID yet
       if (!userDoc.exists()) {
         const q = query(collection(db, 'agents'), where('email', '==', targetEmail));
         const snap = await getDocs(q);
@@ -116,7 +115,6 @@ export default function LoginPage() {
           const oldData = oldDoc.data();
           const oldId = oldDoc.id;
           
-          // Link pre-authorized profile to the new Auth UID
           await setDoc(doc(db, 'agents', userCredential.user.uid), {
             ...oldData,
             email: targetEmail
@@ -126,7 +124,6 @@ export default function LoginPage() {
             await deleteDoc(doc(db, 'agents', oldId));
           }
           
-          // Migrate matching wallet if applicable
           if (oldData.role === 'Agent') {
             const wSnap = await getDoc(doc(db, 'wallets', oldId));
             if (wSnap.exists()) {
@@ -135,7 +132,6 @@ export default function LoginPage() {
             }
           }
 
-          // Re-fetch the newly linked doc
           userDoc = await getDoc(doc(db, 'agents', userCredential.user.uid));
         }
       }
@@ -165,11 +161,11 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground mb-4 shadow-lg">
             <ShieldCheck size={28} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-cyan-950">InspireHubCRM</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-primary-950">InspireHubCRM</h1>
           <p className="text-sm text-muted-foreground">Internal Management System</p>
         </div>
 
-        <div className="bg-card border rounded-xl shadow-xl overflow-hidden border-cyan-100">
+        <div className="bg-card border rounded-xl shadow-xl overflow-hidden border-primary-100">
           <form onSubmit={handleLogin} className="p-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Work Email</Label>
@@ -180,7 +176,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-10 border-cyan-50"
+                className="h-10 border-primary-50 focus-visible:ring-primary"
               />
             </div>
             <div className="space-y-1.5">
@@ -194,15 +190,15 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-10 border-cyan-50"
+                className="h-10 border-primary-50 focus-visible:ring-primary"
               />
             </div>
-            <Button type="submit" className="w-full h-10 mt-2 font-bold uppercase tracking-tight bg-cyan-600 hover:bg-cyan-700" disabled={loading}>
+            <Button type="submit" className="w-full h-10 mt-2 font-bold uppercase tracking-tight bg-primary hover:bg-primary-900 shadow-md" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" size={18} /> : 'Sign In'}
             </Button>
             
-            <div className="mt-4 p-3 bg-cyan-50 rounded-lg flex gap-3 text-cyan-800 text-[11px] leading-tight">
-               <Info size={14} className="shrink-0 text-cyan-600" />
+            <div className="mt-4 p-3 bg-primary-50 rounded-lg flex gap-3 text-primary-800 text-[11px] leading-tight border border-primary-100">
+               <Info size={14} className="shrink-0 text-primary-600" />
                <p>New staff? Use your activation password (password123) for your first sign-in to create your account.</p>
             </div>
           </form>

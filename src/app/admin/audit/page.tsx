@@ -29,7 +29,7 @@ export default function AdminAuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Fetch Audit Logs (Limited to 100 for performance)
+  // Fetch Audit Logs
   const auditQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100)) : null, [firestore]);
   const { data: logs, loading } = useCollection<any>(auditQuery as any);
 
@@ -46,10 +46,9 @@ export default function AdminAuditPage() {
   const getBadgeColor = (type: string) => {
     const t = type.toLowerCase();
     if (t.includes('create')) return "bg-emerald-50 text-emerald-700 border-emerald-100";
-    if (t.includes('update')) return "bg-cyan-50 text-cyan-700 border-cyan-100";
+    if (t.includes('update')) return "bg-primary-50 text-primary-700 border-primary-100";
     if (t.includes('delete')) return "bg-red-50 text-red-700 border-red-100";
     if (t.includes('login')) return "bg-slate-100 text-slate-600 border-slate-200";
-    if (t.includes('upgrade')) return "bg-cyan-50 text-cyan-700 border-cyan-100";
     return "bg-slate-50 text-slate-500 border-slate-100";
   };
 
@@ -60,35 +59,35 @@ export default function AdminAuditPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
            <div>
-              <h1 className="text-[18px] font-bold flex items-center gap-2 text-cyan-950">
-                 <History className="text-cyan-600" size={20} /> System Audit Trail
+              <h1 className="text-[18px] font-bold flex items-center gap-2 text-primary-950">
+                 <History className="text-primary-600" size={20} /> System Audit Trail
               </h1>
               <p className="text-[12px] text-muted-foreground mt-0.5">Real-time record of all administrative and automated system actions.</p>
            </div>
         </div>
 
-        <div className="bg-card border rounded-md shadow-sm p-3 flex flex-wrap items-center gap-3">
+        <div className="bg-card border rounded-md shadow-sm p-3 flex flex-wrap items-center gap-3 border-primary-50">
            <div className="relative flex-1 max-w-[300px]">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <Input 
                 placeholder="Search actor, entity or action..." 
-                className="pl-8 h-8 text-[12px] bg-white border-cyan-100 shadow-none" 
+                className="pl-8 h-8 text-[12px] bg-white border-primary-50 shadow-none focus-visible:ring-primary" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
            </div>
-           <Button variant="outline" size="sm" className="h-8 gap-2 text-[12px] text-slate-500">
+           <Button variant="outline" size="sm" className="h-8 gap-2 text-[12px] text-slate-500 border-primary-100">
               <Calendar size={14} /> Date Range
            </Button>
-           <Button variant="outline" size="sm" className="h-8 gap-2 text-[12px] text-slate-500">
+           <Button variant="outline" size="sm" className="h-8 gap-2 text-[12px] text-slate-500 border-primary-100">
               <User size={14} /> Actor Role
            </Button>
-           <Button variant="outline" size="sm" className="h-8 gap-2 text-[12px] text-slate-500">
+           <Button variant="outline" size="sm" className="h-8 gap-2 text-[12px] text-slate-500 border-primary-100">
               <Activity size={14} /> Action Type
            </Button>
         </div>
 
-        <div className="bg-card border rounded-md shadow-sm overflow-hidden">
+        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-primary-50">
            <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                  <thead>
@@ -103,17 +102,17 @@ export default function AdminAuditPage() {
                  </thead>
                  <tbody className="divide-y">
                     {loading ? (
-                       <tr className="h-40"><td colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto text-cyan-200" /></td></tr>
+                       <tr className="h-40"><td colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto text-primary-200" /></td></tr>
                     ) : filteredLogs.map(log => {
                        const isExpanded = expandedId === log.id;
                        return (
                           <React.Fragment key={log.id}>
-                             <tr className={cn("h-10 hover:bg-slate-50 cursor-pointer transition-colors group", isExpanded && "bg-cyan-50/30")}>
+                             <tr className={cn("h-10 hover:bg-primary-50/10 cursor-pointer transition-colors group", isExpanded && "bg-primary-50/30")}>
                                 <td className="px-3 text-slate-500 font-medium">{format(parseISO(log.timestamp), 'MMM d, HH:mm:ss')}</td>
                                 <td className="">
                                    <div className="flex flex-col">
                                       <span className="font-bold text-slate-800">{log.actorName || 'System'}</span>
-                                      <span className="text-[10px] text-slate-400 font-bold uppercase">{log.actorRole || 'AUTO'}</span>
+                                      <span className="text-[10px] text-primary-400 font-bold uppercase">{log.actorRole || 'AUTO'}</span>
                                    </div>
                                 </td>
                                 <td>
@@ -124,7 +123,7 @@ export default function AdminAuditPage() {
                                 <td className="text-slate-600 font-medium">{log.entityType}</td>
                                 <td className="text-slate-400 text-[11px] truncate max-w-[200px]">{log.remark || `ID: ${log.entityId}`}</td>
                                 <td className="px-3 text-right">
-                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-cyan-600" onClick={() => setExpandedId(isExpanded ? null : log.id)}>
+                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-primary-600" onClick={() => setExpandedId(isExpanded ? null : log.id)}>
                                       {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                    </Button>
                                 </td>
@@ -140,8 +139,8 @@ export default function AdminAuditPage() {
                                             </div>
                                          </div>
                                          <div className="space-y-2">
-                                            <h4 className="text-[11px] font-bold uppercase text-cyan-700">New State</h4>
-                                            <div className="p-3 bg-white border border-cyan-100 rounded shadow-inner font-mono text-[11px] overflow-auto max-h-[200px] text-cyan-800">
+                                            <h4 className="text-[11px] font-bold uppercase text-primary-700">New State</h4>
+                                            <div className="p-3 bg-white border border-primary-100 rounded shadow-inner font-mono text-[11px] overflow-auto max-h-[200px] text-primary-800">
                                                {log.newValue ? <pre>{JSON.stringify(log.newValue, null, 2)}</pre> : 'NONE'}
                                             </div>
                                          </div>

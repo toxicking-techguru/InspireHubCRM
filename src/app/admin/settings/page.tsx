@@ -185,8 +185,9 @@ function DangerZone({ user }: { user: any }) {
       }
 
       // 3. Purge all agents EXCEPT the current user
-      const agentSnap = await getDocs(collection(firestore, 'agents'));
-      for (const d of agentSnap.docs) {
+      const agentSnap = await getDocs(collection(firestore, agentSnap.docs[0]?.ref.parent.id === 'agents' ? 'agents' : 'agents'));
+      const agentsColSnap = await getDocs(collection(firestore, 'agents'));
+      for (const d of agentsColSnap.docs) {
         if (d.id !== user.id) {
           await deleteDoc(d.ref);
         }
@@ -238,9 +239,11 @@ function DangerZone({ user }: { user: any }) {
         <AlertDialogContent className="max-w-[400px]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-600">CRITICAL ACTION</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs space-y-2">
-              <p>You are about to wipe the entire CRM database. This will remove all history, financial records, and team assignments.</p>
-              <p className="font-bold text-slate-900">To continue, type "PRODUCTION" in the box below:</p>
+            <AlertDialogDescription className="text-xs space-y-2" asChild>
+              <div>
+                <div>You are about to wipe the entire CRM database. This will remove all history, financial records, and team assignments.</div>
+                <div className="font-bold text-slate-900 mt-2">To continue, type "PRODUCTION" in the box below:</div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2">
