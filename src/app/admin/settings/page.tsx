@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -98,8 +99,8 @@ export default function AdminSettingsPage() {
            <p className="text-[12px] text-muted-foreground mt-0.5">Control global variables, background tasks, and automated triggers.</p>
         </div>
 
-        <div className="flex gap-6 items-start">
-           <div className="w-[200px] bg-card border rounded-md overflow-hidden shrink-0 shadow-sm">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+           <div className="w-full lg:w-[200px] bg-card border rounded-md overflow-hidden shrink-0 shadow-sm">
               <div className="p-2 space-y-0.5">
                  {tabs.map(tab => (
                    <button
@@ -119,7 +120,7 @@ export default function AdminSettingsPage() {
               </div>
            </div>
 
-           <div className="flex-1 bg-card border rounded-md shadow-sm min-h-[400px]">
+           <div className="flex-1 bg-card border rounded-md shadow-sm min-h-[400px] w-full">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <Loader2 className="animate-spin text-primary-600 mb-2" />
@@ -169,7 +170,7 @@ function DangerZone({ user }: { user: any }) {
         remark: 'Initiated a full system data purge to prepare for production.'
       });
 
-      // 1. Purge all Lead Activities (Subcollections)
+      // 1. Purge all Lead Activities (Subcollections via collectionGroup)
       const activitySnap = await getDocs(collectionGroup(firestore, 'activities'));
       for (const d of activitySnap.docs) {
         await deleteDoc(d.ref);
@@ -217,7 +218,7 @@ function DangerZone({ user }: { user: any }) {
       </div>
 
       <div className="border rounded-md divide-y overflow-hidden">
-         <div className="p-4 flex items-center justify-between gap-10 hover:bg-slate-50/50 transition-colors">
+         <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-10 hover:bg-slate-50/50 transition-colors">
             <div className="space-y-1">
                <h5 className="text-[13px] font-bold text-slate-800">Purge All Data</h5>
                <p className="text-[11px] text-slate-500">Deletes every record in the system to prepare for production launch. Your own admin profile is preserved.</p>
@@ -239,7 +240,7 @@ function DangerZone({ user }: { user: any }) {
             <AlertDialogTitle className="text-red-600">CRITICAL ACTION</AlertDialogTitle>
             <AlertDialogDescription className="text-xs space-y-2">
               <p>You are about to wipe the entire CRM database. This will remove all history, financial records, and team assignments.</p>
-              <p className="font-bold">To continue, type "PRODUCTION" in the box below:</p>
+              <p className="font-bold text-slate-900">To continue, type "PRODUCTION" in the box below:</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2">
@@ -247,7 +248,7 @@ function DangerZone({ user }: { user: any }) {
               value={purgeInput} 
               onChange={(e) => setPurgeInput(e.target.value.toUpperCase())}
               placeholder="Type here..."
-              className="h-9 text-center font-bold tracking-widest"
+              className="h-9 text-center font-bold tracking-widest border-red-100"
             />
           </div>
           <AlertDialogFooter>
@@ -319,7 +320,7 @@ function GeneralSettings({ config, onSave, saving }: any) {
              </div>
              <div className="space-y-1.5">
                 <Label className="text-[11px] font-bold uppercase text-slate-400">Base Currency</Label>
-                <Select value={data.currency} onValueChange={(v) => setData({...data, currency: v})}>
+                <Select value={data.currency} onValueChange={(v) => setData({...data, currency: v as any})}>
                   <SelectTrigger className="h-9 bg-white border-primary-100 pl-8 relative">
                      <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
                         <DollarSign size={14} />
@@ -371,8 +372,8 @@ function NotificationSettings({ config, onSave, saving }: any) {
             { id: 'tier_upgrade', label: 'Agent Tier Upgrade', desc: 'Send automated congrats to agent and manager.' },
             { id: 'idle_alert', label: 'Critical Idle Warning', desc: 'Alert manager when lead is idle > 240h.' },
           ].map(item => (
-            <div key={item.id} className="p-4 border rounded-md flex items-start justify-between gap-6 hover:bg-slate-50/50 transition-colors">
-               <div className="space-y-1">
+            <div key={item.id} className="p-4 border rounded-md flex flex-col sm:flex-row items-start justify-between gap-6 hover:bg-slate-50/50 transition-colors">
+               <div className="space-y-1 flex-1">
                   <h4 className="text-[13px] font-bold text-slate-800">{item.label}</h4>
                   <p className="text-[11px] text-slate-500">{item.desc}</p>
                   <div className="pt-2">
@@ -404,8 +405,8 @@ function CronSettings() {
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <p>Manual trigger of cron jobs bypasses scheduled logic. Use with caution during business hours.</p>
        </div>
-       <div className="border rounded-md overflow-hidden">
-          <table className="w-full text-[13px]">
+       <div className="border rounded-md overflow-hidden overflow-x-auto">
+          <table className="w-full text-[13px] min-w-[600px]">
              <thead>
                 <tr className="bg-slate-50 h-9">
                    <th className="px-3 text-left">Job Name</th>
@@ -443,11 +444,11 @@ function RoleMatrix() {
   return (
     <div className="space-y-4">
        <div className="flex items-center gap-2 text-slate-500 mb-2">
-          <Info size={14} className="text-slate-300" />
+          <AlertTriangle size={14} className="text-slate-300" />
           <p className="text-[12px]">Permission levels are strictly code-defined for security. This matrix is read-only.</p>
        </div>
-       <div className="border rounded-md overflow-hidden">
-          <table className="w-full text-[13px]">
+       <div className="border rounded-md overflow-hidden overflow-x-auto">
+          <table className="w-full text-[13px] min-w-[500px]">
              <thead>
                 <tr className="bg-slate-50 h-9">
                    <th className="px-3 text-left">Permission Module</th>
@@ -472,11 +473,5 @@ function RoleMatrix() {
           </table>
        </div>
     </div>
-  );
-}
-
-function Info({ size, className }: { size: number, className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
   );
 }
