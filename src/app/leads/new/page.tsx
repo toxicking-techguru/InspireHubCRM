@@ -91,15 +91,24 @@ export default function NewLeadPage() {
   const handleCompanySelect = (companyName: string) => {
     const existing = allLeads?.find(l => l.companyName === companyName);
     if (existing) {
+      // Split client name back into first/last for the form
+      const nameParts = (existing.clientName || '').split(' ');
+      const fName = nameParts[0] || '';
+      const lName = nameParts.slice(1).join(' ') || '';
+
       setFormData(prev => ({
         ...prev,
+        firstName: fName,
+        lastName: lName,
+        clientEmail: existing.clientEmail || '',
+        clientPhone: existing.clientPhone || '',
         companyName: existing.companyName || '',
         industry: existing.industry || '',
         businessCountry: existing.businessCountry || 'Kenya',
         businessCounty: existing.businessCounty || '',
         businessRegion: existing.businessRegion || '',
       }));
-      toast({ title: "Company Data Linked", description: `Pre-populated details from ${companyName}` });
+      toast({ title: "Company Data Linked", description: `Pre-populated core details from ${companyName}` });
     }
   };
 
