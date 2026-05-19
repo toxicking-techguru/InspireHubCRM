@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Product, GeoLocation, LeadType } from '@/types/crm';
+import { Product, GeoLocation, LeadType, Lead } from '@/types/crm';
 import { 
   ChevronLeft, 
   Loader2, 
@@ -21,7 +21,8 @@ import {
   Bold, 
   Italic, 
   List,
-  Target
+  Search,
+  Building2
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -59,8 +60,26 @@ export default function NewLeadPage() {
 
   const [location, setLocation] = useState<GeoLocation | null>(null);
 
+  // Fetch data for sources, products and existing leads
   const channelsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'channels') : null, [firestore]);
   const { data: allChannelsRaw } = useCollection<any>(channelsQuery as any);
+
+  const productsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+  const { data: products } = useCollection<Product>(productsQuery as any);
+
+  const leadsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
+  const { data: allLeads } = useCollection<Lead>(leadsQuery as any);
+
+  const uniqueCompanies = useMemo(() => {
+    if (!allLeads) return [];
+    const companiesMap = new Map();
+    allLeads.forEach(l => {
+      if (l.companyName && !companiesMap.has(l.companyName)) {
+        companiesMap.set(l.companyName, l);
+      }
+    });
+    return Array.from(companiesMap.values());
+  }, [allLeads]);
 
   const mainChannels = useMemo(() => allChannelsRaw?.filter(c => !c.parentId) || [], [allChannelsRaw]);
   const subChannels = useMemo(() => {
@@ -68,8 +87,20 @@ export default function NewLeadPage() {
     return allChannelsRaw?.filter(c => c.parentId === parent?.id) || [];
   }, [allChannelsRaw, mainChannels, formData.firstContactChannel]);
 
-  const productsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
-  const { data: products } = useCollection<Product>(productsQuery as any);
+  const handleCompanySelect = (companyName: string) => {
+    const existing = allLeads?.find(l => l.companyName === companyName);
+    if (existing) {
+      setFormData(prev => ({
+        ...prev,
+        companyName: existing.companyName || '',
+        industry: existing.industry || '',
+        businessCountry: existing.businessCountry || 'Kenya',
+        businessCounty: existing.businessCounty || '',
+        businessRegion: existing.businessRegion || '',
+      }));
+      toast({ title: "Company Data Linked", description: `Pre-populated details from ${companyName}` });
+    }
+  };
 
   const insertFormat = (tag: string, field: 'clientBrief' | 'painPoints' | 'serviceOffering') => {
     const text = tag === 'bold' ? '**text**' : tag === 'italic' ? '_text_' : '\n- list item';
@@ -107,7 +138,7 @@ export default function NewLeadPage() {
         });
       }
       
-      toast({ title: "Record Created", description: `${clientName} successfully registered.` });
+      toast({ title: "Record Created", description: `${formData.companyName || clientName} successfully registered.` });
       router.push(`/leads/${docRef.id}`);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Submission Failed", description: error.message });
@@ -138,7 +169,22 @@ export default function NewLeadPage() {
            <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-6 space-y-8">
                  <div className="space-y-6">
-                    <div className="border-b pb-1"><h2 className="text-[12px] font-bold uppercase text-slate-400">1. Core Identity & Industry</h2></div>
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <h2 className="text-[12px] font-bold uppercase text-slate-400">1. Core Identity & Industry</h2>
+                      <div className="flex items-center gap-2">
+                        <Building2 size={12} className="text-primary" />
+                        <Select onValueChange={handleCompanySelect}>
+                          <SelectTrigger className="h-7 w-[200px] text-[10px] uppercase font-bold border-none shadow-none focus:ring-0">
+                            <SelectValue placeholder="Existing Company Lookup" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {uniqueCompanies.map(c => (
+                              <SelectItem key={c.id} value={c.companyName || ''} className="text-[12px]">{c.companyName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">First Name</Label><Input required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} /></div>
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Last Name</Label><Input required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} /></div>
@@ -149,7 +195,8 @@ export default function NewLeadPage() {
                              <SelectContent className="bg-white">{INDUSTRIES.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
                           </Select>
                        </div>
-                       <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Work Email</Label><Input required type="email" value={formData.clientEmail} onChange={e => setFormData({...formData, clientEmail: e.target.value})} /></div>
+                       <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Client Phone</Label><Input required value={formData.clientPhone} onChange={e => setFormData({...formData, clientPhone: e.target.value})} placeholder="+1..." /></div>
+                       <div className="space-y-1.5 sm:col-span-2"><Label className="text-[11px] font-bold uppercase">Work Email</Label><Input required type="email" value={formData.clientEmail} onChange={e => setFormData({...formData, clientEmail: e.target.value})} /></div>
                     </div>
                  </div>
 

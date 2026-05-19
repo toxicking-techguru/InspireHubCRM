@@ -18,7 +18,8 @@ import {
   UserPlus, 
   Plus,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Building2
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -60,10 +61,13 @@ export default function ManagerAllLeadsPage() {
     if (!leads) return [];
     return leads.filter(l => {
       const search = searchTerm.toLowerCase();
-      const matchesSearch = l.clientName.toLowerCase().includes(search) || l.clientEmail.toLowerCase().includes(search);
-      // Manager only sees their team's leads
+      const matchesSearch = 
+        (l.companyName?.toLowerCase().includes(search)) ||
+        (l.clientName.toLowerCase().includes(search)) || 
+        (l.clientEmail.toLowerCase().includes(search)) ||
+        (l.status.toLowerCase().includes(search));
+      
       const agentIds = agents?.map(a => a.id) || [];
-      // Also show manager's own leads if any
       const isOwner = l.agentId === user?.id;
       return matchesSearch && (agentIds.includes(l.agentId) || isOwner);
     });
@@ -108,8 +112,9 @@ export default function ManagerAllLeadsPage() {
 
   const exportCSV = () => {
     if (filteredLeads.length === 0) return;
-    const headers = ['Client Name', 'Email', 'Phone', 'Status', 'Agent', 'Created At'];
+    const headers = ['Company', 'Contact', 'Email', 'Phone', 'Status', 'Agent', 'Created At'];
     const rows = filteredLeads.map(l => [
+      l.companyName || 'Private',
       l.clientName,
       l.clientEmail,
       l.clientPhone,
@@ -135,10 +140,10 @@ export default function ManagerAllLeadsPage() {
         {/* Toolbar */}
         <div className="h-11 flex items-center justify-between gap-4">
           <h1 className="text-[16px] font-bold">Team Pipeline</h1>
-          <div className="flex-1 max-w-[240px] relative">
+          <div className="flex-1 max-w-[320px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
-              placeholder="Search leads..." 
+              placeholder="Search company, status, staff..." 
               className="pl-8 h-8 text-[13px] border-primary-100" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -172,14 +177,14 @@ export default function ManagerAllLeadsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-slate-50/80 border-b h-9">
+                  <tr className="bg-slate-50/80 border-b h-10">
                     <th className="w-[40px] px-3">
                       <Checkbox 
                         checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
                         onCheckedChange={handleSelectAll}
                       />
                     </th>
-                    <th className="w-[180px] text-left">Client name</th>
+                    <th className="w-[180px] text-left">Company name</th>
                     <th className="w-[140px] text-left">Agent</th>
                     <th className="w-[120px] text-left">Product</th>
                     <th className="w-[90px] text-left">Status</th>
@@ -196,7 +201,7 @@ export default function ManagerAllLeadsPage() {
                     const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
                     
                     return (
-                      <tr key={lead.id} className={cn("h-9 hover:bg-slate-50/50 group transition-colors", isIdle && "bg-amber-50/30")}>
+                      <tr key={lead.id} className={cn("h-11 hover:bg-slate-50/50 group transition-colors", isIdle && "bg-amber-50/30")}>
                         <td className="px-3">
                           <Checkbox 
                             checked={selectedLeads.includes(lead.id)}
@@ -204,8 +209,9 @@ export default function ManagerAllLeadsPage() {
                           />
                         </td>
                         <td className="font-bold text-slate-800">
-                          <div className="flex items-center gap-1.5 truncate">
-                            {lead.clientName}
+                          <div className="flex items-center gap-2 truncate">
+                            <Building2 size={12} className="text-primary/40" />
+                            {lead.companyName || 'Private Org'}
                             {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
                           </div>
                         </td>

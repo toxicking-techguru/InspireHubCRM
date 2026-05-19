@@ -59,6 +59,7 @@ export async function seedDatabase(db: Firestore) {
     const { id, ...leadData } = lead;
     await setDoc(doc(db, 'leads', id), {
       ...leadData,
+      companyName: leadData.clientName + " Group", // Ensure seeds have company names
       createdAt: leadData.createdAt || new Date().toISOString(),
       lastActivityAt: leadData.lastActivityAt || new Date().toISOString()
     });
@@ -72,7 +73,7 @@ export async function seedDatabase(db: Firestore) {
     const defaultChannels = [
       { name: 'Physical visit', sub: [] },
       { name: 'Referral', sub: ['Exiting client', 'Friend', 'Consultant', 'NGO', 'Partner', 'Auditor', 'Accountant'] },
-      { name: 'Social media', sub: ['TikTok', 'Facebook', 'Instagram', 'LinkedIn', 'X'] },
+      { name: 'Social media', sub: ['TikTok', 'Facebook', 'Instagram', 'LinkedIn', 'X', 'Website Look up'] },
       { name: 'Email', sub: [] },
       { name: 'Website Inquiry', sub: [] },
       { name: 'Partnership', sub: [] },

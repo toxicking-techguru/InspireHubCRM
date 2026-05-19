@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -18,7 +17,8 @@ import {
   UserPlus, 
   Trash2,
   AlertCircle,
-  X
+  X,
+  Building2
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -73,9 +73,11 @@ export default function AdminAllLeadsPage() {
     return leads.filter(l => {
       const search = searchTerm.toLowerCase();
       const matchesSearch = 
-        l.clientName.toLowerCase().includes(search) || 
-        l.clientEmail.toLowerCase().includes(search) ||
-        allAgents?.find(a => a.id === l.agentId)?.name.toLowerCase().includes(search);
+        (l.companyName?.toLowerCase().includes(search)) ||
+        (l.clientName.toLowerCase().includes(search)) || 
+        (l.clientEmail.toLowerCase().includes(search)) ||
+        (l.status.toLowerCase().includes(search)) ||
+        (allAgents?.find(a => a.id === l.agentId)?.name.toLowerCase().includes(search));
       return matchesSearch;
     });
   }, [leads, searchTerm, allAgents]);
@@ -123,7 +125,6 @@ export default function AdminAllLeadsPage() {
     try {
       const batch = writeBatch(firestore);
       for (const leadId of selectedLeads) {
-        // We delete the lead. In a full system, you'd also purge activities subcollection
         const ref = doc(firestore, 'leads', leadId);
         batch.delete(ref);
       }
@@ -140,11 +141,12 @@ export default function AdminAllLeadsPage() {
 
   const exportCSV = () => {
     if (filteredLeads.length === 0) return;
-    const headers = ['Client Name', 'Email', 'Phone', 'Status', 'Agent', 'Manager', 'Created At'];
+    const headers = ['Company', 'Contact Person', 'Email', 'Phone', 'Status', 'Agent', 'Manager', 'Created At'];
     const rows = filteredLeads.map(l => {
       const agent = allAgents?.find(a => a.id === l.agentId);
       const manager = allAgents?.find(a => a.id === agent?.managerId);
       return [
+        l.companyName || 'Private',
         l.clientName,
         l.clientEmail,
         l.clientPhone,
@@ -172,10 +174,10 @@ export default function AdminAllLeadsPage() {
         {/* Toolbar */}
         <div className="h-11 flex items-center justify-between gap-4">
           <h1 className="text-[16px] font-bold text-primary-900">System-Wide Leads</h1>
-          <div className="flex-1 max-w-[280px] relative">
+          <div className="flex-1 max-w-[320px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
-              placeholder="Search leads, email or agent..." 
+              placeholder="Search company, status, staff..." 
               className="pl-8 h-8 text-[13px] border-primary-100" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -241,16 +243,16 @@ export default function AdminAllLeadsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="bg-slate-50 border-b h-9">
+                  <tr className="bg-slate-50 border-b h-10">
                     <th className="w-[40px] px-3">
                       <Checkbox 
                         checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
                         onCheckedChange={handleSelectAll}
                       />
                     </th>
-                    <th className="w-[180px] text-left">Client name</th>
+                    <th className="w-[180px] text-left">Company name</th>
+                    <th className="w-[140px] text-left">Contact person</th>
                     <th className="w-[140px] text-left">Agent</th>
-                    <th className="w-[140px] text-left">Manager</th>
                     <th className="w-[120px] text-left">Product</th>
                     <th className="w-[90px] text-left">Status</th>
                     <th className="w-[110px] text-left">Last activity</th>
@@ -261,12 +263,11 @@ export default function AdminAllLeadsPage() {
                 <tbody className="divide-y">
                   {filteredLeads.map((lead) => {
                     const agent = allAgents?.find(a => a.id === lead.agentId);
-                    const manager = allAgents?.find(a => a.id === agent?.managerId);
                     const days = Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24));
                     const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
                     
                     return (
-                      <tr key={lead.id} className={cn("h-10 hover:bg-primary-50/30 group transition-colors", isIdle && "bg-amber-50/30")}>
+                      <tr key={lead.id} className={cn("h-11 hover:bg-primary-50/30 group transition-colors", isIdle && "bg-amber-50/30")}>
                         <td className="px-3">
                           <Checkbox 
                             checked={selectedLeads.includes(lead.id)}
@@ -274,21 +275,17 @@ export default function AdminAllLeadsPage() {
                           />
                         </td>
                         <td className="font-bold text-slate-800">
-                          <div className="flex items-center gap-1.5 truncate">
-                            {lead.clientName}
+                          <div className="flex items-center gap-2 truncate">
+                            <Building2 size={12} className="text-primary/50" />
+                            {lead.companyName || 'Private Org'}
                             {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
                           </div>
                         </td>
+                        <td className="text-slate-600 font-medium">{lead.clientName}</td>
                         <td>
                           <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded bg-primary-50 text-primary-700 flex items-center justify-center text-[9px] font-bold border border-primary-100">
-                              {agent?.name.split(' ').map(n => n[0]).join('') || '??'}
-                            </div>
                             <span className="text-slate-600 truncate">{agent?.name || 'Unassigned'}</span>
                           </div>
-                        </td>
-                        <td className="text-slate-500 italic">
-                           {manager?.name || '--'}
                         </td>
                         <td className="text-[12px] text-slate-600 truncate">
                            {products?.find(p => p.id === lead.productId)?.name || 'Standard'}

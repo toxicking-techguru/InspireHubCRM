@@ -15,7 +15,8 @@ import {
   MoreVertical,
   AlertCircle,
   Loader2,
-  X
+  X,
+  Building2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -51,8 +52,11 @@ export default function LeadsPage() {
       .filter(lead => {
         const matchesAgent = user.role !== 'Agent' || lead.agentId === user.id;
         const search = searchTerm.toLowerCase();
-        const matchesSearch = lead.clientName.toLowerCase().includes(search) || 
-                             lead.clientEmail.toLowerCase().includes(search);
+        const matchesSearch = 
+          (lead.companyName?.toLowerCase().includes(search)) ||
+          (lead.clientName.toLowerCase().includes(search)) || 
+          (lead.clientEmail.toLowerCase().includes(search)) ||
+          (lead.status.toLowerCase().includes(search));
         return matchesAgent && matchesSearch;
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -64,10 +68,10 @@ export default function LeadsPage() {
         {/* Toolbar Row 44px */}
         <div className="h-11 flex items-center justify-between gap-4">
           <h1 className="text-[16px] font-bold shrink-0">My leads</h1>
-          <div className="flex-1 max-w-[240px] relative">
+          <div className="flex-1 max-w-[320px] relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
             <Input 
-              placeholder="Search leads..." 
+              placeholder="Search company, status, person..." 
               className="pl-8 h-8 text-[13px] bg-white" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -142,11 +146,11 @@ export default function LeadsPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-900 border-b h-9">
-                    <th className="w-[180px] px-3 text-[12px] font-semibold text-left">Client name</th>
+                    <th className="w-[180px] px-3 text-[12px] font-semibold text-left">Company name</th>
+                    <th className="w-[140px] text-[12px] font-semibold text-left">Primary contact</th>
                     <th className="w-[120px] text-[12px] font-semibold text-left">Phone</th>
                     <th className="w-[140px] text-[12px] font-semibold text-left">Product</th>
                     <th className="w-[90px] text-[12px] font-semibold text-left">Status</th>
-                    <th className="w-[100px] text-[12px] font-semibold text-left">Channel</th>
                     <th className="w-[110px] text-[12px] font-semibold text-left">Last activity</th>
                     <th className="w-[60px] text-[12px] font-semibold text-left">Days</th>
                     <th className="w-[80px] px-3 text-[12px] font-semibold text-right">Actions</th>
@@ -158,19 +162,24 @@ export default function LeadsPage() {
                     const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
                     
                     return (
-                      <tr key={lead.id} className="h-9 hover:bg-slate-50/50 transition-colors group">
+                      <tr key={lead.id} className="h-11 hover:bg-slate-50/50 transition-colors group">
                         <td className="px-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[13px] font-medium truncate">{lead.clientName}</span>
-                            {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-primary/5 rounded border border-primary/10">
+                              <Building2 size={14} className="text-primary" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[13px] font-bold truncate text-slate-800">{lead.companyName || 'Private Organization'}</span>
+                              {isIdle && <span className="text-[8px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase w-max">Idle</span>}
+                            </div>
                           </div>
                         </td>
-                        <td className="text-[13px] text-slate-500">{lead.clientPhone}</td>
+                        <td className="text-[13px] text-slate-600 font-medium">{lead.clientName}</td>
+                        <td className="text-[13px] text-slate-500 font-mono">{lead.clientPhone || '--'}</td>
                         <td className="text-[13px] truncate">
                            {products?.find(p => p.id === lead.productId)?.name || 'Standard'}
                         </td>
                         <td><StatusBadge status={lead.status} /></td>
-                        <td className="text-[12px] text-slate-500">{lead.firstContactChannel}</td>
                         <td className="text-[12px] text-slate-500">
                           {lead.lastActivityAt ? formatDistanceToNow(new Date(lead.lastActivityAt)) + ' ago' : 'Never'}
                         </td>
@@ -182,7 +191,7 @@ export default function LeadsPage() {
                         </td>
                         <td className="px-3 text-right">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Link href={`/leads/${lead.id}`} className="text-[12px] text-primary hover:underline font-medium">View</Link>
+                            <Link href={`/leads/${lead.id}`} className="text-[12px] text-primary hover:underline font-bold uppercase tracking-tight">View</Link>
                             <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical size={12} /></Button>
                           </div>
                         </td>
@@ -197,18 +206,14 @@ export default function LeadsPage() {
           {!leadsLoading && filteredLeads.length === 0 && (
             <div className="py-10 flex flex-col items-center justify-center text-center px-4">
               <AlertCircle size={32} className="text-slate-200 mb-2" />
-              <p className="text-[13px] font-medium">No leads yet</p>
-              <Button size="sm" variant="outline" className="mt-3 h-8 text-[12px]" onClick={() => router.push('/leads/new')}>Add lead</Button>
+              <p className="text-[13px] font-medium">No leads match your search</p>
+              <Button size="sm" variant="outline" className="mt-3 h-8 text-[12px]" onClick={() => setSearchTerm('')}>Clear Search</Button>
             </div>
           )}
 
           <div className="p-3 border-t bg-slate-50/30 flex items-center justify-between text-[12px] text-muted-foreground">
-             <span>Showing {filteredLeads.length} of {rawLeads?.length || 0}</span>
+             <span>Showing {filteredLeads.length} of {rawLeads?.length || 0} records</span>
              <div className="flex items-center gap-2">
-                <select className="bg-transparent border rounded px-1 h-6">
-                  <option>20 rows</option>
-                  <option>50 rows</option>
-                </select>
                 <div className="flex gap-1">
                    <Button variant="outline" size="sm" className="h-6 px-2 text-[11px]" disabled>Prev</Button>
                    <Button variant="outline" size="sm" className="h-6 px-2 text-[11px]" disabled>Next</Button>
