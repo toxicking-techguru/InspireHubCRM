@@ -21,12 +21,14 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminCommissionsPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   // Data Fetching
   const commissionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'commissions'), orderBy('createdAt', 'desc')) : null, [firestore]);
@@ -81,14 +83,14 @@ export default function AdminCommissionsPage() {
         actionType: 'APPROVE_COMMISSION',
         entityType: 'Commission',
         entityId: commission.id,
-        remark: `Approved commission of $${commission.amount.toLocaleString()} for ${agents?.find(a => a.id === commission.agentId)?.name}`,
+        remark: `Approved commission of ${currencySymbol}${commission.amount.toLocaleString()} for ${agents?.find(a => a.id === commission.agentId)?.name}`,
         newValue: { status: 'approved', amount: commission.amount }
       });
 
       await batch.commit();
       toast({ 
         title: "Commission Approved", 
-        description: `$${commission.amount.toLocaleString()} released to ${agents?.find(a => a.id === commission.agentId)?.name}'s withdrawable balance.` 
+        description: `${currencySymbol}${commission.amount.toLocaleString()} released to ${agents?.find(a => a.id === commission.agentId)?.name}'s withdrawable balance.` 
       });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Approval Failed", description: e.message });
@@ -118,7 +120,7 @@ export default function AdminCommissionsPage() {
            </div>
            <div className="bg-primary-50 border border-primary-100 p-3 rounded-md shadow-sm">
               <p className="text-[10px] font-bold uppercase text-primary-500 mb-1">Total to Release</p>
-              <p className="text-[20px] font-bold text-primary-950">${pendingAmount.toLocaleString()}</p>
+              <p className="text-[20px] font-bold text-primary-950">{currencySymbol}{pendingAmount.toLocaleString()}</p>
            </div>
         </div>
 
@@ -166,10 +168,10 @@ export default function AdminCommissionsPage() {
                                 </div>
                              </td>
                              <td className="font-medium text-slate-700">{c.clientName || 'Private Lead'}</td>
-                             <td className="text-right text-slate-500">${c.dealAmount?.toLocaleString() || '0'}</td>
+                             <td className="text-right text-slate-500">{currencySymbol}{c.dealAmount?.toLocaleString() || '0'}</td>
                              <td className="text-right font-bold text-primary-700">
                                 <div className="flex flex-col">
-                                   <span>${c.amount.toLocaleString()}</span>
+                                   <span>{currencySymbol}{c.amount.toLocaleString()}</span>
                                    <span className="text-[9px] text-primary-400 font-bold uppercase">{c.commissionPct}% Rate</span>
                                 </div>
                              </td>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -21,11 +20,12 @@ import { cn } from '@/lib/utils';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
 export default function TargetsPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   // Fetch target for selected month
   const targetQuery = useMemoFirebase(() => {
@@ -96,7 +96,7 @@ export default function TargetsPage() {
     { name: 'Leads Created', actual: actuals.created, target: currentTarget?.leadsTarget || 10 },
     { name: 'Partners Set', actual: actuals.partners, target: currentTarget?.partnersTarget || 2 },
     { name: 'Closed Deals', actual: actuals.won, target: currentTarget?.closedTarget || 2 },
-    { name: 'Revenue ($)', actual: actuals.revenue, target: currentTarget?.revenueTarget || 5000, isCurrency: true },
+    { name: `Revenue (${currencySymbol.trim()})`, actual: actuals.revenue, target: currentTarget?.revenueTarget || 5000, isCurrency: true },
     { name: 'Activity Score', actual: actuals.activity, target: currentTarget?.activityScoreTarget || 80 },
   ];
 
@@ -136,7 +136,7 @@ export default function TargetsPage() {
                 <p className="text-[11px] font-bold uppercase text-slate-400 tracking-tight">{metric.name}</p>
                 <div className="flex items-baseline justify-between">
                   <p className="text-[18px] font-bold">
-                    {metric.isCurrency ? `${metric.actual.toLocaleString()}` : metric.actual}
+                    {metric.isCurrency ? `${currencySymbol}${metric.actual.toLocaleString()}` : metric.actual}
                     <span className="text-[11px] text-slate-300 font-normal"> / {metric.target}</span>
                   </p>
                   <span className={cn("text-[11px] font-bold", statusColor)}>{percent}%</span>
@@ -175,7 +175,7 @@ export default function TargetsPage() {
                         <td className="text-center">{h.leadsTarget}</td>
                         <td className="text-center">{h.partnersTarget || 0}</td>
                         <td className="text-center font-bold text-primary">{h.closedTarget}</td>
-                        <td className="text-right">${h.revenueTarget?.toLocaleString()}</td>
+                        <td className="text-right">{currencySymbol}{h.revenueTarget?.toLocaleString()}</td>
                         <td className="text-center text-slate-500">{h.activityScoreTarget}%</td>
                         <td className="px-4 text-right">
                            <Badge className="bg-emerald-50 text-emerald-700 border-none text-[9px] uppercase px-1.5 h-4">Achieved</Badge>

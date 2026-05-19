@@ -18,9 +18,11 @@ import { ArrowRight, Users, Target, TrendingUp, AlertTriangle, Calendar } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ManagerDashboard() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   // Fetch all agents and leads to filter in memory
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
@@ -60,11 +62,11 @@ export default function ManagerDashboard() {
       { label: 'Team Accounts', value: teamAgents.length, icon: Users },
       { label: 'Active Pipeline', value: activeLeads, icon: Target },
       { label: 'Won in Period', value: wonThisMonth, icon: TrendingUp },
-      { label: 'Total Revenue', value: `$${(totalRevenue / 1000).toFixed(1)}k`, icon: TrendingUp },
+      { label: 'Total Revenue', value: `${currencySymbol}${(totalRevenue / 1000).toFixed(1)}k`, icon: TrendingUp },
       { label: 'Conversion', value: teamLeads.length > 0 ? Math.round((teamLeads.filter(l => l.status === 'won').length / teamLeads.length) * 100) + '%' : '0%', icon: TrendingUp },
       { label: 'Critical Idle', value: idleCount, isWarning: idleCount > 0, icon: AlertTriangle },
     ];
-  }, [teamLeads, teamAgents, leadsLoading, agentsLoading, selectedMonth]);
+  }, [teamLeads, teamAgents, leadsLoading, agentsLoading, selectedMonth, currencySymbol]);
 
   const performanceData = useMemo(() => {
     if (teamAgents.length === 0 || teamLeads.length === 0) return [];
@@ -158,7 +160,7 @@ export default function ManagerDashboard() {
                         </td>
                         <td className="text-center">{p.leadsCount}</td>
                         <td className="text-center font-bold text-emerald-600">{p.won}</td>
-                        <td className="text-right font-medium">${p.revenue.toLocaleString()}</td>
+                        <td className="text-right font-medium">{currencySymbol}{p.revenue.toLocaleString()}</td>
                         <td className="text-center">
                           <Badge variant="outline" className="text-[10px] h-4 font-bold border-primary/10 text-primary">{p.conversion}%</Badge>
                         </td>

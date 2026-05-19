@@ -32,7 +32,7 @@ const INDUSTRIES = ["Technology", "Healthcare", "Finance", "Education", "Manufac
 
 export default function NewLeadPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -58,6 +58,7 @@ export default function NewLeadPage() {
     serviceOffering: ''
   });
 
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
   const [location, setLocation] = useState<GeoLocation | null>(null);
 
   // Fetch data for sources, products and existing leads
@@ -203,7 +204,7 @@ export default function NewLeadPage() {
                  <div className="space-y-6">
                     <div className="border-b pb-1"><h2 className="text-[12px] font-bold uppercase text-slate-400">2. Qualification & Context</h2></div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Estimated Budget ($)</Label><Input type="number" placeholder="0.00" value={formData.estimatedBudget} onChange={e => setFormData({...formData, estimatedBudget: e.target.value})} /></div>
+                       <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Estimated Budget ({currencySymbol.trim()})</Label><Input type="number" placeholder="0.00" value={formData.estimatedBudget} onChange={e => setFormData({...formData, estimatedBudget: e.target.value})} /></div>
                        <div className="space-y-1.5"><Label className="text-[11px] font-bold uppercase">Target Product</Label>
                           <Select value={formData.productId} onValueChange={v => setFormData({...formData, productId: v})}>
                              <SelectTrigger className="h-9"><SelectValue placeholder="Select Product"/></SelectTrigger>

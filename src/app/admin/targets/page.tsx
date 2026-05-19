@@ -24,7 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function AdminTargetsPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -33,6 +33,7 @@ export default function AdminTargetsPage() {
   const [saving, setSaving] = useState(false);
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   const agentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -128,7 +129,7 @@ export default function AdminTargetsPage() {
             </h1>
             <p className="text-[12px] text-muted-foreground mt-0.5">Define sales and partner quotas for operational staff.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
                <SelectTrigger className="h-9 w-[240px] text-[12px] bg-white">
                  <SelectValue placeholder="Search team member..." />
@@ -169,7 +170,7 @@ export default function AdminTargetsPage() {
                        { id: 'partnersTarget', label: 'Partners' },
                        { id: 'qualifiedTarget', label: 'Qualification' },
                        { id: 'closedTarget', label: 'Deals Won' },
-                       { id: 'revenueTarget', label: 'Revenue ($)' },
+                       { id: 'revenueTarget', label: `Revenue (${currencySymbol.trim()})` },
                        { id: 'activityScoreTarget', label: 'Activity %' },
                      ].map(field => (
                        <div key={field.id} className="space-y-1.5">
@@ -177,8 +178,11 @@ export default function AdminTargetsPage() {
                           <Input 
                             type="number" 
                             className="h-8 text-[13px] bg-slate-50" 
-                            value={(formData as any)[field.id]}
-                            onChange={(e) => setFormData({...formData, [field.id]: parseFloat(e.target.value) || 0})}
+                            value={(formData as any)[field.id.split(' ')[0]]} // Handle currency label splitting
+                            onChange={(e) => {
+                              const key = field.id.startsWith('revenue') ? 'revenueTarget' : field.id;
+                              setFormData({...formData, [key as any]: parseFloat(e.target.value) || 0})
+                            }}
                           />
                        </div>
                      ))}
@@ -213,7 +217,7 @@ export default function AdminTargetsPage() {
                             <td className="text-center">{h.leadsTarget}</td>
                             <td className="text-center">{h.partnersTarget || 0}</td>
                             <td className="text-center font-bold text-primary">{h.closedTarget}</td>
-                            <td className="text-right font-medium">${h.revenueTarget.toLocaleString()}</td>
+                            <td className="text-right font-medium">{currencySymbol}{h.revenueTarget.toLocaleString()}</td>
                             <td className="text-right px-4 text-slate-500">{h.activityScoreTarget}%</td>
                           </tr>
                         ))}
@@ -238,7 +242,7 @@ export default function AdminTargetsPage() {
                      <div className="p-3 bg-white rounded border border-primary-100 text-[12px] space-y-2">
                         <div className="flex justify-between"><span>Leads Goal:</span> <b className="text-primary">{formData.leadsTarget}</b></div>
                         <div className="flex justify-between"><span>Partners Goal:</span> <b className="text-primary">{formData.partnersTarget}</b></div>
-                        <div className="flex justify-between"><span>Revenue Goal:</span> <b className="text-primary">${formData.revenueTarget.toLocaleString()}</b></div>
+                        <div className="flex justify-between"><span>Revenue Goal:</span> <b className="text-primary">{currencySymbol}{formData.revenueTarget.toLocaleString()}</b></div>
                      </div>
                      <p className="text-[11px] text-primary-600 leading-tight italic">
                         Targets set here are immediately visible to the agent and used for monthly evaluation.

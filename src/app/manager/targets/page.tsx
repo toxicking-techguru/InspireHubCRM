@@ -26,7 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function ManagerTargetsPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -35,6 +35,7 @@ export default function ManagerTargetsPage() {
   const [saving, setSaving] = useState(false);
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   const agentsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -182,7 +183,7 @@ export default function ManagerTargetsPage() {
                        { id: 'partnersTarget', label: 'Partner Accounts' },
                        { id: 'qualifiedTarget', label: 'Qualified Target' },
                        { id: 'closedTarget', label: 'Closed Deals' },
-                       { id: 'revenueTarget', label: 'Revenue ($)' },
+                       { id: 'revenueTarget', label: `Revenue (${currencySymbol.trim()})` },
                        { id: 'activityScoreTarget', label: 'Activity Score' },
                      ].map(field => (
                        <div key={field.id} className="space-y-1.5">
@@ -190,8 +191,11 @@ export default function ManagerTargetsPage() {
                           <Input 
                             type="number" 
                             className="h-8 text-[13px]" 
-                            value={(formData as any)[field.id]}
-                            onChange={(e) => setFormData({...formData, [field.id]: parseFloat(e.target.value) || 0})}
+                            value={(formData as any)[field.id.split(' ')[0]]}
+                            onChange={(e) => {
+                              const key = field.id.startsWith('revenue') ? 'revenueTarget' : field.id;
+                              setFormData({...formData, [key as any]: parseFloat(e.target.value) || 0})
+                            }}
                           />
                        </div>
                      ))}
@@ -226,7 +230,7 @@ export default function ManagerTargetsPage() {
                             <td className="text-center">{h.leadsTarget}</td>
                             <td className="text-center">{h.partnersTarget || 0}</td>
                             <td className="text-center font-bold">{h.closedTarget}</td>
-                            <td className="text-right">${h.revenueTarget.toLocaleString()}</td>
+                            <td className="text-right">{currencySymbol}{h.revenueTarget.toLocaleString()}</td>
                             <td className="text-right px-3">{h.activityScoreTarget}</td>
                           </tr>
                         ))}
@@ -266,7 +270,7 @@ export default function ManagerTargetsPage() {
                                <div className="h-full bg-cyan-600 transition-all duration-700" style={{ width: `${pct}%` }}></div>
                             </div>
                             <p className="text-[10px] text-slate-400 text-right">
-                              {p.isCurrency ? `$${p.val.toLocaleString()}` : p.val} / {p.isCurrency ? `$${p.target.toLocaleString()}` : p.target}
+                              {p.isCurrency ? `${currencySymbol}${p.val.toLocaleString()}` : p.val} / {p.isCurrency ? `${currencySymbol}${p.target.toLocaleString()}` : p.target}
                             </p>
                          </div>
                        );

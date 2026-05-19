@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -11,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend, AreaChart, Area 
 } from 'recharts';
-import { Download, Loader2, Clock, Zap, Target as TargetIcon, BarChart3 } from 'lucide-react';
+import { Download, Loader2, Clock, Zap, Target as TargetIcon, BarChart3, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,10 +22,13 @@ import { useToast } from '@/hooks/use-toast';
 const COLORS = ['#1B48A3', '#2579C8', '#164978', '#0E3050', '#071828', '#3377cf'];
 
 export default function ManagerReportsPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState('3m');
+  const [selectedAgentId, setSelectedAgentId] = useState('all');
+
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
   const { data: allAgents, loading: agentsLoading } = useCollection<Agent>(agentsQuery as any);
@@ -48,14 +50,18 @@ export default function ManagerReportsPage() {
   const teamLeads = useMemo(() => {
     if (!allLeads || teamAgents.length === 0) return [];
     const agentIds = teamAgents.map(a => a.id);
-    return allLeads.filter(l => agentIds.includes(l.agentId));
-  }, [allLeads, teamAgents]);
+    const leads = allLeads.filter(l => agentIds.includes(l.agentId));
+    if (selectedAgentId === 'all') return leads;
+    return leads.filter(l => l.agentId === selectedAgentId);
+  }, [allLeads, teamAgents, selectedAgentId]);
 
   const teamActivities = useMemo(() => {
     if (!allActivities || teamAgents.length === 0) return [];
     const agentIds = teamAgents.map(a => a.id);
-    return allActivities.filter(a => agentIds.includes(a.agentId));
-  }, [allActivities, teamAgents]);
+    const acts = allActivities.filter(a => agentIds.includes(a.agentId));
+    if (selectedAgentId === 'all') return acts;
+    return acts.filter(a => a.agentId === selectedAgentId);
+  }, [allActivities, teamAgents, selectedAgentId]);
 
   const dailyEngagementData = useMemo(() => {
     const last14Days = Array.from({ length: 14 }).map((_, i) => {
@@ -103,7 +109,7 @@ export default function ManagerReportsPage() {
     if (!targets || teamAgents.length === 0) return [];
     const currentMonthStr = format(new Date(), 'yyyy-MM');
     const teamAgentIds = teamAgents.map(a => a.id);
-    const monthTargets = targets.filter(t => t.month === currentMonthStr && teamAgentIds.includes(t.agentId));
+    const monthTargets = targets.filter(t => t.month === currentMonthStr && teamAgentIds.includes(t.agentId) && (selectedAgentId === 'all' || t.agentId === selectedAgentId));
     
     return monthTargets.map(t => {
       const agent = teamAgents.find(a => a.id === t.agentId);
@@ -116,7 +122,7 @@ export default function ManagerReportsPage() {
         pct: t.revenueTarget > 0 ? Math.round((actualRevenue / t.revenueTarget) * 100) : 0
       };
     }).sort((a,b) => b.pct - a.pct);
-  }, [targets, teamLeads, teamAgents]);
+  }, [targets, teamLeads, teamAgents, selectedAgentId]);
 
   const sourceData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -141,7 +147,21 @@ export default function ManagerReportsPage() {
             <h1 className="text-[18px] font-bold text-slate-900 flex items-center gap-2"><BarChart3 size={20} className="text-primary" /> Dynamic Team Analytics</h1>
             <p className="text-[12px] text-muted-foreground">Aggregated performance and activity metrics for your team accounts.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 bg-white border rounded-lg px-2 h-8">
+               <User size={14} className="text-slate-400" />
+               <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                 <SelectTrigger className="h-7 w-[160px] border-none text-[12px] focus:ring-0 shadow-none">
+                    <SelectValue placeholder="All Agents" />
+                 </SelectTrigger>
+                 <SelectContent className="bg-white">
+                    <SelectItem value="all">Entire Team</SelectItem>
+                    {teamAgents.filter(a => a.role === 'Agent').map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                 </SelectContent>
+               </Select>
+            </div>
             <Select value={dateRange} onValueChange={setDateRange}>
               <SelectTrigger className="h-8 w-[140px] text-[12px] bg-white">
                 <SelectValue />
@@ -175,7 +195,7 @@ export default function ManagerReportsPage() {
                     <BarChart data={revenueData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={11} />
-                      <YAxis axisLine={false} tickLine={false} fontSize={11} tickFormatter={v => `$${v/1000}k`} />
+                      <YAxis axisLine={false} tickLine={false} fontSize={11} tickFormatter={v => `${currencySymbol}${v/1000}k`} />
                       <Tooltip cursor={{ fill: '#f8fafc' }} />
                       <Bar dataKey="revenue" fill="#1B48A3" radius={[2, 2, 0, 0]} barSize={40} />
                     </BarChart>
@@ -215,7 +235,7 @@ export default function ManagerReportsPage() {
                         <div className="flex justify-between items-end">
                            <div>
                               <p className="text-[13px] font-bold text-slate-800">{p.name}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">Goal: ${p.target.toLocaleString()}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">Goal: {currencySymbol}{p.target.toLocaleString()}</p>
                            </div>
                            <span className={cn("text-[14px] font-bold", p.pct >= 100 ? "text-emerald-600" : "text-primary")}>{p.pct}%</span>
                         </div>
@@ -266,7 +286,7 @@ export default function ManagerReportsPage() {
                               <tr key={i} className="h-10 hover:bg-slate-50">
                                 <td className="px-3 font-bold text-slate-700">{sub}</td>
                                 <td className="text-center text-slate-500">{subLeads.length}</td>
-                                <td className="text-right px-3 font-bold text-primary">${rev.toLocaleString()}</td>
+                                <td className="text-right px-3 font-bold text-primary">{currencySymbol}{rev.toLocaleString()}</td>
                               </tr>
                             );
                           })}

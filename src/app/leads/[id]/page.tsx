@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -41,9 +40,11 @@ const ACTIVITY_TYPES: ActivityType[] = [
 
 export default function LeadDetailPage() {
   const { id } = useParams();
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const { toast } = useToast();
   const firestore = useFirestore();
+
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   const leadRef = useMemoFirebase(() => id && firestore ? doc(firestore, 'leads', id as string) : null, [id, firestore]);
   const { data: lead, loading: leadLoading } = useDoc<Lead>(leadRef as any);
@@ -187,7 +188,7 @@ export default function LeadDetailPage() {
                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                           <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Industry</Label><p className="font-bold text-slate-800 truncate">{lead.industry || '--'}</p></div>
                           <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Territory</Label><p className="font-bold text-slate-800 truncate">{lead.businessRegion || 'Global'}</p></div>
-                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Budget</Label><p className="font-bold text-primary text-lg">${lead.estimatedBudget?.toLocaleString() || '0'}</p></div>
+                          <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Budget</Label><p className="font-bold text-primary text-lg">{currencySymbol}{lead.estimatedBudget?.toLocaleString() || '0'}</p></div>
                        </div>
                        <div className="space-y-6 pt-6 border-t">
                           <div className="space-y-1.5">
@@ -403,9 +404,9 @@ export default function LeadDetailPage() {
           
           <div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
              <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Estimated Project Budget ($)</Label>
+                <Label className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Estimated Project Budget ({currencySymbol.trim()})</Label>
                 <div className="relative">
-                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold">$</span>
+                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold">{currencySymbol}</span>
                    <Input type="number" value={editData.estimatedBudget} onChange={e => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} className="pl-7 bg-white font-extrabold text-primary text-lg h-11 border-primary/20 focus:border-primary" />
                 </div>
              </div>
