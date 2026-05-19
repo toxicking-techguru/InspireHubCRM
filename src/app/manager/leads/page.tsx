@@ -28,6 +28,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function ManagerAllLeadsPage() {
   const { user } = useAuthStore();
@@ -87,6 +88,12 @@ export default function ManagerAllLeadsPage() {
     );
   };
 
+  const truncate = (str: string, len: number = 8) => {
+    if (!str) return '--';
+    if (str.length <= len) return str;
+    return str.slice(0, len) + '...';
+  };
+
   const handleBulkReassign = async () => {
     if (!firestore || !targetAgentId || selectedLeads.length === 0) return;
     setIsProcessing(true);
@@ -136,163 +143,192 @@ export default function ManagerAllLeadsPage() {
 
   return (
     <Shell>
-      <div className="space-y-4">
-        {/* Toolbar */}
-        <div className="h-11 flex items-center justify-between gap-4">
-          <h1 className="text-[16px] font-bold">Team Pipeline</h1>
-          <div className="flex-1 max-w-[320px] relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-            <Input 
-              placeholder="Search company, status, staff..." 
-              className="pl-8 h-8 text-[13px] border-primary-100" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            {selectedLeads.length > 0 && (
-              <Button size="sm" className="h-8 text-[12px] bg-primary hover:bg-primary/90 gap-2" onClick={() => setIsReassignModalOpen(true)}>
-                <UserPlus size={14} /> Reassign ({selectedLeads.length})
-              </Button>
-            )}
-            <Link href="/leads/new">
-              <Button size="sm" className="h-8 text-[12px] gap-2 bg-primary hover:bg-primary/90">
-                <Plus size={14} /> Add Lead
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-primary-100 text-primary-700" onClick={exportCSV}>
-              <Download size={14} /> Export CSV
-            </Button>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="bg-card border rounded-md shadow-sm overflow-hidden border-primary-50">
-          {leadsLoading ? (
-            <div className="py-20 flex flex-col items-center">
-              <Loader2 className="animate-spin text-primary mb-2" />
-              <p className="text-[13px] text-muted-foreground">Syncing team pipeline...</p>
+      <TooltipProvider>
+        <div className="space-y-4">
+          {/* Toolbar */}
+          <div className="h-11 flex items-center justify-between gap-4">
+            <h1 className="text-[16px] font-bold">Team Pipeline</h1>
+            <div className="flex-1 max-w-[320px] relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+              <Input 
+                placeholder="Search company, status, staff..." 
+                className="pl-8 h-8 text-[13px] border-primary-100" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b h-10">
-                    <th className="w-[40px] px-3">
-                      <Checkbox 
-                        checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
-                        onCheckedChange={handleSelectAll}
-                      />
-                    </th>
-                    <th className="w-[180px] text-left">Company name</th>
-                    <th className="w-[140px] text-left">Agent</th>
-                    <th className="w-[120px] text-left">Product</th>
-                    <th className="w-[90px] text-left">Status</th>
-                    <th className="w-[110px] text-left">Last activity</th>
-                    <th className="w-[60px] text-left">Days</th>
-                    <th className="text-right px-3 w-[80px]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredLeads.map((lead) => {
-                    const agent = agents?.find(a => a.id === lead.agentId);
-                    const isManagerOwn = lead.agentId === user.id;
-                    const days = Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-                    const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
-                    
-                    return (
-                      <tr key={lead.id} className={cn("h-11 hover:bg-slate-50/50 group transition-colors", isIdle && "bg-amber-50/30")}>
-                        <td className="px-3">
-                          <Checkbox 
-                            checked={selectedLeads.includes(lead.id)}
-                            onCheckedChange={() => toggleLeadSelection(lead.id)}
-                          />
-                        </td>
-                        <td className="font-bold text-slate-800">
-                          <div className="flex items-center gap-2 truncate">
-                            <Building2 size={12} className="text-primary/40" />
-                            {lead.companyName || 'Private Org'}
-                            {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="flex items-center gap-2">
-                            <div className={cn(
-                              "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold",
-                              isManagerOwn ? "bg-primary text-white" : "bg-slate-100 text-slate-600"
-                            )}>
-                              {isManagerOwn ? 'ME' : (agent?.name.split(' ').map(n => n[0]).join('') || '??')}
+            <div className="flex items-center gap-2">
+              {selectedLeads.length > 0 && (
+                <Button size="sm" className="h-8 text-[12px] bg-primary hover:bg-primary/90 gap-2" onClick={() => setIsReassignModalOpen(true)}>
+                  <UserPlus size={14} /> Reassign ({selectedLeads.length})
+                </Button>
+              )}
+              <Link href="/leads/new">
+                <Button size="sm" className="h-8 text-[12px] gap-2 bg-primary hover:bg-primary/90">
+                  <Plus size={14} /> Add Lead
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-primary-100 text-primary-700" onClick={exportCSV}>
+                <Download size={14} /> Export CSV
+              </Button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-card border rounded-md shadow-sm overflow-hidden border-primary-50">
+            {leadsLoading ? (
+              <div className="py-20 flex flex-col items-center">
+                <Loader2 className="animate-spin text-primary mb-2" />
+                <p className="text-[13px] text-muted-foreground">Syncing team pipeline...</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b h-10">
+                      <th className="w-[40px] px-3">
+                        <Checkbox 
+                          checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </th>
+                      <th className="w-[180px] text-left">Company name</th>
+                      <th className="w-[140px] text-left">Agent</th>
+                      <th className="w-[120px] text-left">Product</th>
+                      <th className="w-[90px] text-left">Status</th>
+                      <th className="w-[110px] text-left">Last activity</th>
+                      <th className="w-[60px] text-left">Days</th>
+                      <th className="text-right px-3 w-[80px]">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredLeads.map((lead) => {
+                      const agent = agents?.find(a => a.id === lead.agentId);
+                      const isManagerOwn = lead.agentId === user.id;
+                      const days = Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                      const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
+                      const productName = products?.find(p => p.id === lead.productId)?.name || 'Standard';
+                      const agentName = isManagerOwn ? 'Self (Manager)' : (agent?.name || 'Unassigned');
+                      const lastActivityStr = lead.lastActivityAt ? formatDistanceToNow(new Date(lead.lastActivityAt)) + ' ago' : 'Never';
+                      
+                      return (
+                        <tr key={lead.id} className={cn("h-11 hover:bg-slate-50/50 group transition-colors", isIdle && "bg-amber-50/30")}>
+                          <td className="px-3">
+                            <Checkbox 
+                              checked={selectedLeads.includes(lead.id)}
+                              onCheckedChange={() => toggleLeadSelection(lead.id)}
+                            />
+                          </td>
+                          <td className="font-bold text-slate-800">
+                            <div className="flex items-center gap-2 truncate">
+                              <Building2 size={12} className="text-primary/40" />
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help truncate max-w-[120px]">
+                                    {truncate(lead.companyName || 'Private Org')}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent><p>{lead.companyName || 'Private Org'}</p></TooltipContent>
+                              </Tooltip>
+                              {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
                             </div>
-                            <span className="text-[12px] truncate text-slate-700">{isManagerOwn ? 'Self (Manager)' : (agent?.name || 'Unassigned')}</span>
-                          </div>
-                        </td>
-                        <td className="text-[12px] truncate text-slate-600">
-                           {products?.find(p => p.id === lead.productId)?.name || 'Standard'}
-                        </td>
-                        <td><StatusBadge status={lead.status} /></td>
-                        <td className="text-[12px] text-slate-400">
-                          {lead.lastActivityAt ? formatDistanceToNow(new Date(lead.lastActivityAt)) + ' ago' : 'Never'}
-                        </td>
-                        <td>
-                          <div className="flex items-center gap-1.5">
-                            <div className={cn("w-1.5 h-1.5 rounded-full", days < 8 ? "bg-emerald-500" : days < 22 ? "bg-amber-500" : "bg-red-500")} />
-                            <span className="text-[12px] text-slate-600">{days}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 text-right">
-                          <Link href={`/leads/${lead.id}`}>
-                            <Button variant="ghost" size="sm" className="h-6 text-primary hover:underline text-[11px] font-bold uppercase tracking-tight p-0 px-2">View</Button>
-                          </Link>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold",
+                                isManagerOwn ? "bg-primary text-white" : "bg-slate-100 text-slate-600"
+                              )}>
+                                {isManagerOwn ? 'ME' : (agent?.name.split(' ').map(n => n[0]).join('') || '??')}
+                              </div>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-[12px] truncate text-slate-700 cursor-help">
+                                    {truncate(agentName, 10)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent><p>{agentName}</p></TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </td>
+                          <td className="text-[12px] truncate text-slate-600">
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <span className="cursor-help">{truncate(productName, 10)}</span>
+                               </TooltipTrigger>
+                               <TooltipContent><p>{productName}</p></TooltipContent>
+                             </Tooltip>
+                          </td>
+                          <td><StatusBadge status={lead.status} /></td>
+                          <td className="text-[12px] text-slate-400">
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <span className="cursor-help">{truncate(lastActivityStr, 12)}</span>
+                               </TooltipTrigger>
+                               <TooltipContent><p>{lastActivityStr}</p></TooltipContent>
+                             </Tooltip>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-1.5">
+                              <div className={cn("w-1.5 h-1.5 rounded-full", days < 8 ? "bg-emerald-500" : days < 22 ? "bg-amber-500" : "bg-red-500")} />
+                              <span className="text-[12px] text-slate-600">{days}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 text-right">
+                            <Link href={`/leads/${lead.id}`}>
+                              <Button variant="ghost" size="sm" className="h-6 text-primary hover:underline text-[11px] font-bold uppercase tracking-tight p-0 px-2">View</Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredLeads.length === 0 && (
+                      <tr className="h-20">
+                        <td colSpan={8} className="text-center text-muted-foreground italic text-[13px]">
+                          No pipeline records match your current criteria.
                         </td>
                       </tr>
-                    );
-                  })}
-                  {filteredLeads.length === 0 && (
-                    <tr className="h-20">
-                      <td colSpan={8} className="text-center text-muted-foreground italic text-[13px]">
-                        No pipeline records match your current criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bulk Reassign Modal */}
-      <Dialog open={isReassignModalOpen} onOpenChange={setIsReassignModalOpen}>
-        <DialogContent className="max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-primary">Reassign {selectedLeads.length} Records</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-             <div className="space-y-1.5">
-               <label className="text-[11px] font-bold uppercase text-slate-400">Target Team Member</label>
-               <Select value={targetAgentId} onValueChange={setTargetAgentId}>
-                 <SelectTrigger className="h-9 text-[13px] border-primary-50">
-                   <SelectValue placeholder="Select new agent..." />
-                 </SelectTrigger>
-                 <SelectContent className="bg-white">
-                   <SelectItem value={user.id}>Self (Manager)</SelectItem>
-                   {agents?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                 </SelectContent>
-               </Select>
-             </div>
-             <p className="text-[11px] text-slate-500 flex items-start gap-2 bg-slate-50 p-3 rounded border">
-                <AlertCircle size={14} className="shrink-0 mt-0.5 text-primary" />
-                Transferring ownership will reset the idle timers for these leads and log the event in the system audit trail.
-             </p>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setIsReassignModalOpen(false)}>Cancel</Button>
-            <Button size="sm" className="bg-primary hover:bg-primary/90 font-bold uppercase text-[11px] px-6" onClick={handleBulkReassign} disabled={!targetAgentId || isProcessing}>
-              {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Transfer Ownership'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+
+        {/* Bulk Reassign Modal */}
+        <Dialog open={isReassignModalOpen} onOpenChange={setIsReassignModalOpen}>
+          <DialogContent className="max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="text-primary">Reassign {selectedLeads.length} Records</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase text-slate-400">Target Team Member</label>
+                <Select value={targetAgentId} onValueChange={setTargetAgentId}>
+                  <SelectTrigger className="h-9 text-[13px] border-primary-50">
+                    <SelectValue placeholder="Select new agent..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value={user.id}>Self (Manager)</SelectItem>
+                    {agents?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-[11px] text-slate-500 flex items-start gap-2 bg-slate-50 p-3 rounded border">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5 text-primary" />
+                  Transferring ownership will reset the idle timers for these leads and log the event in the system audit trail.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setIsReassignModalOpen(false)}>Cancel</Button>
+              <Button size="sm" className="bg-primary hover:bg-primary/90 font-bold uppercase text-[11px] px-6" onClick={handleBulkReassign} disabled={!targetAgentId || isProcessing}>
+                {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Transfer Ownership'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </TooltipProvider>
     </Shell>
   );
 }
