@@ -59,17 +59,17 @@ export default function ManagerAllLeadsPage() {
   // Filtered Leads
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
-    return leads.filter(l => {
+    return leads.filter(lead => {
       const search = searchTerm.toLowerCase().trim();
       const matchesSearch = 
-        (l.companyName?.toLowerCase().includes(search)) ||
-        (l.clientName.toLowerCase().includes(search)) || 
-        (l.clientEmail.toLowerCase().includes(search)) ||
-        (l.status.toLowerCase().includes(search));
+        (lead.companyName?.toLowerCase().includes(search)) ||
+        (lead.clientName.toLowerCase().includes(search)) || 
+        (lead.clientEmail.toLowerCase().includes(search)) ||
+        (lead.status.toLowerCase().includes(search));
       
       const agentIds = agents?.map(a => a.id) || [];
-      const isOwner = l.agentId === user?.id;
-      return matchesSearch && (agentIds.includes(l.agentId) || isOwner);
+      const isOwner = lead.agentId === user?.id;
+      return matchesSearch && (agentIds.includes(lead.agentId) || isOwner);
     });
   }, [leads, searchTerm, agents, user?.id]);
 
@@ -227,7 +227,7 @@ export default function ManagerAllLeadsPage() {
                           </div>
                         </td>
                         <td className="text-[12px] truncate text-slate-600">
-                           {products?.find(p => p.id === l.productId)?.name || 'Standard'}
+                           {products?.find(p => p.id === lead.productId)?.name || 'Standard'}
                         </td>
                         <td><StatusBadge status={lead.status} /></td>
                         <td className="text-[12px] text-slate-400">
