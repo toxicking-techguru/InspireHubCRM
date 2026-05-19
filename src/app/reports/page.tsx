@@ -20,22 +20,24 @@ import { cn } from '@/lib/utils';
 const COLORS = ['#1B48A3', '#2579C8', '#164978', '#0E3050', '#071828'];
 
 export default function AgentReportsPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const [dateRange, setDateRange] = useState('6m');
 
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+
   const leadsQuery = useMemoFirebase(() => 
-    firestore && user ? query(collection(firestore, 'leads'), where('agentId', '==', user.id)) : null
+    (firestore && user?.id) ? query(collection(firestore, 'leads'), where('agentId', '==', user.id)) : null
   , [firestore, user?.id]);
   const { data: myLeads, loading: leadsLoading } = useCollection<Lead>(leadsQuery);
 
   const activitiesQuery = useMemoFirebase(() => 
-    firestore && user ? query(collectionGroup(firestore, 'activities'), where('agentId', '==', user.id)) : null
+    (firestore && user?.id) ? query(collectionGroup(firestore, 'activities'), where('agentId', '==', user.id)) : null
   , [firestore, user?.id]);
   const { data: myActivities } = useCollection<LeadActivity>(activitiesQuery as any);
 
   const targetsQuery = useMemoFirebase(() => 
-    firestore && user ? query(collection(firestore, 'targets'), where('agentId', '==', user.id)) : null
+    (firestore && user?.id) ? query(collection(firestore, 'targets'), where('agentId', '==', user.id)) : null
   , [firestore, user?.id]);
   const { data: myTargets } = useCollection<Target>(targetsQuery as any);
 
@@ -142,7 +144,7 @@ export default function AgentReportsPage() {
                        </defs>
                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                        <XAxis dataKey="month" fontSize={11} axisLine={false} tickLine={false} />
-                       <YAxis fontSize={11} axisLine={false} tickLine={false} tickFormatter={v => `$${v/1000}k`} />
+                       <YAxis fontSize={11} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v/1000}k`} />
                        <Tooltip />
                        <Area type="monotone" dataKey="revenue" stroke="#1B48A3" strokeWidth={3} fillOpacity={1} fill="url(#colorAgentRev)" />
                     </AreaChart>
@@ -191,7 +193,7 @@ export default function AgentReportsPage() {
                             <div>
                                <p className="text-[14px] font-bold text-slate-800">{q.name}</p>
                                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight">
-                                 Goal: {q.isCurrency ? '$' : ''}{q.target.toLocaleString()}
+                                 Goal: {q.isCurrency ? currencySymbol : ''}{q.target.toLocaleString()}
                                </p>
                             </div>
                             <span className={cn("text-[18px] font-bold", q.pct >= 100 ? "text-emerald-600" : "text-primary")}>{q.pct}%</span>

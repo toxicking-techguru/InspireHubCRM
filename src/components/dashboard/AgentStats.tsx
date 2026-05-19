@@ -1,3 +1,4 @@
+
 "use client"
 
 import React from 'react';
@@ -15,7 +16,7 @@ export function AgentStats() {
   const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   const leadsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     let q = collection(firestore, 'leads');
     if (user.role === 'Agent') {
       return query(q, where('agentId', '==', user.id));
@@ -26,7 +27,7 @@ export function AgentStats() {
   const { data: leads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
   
   const walletRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return doc(firestore, 'wallets', user.id);
   }, [firestore, user?.id]);
   
@@ -34,7 +35,7 @@ export function AgentStats() {
 
   // Fetch commissions to calculate "Earnings this month" dynamically
   const commissionsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return query(collection(firestore, 'commissions'), where('agentId', '==', user.id));
   }, [firestore, user?.id]);
   const { data: commissions } = useCollection<Commission>(commissionsQuery as any);

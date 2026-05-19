@@ -1,10 +1,11 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, collectionGroup } from 'firebase/firestore';
+import { collection, query, collectionGroup, where } from 'firebase/firestore';
 import { Lead, Agent, LeadActivity, Target } from '@/types/crm';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -30,22 +31,35 @@ export default function ManagerReportsPage() {
 
   const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
-  const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
+  const agentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.id) return null;
+    return query(collection(firestore, 'agents'), where('managerId', '==', user.id));
+  }, [firestore, user?.id]);
   const { data: allAgents, loading: agentsLoading } = useCollection<Agent>(agentsQuery as any);
 
-  const leadsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
+  const leadsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'leads');
+  }, [firestore]);
   const { data: allLeads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
 
-  const activitiesQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'activities') : null, [firestore]);
+  const activitiesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collectionGroup(firestore, 'activities');
+  }, [firestore]);
   const { data: allActivities } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  const targetsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'targets') : null, [firestore]);
+  const targetsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'targets');
+  }, [firestore]);
   const { data: targets } = useCollection<Target>(targetsQuery as any);
 
   const teamAgents = useMemo(() => {
     if (!allAgents || !user) return [];
-    return allAgents.filter(a => a.managerId === user.id || a.id === user.id);
-  }, [allAgents, user?.id]);
+    // Include the manager themselves in the "team" for reporting
+    return [...allAgents, { ...user, id: user.id } as Agent].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+  }, [allAgents, user]);
 
   const teamLeads = useMemo(() => {
     if (!allLeads || teamAgents.length === 0) return [];
@@ -166,7 +180,7 @@ export default function ManagerReportsPage() {
               <SelectTrigger className="h-8 w-[140px] text-[12px] bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="1m">Current Month</SelectItem>
                 <SelectItem value="last">Last Month</SelectItem>
                 <SelectItem value="3m">Last 3 Months</SelectItem>

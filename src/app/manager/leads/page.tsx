@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -48,7 +49,7 @@ export default function ManagerAllLeadsPage() {
   const { data: leads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
 
   const agentsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return query(collection(firestore, 'agents'), where('managerId', '==', user.id));
   }, [firestore, user?.id]);
   const { data: agents } = useCollection<Agent>(agentsQuery as any);

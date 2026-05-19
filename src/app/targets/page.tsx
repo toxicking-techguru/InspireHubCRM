@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -29,7 +30,7 @@ export default function TargetsPage() {
 
   // Fetch target for selected month
   const targetQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id || !monthStr) return null;
     return query(
       collection(firestore, 'targets'),
       where('agentId', '==', user.id),
@@ -43,7 +44,7 @@ export default function TargetsPage() {
 
   // Fetch history (last 6 months)
   const historyQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return query(
       collection(firestore, 'targets'),
       where('agentId', '==', user.id),
@@ -55,7 +56,7 @@ export default function TargetsPage() {
 
   // Fetch leads to calculate actuals
   const leadsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return query(
       collection(firestore, 'leads'),
       where('agentId', '==', user.id)

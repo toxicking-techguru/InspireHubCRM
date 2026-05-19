@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react';
@@ -42,14 +43,14 @@ export default function WalletPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const walletRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return doc(firestore, 'wallets', user.id);
   }, [firestore, user?.id]);
 
   const { data: wallet, loading: walletLoading } = useDoc<Wallet>(walletRef as any);
 
   const commissionsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return query(
       collection(firestore, 'commissions'), 
       where('agentId', '==', user.id), 
@@ -60,7 +61,7 @@ export default function WalletPage() {
   const { data: commissions, loading: commissionsLoading } = useCollection<Commission>(commissionsQuery as any);
 
   const withdrawalsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return query(
       collection(firestore, 'withdrawals'), 
       where('agentId', '==', user.id), 
@@ -133,7 +134,7 @@ export default function WalletPage() {
             <h1 className="text-xl font-bold text-primary-950">Earnings & Wallet</h1>
             <p className="text-sm text-muted-foreground">Manage your commissions and payout requests.</p>
           </div>
-          <Badge variant="outline" className="h-6 gap-2 bg-emerald-50 text-emerald-700 border-emerald-200">
+          <Badge variant="outline" className="h-6 gap-2 bg-emerald-50 text-emerald-700 border-emerald-200 font-bold uppercase text-[10px]">
              <ShieldCheck size={14} /> Payout Details Verified
           </Badge>
         </div>
@@ -201,7 +202,7 @@ export default function WalletPage() {
                     <p className="text-[10px] text-slate-400 font-medium">Available for transfer: {currencySymbol}{withdrawableBalance.toLocaleString()}</p>
                   </div>
 
-                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md bg-primary-600 hover:bg-primary-700" disabled={isSubmitting || withdrawableBalance === 0 || !user.paymentDetails?.accountNumber}>
+                  <Button type="submit" className="w-full gap-2 h-10 font-bold shadow-md bg-primary hover:bg-primary/90" disabled={isSubmitting || withdrawableBalance === 0 || !user.paymentDetails?.accountNumber}>
                     {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}
                     Initiate Transfer
                   </Button>

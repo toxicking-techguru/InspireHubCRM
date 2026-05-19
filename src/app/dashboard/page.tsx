@@ -21,18 +21,29 @@ import Link from 'next/link';
 import { MarkdownText } from '@/components/ui/markdown-text';
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
 
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+
   // Data
-  const leadsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'leads'), where('agentId', '==', user?.id)) : null, [firestore, user?.id]);
+  const leadsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.id) return null;
+    return query(collection(firestore, 'leads'), where('agentId', '==', user.id));
+  }, [firestore, user?.id]);
   const { data: myLeads } = useCollection<Lead>(leadsQuery);
 
-  const activitiesQuery = useMemoFirebase(() => firestore ? collectionGroup(firestore, 'activities') : null, [firestore]);
+  const activitiesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collectionGroup(firestore, 'activities');
+  }, [firestore]);
   const { data: rawActivities } = useCollection<LeadActivity>(activitiesQuery as any);
 
-  const targetsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'targets'), where('agentId', '==', user?.id), where('month', '==', selectedMonth)) : null, [firestore, user?.id, selectedMonth]);
+  const targetsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.id || !selectedMonth) return null;
+    return query(collection(firestore, 'targets'), where('agentId', '==', user.id), where('month', '==', selectedMonth));
+  }, [firestore, user?.id, selectedMonth]);
   const { data: targets } = useCollection<AgentTarget>(targetsQuery as any);
 
   const myActivities = useMemo(() => 
@@ -105,11 +116,11 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-2">
                        <div className="flex justify-between text-[11px] font-bold uppercase text-slate-400">
-                          <span>Revenue ($)</span>
+                          <span>Revenue ({currencySymbol.trim()})</span>
                           <span className="text-primary">{target ? Math.round((monthPerformance.revenue / target.revenueTarget) * 100) : 0}%</span>
                        </div>
                        <Progress value={target ? (monthPerformance.revenue / target.revenueTarget) * 100 : 0} className="h-2" />
-                       <p className="text-[12px] font-bold text-slate-700">${monthPerformance.revenue.toLocaleString()} / ${target?.revenueTarget.toLocaleString() || '--'}</p>
+                       <p className="text-[12px] font-bold text-slate-700">{currencySymbol}{monthPerformance.revenue.toLocaleString()} / {currencySymbol}{target?.revenueTarget.toLocaleString() || '--'}</p>
                     </div>
                  </div>
               </div>
@@ -168,7 +179,7 @@ export default function DashboardPage() {
                  <div className="bg-white/10 rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-[12px]">
                        <span>Achieved Revenue</span>
-                       <span className="font-bold">${monthPerformance.revenue.toLocaleString()}</span>
+                       <span className="font-bold">{currencySymbol}{monthPerformance.revenue.toLocaleString()}</span>
                     </div>
                     <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
                        <div className="h-full bg-white transition-all duration-1000" style={{ width: `${target ? (monthPerformance.revenue / target.revenueTarget) * 100 : 0}%` }} />

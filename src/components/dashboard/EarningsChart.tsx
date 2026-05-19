@@ -1,3 +1,4 @@
+
 "use client"
 
 import React from 'react';
@@ -10,11 +11,13 @@ import { format, subMonths, startOfMonth } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function EarningsChart() {
-  const { user } = useAuthStore();
+  const { user, config } = useAuthStore();
   const firestore = useFirestore();
 
+  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+
   const commissionsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     let q = collection(firestore, 'commissions');
     if (user.role === 'Agent') {
       return query(q, where('agentId', '==', user.id), orderBy('createdAt', 'desc'));
@@ -72,13 +75,13 @@ export function EarningsChart() {
               tickLine={false} 
               fontSize={10} 
               tick={{ fill: '#64748b' }} 
-              tickFormatter={(v) => `$${v}`}
+              tickFormatter={(v) => `${currencySymbol}${v}`}
             />
             <Tooltip 
               cursor={{ fill: '#f8fafc' }}
               contentStyle={{ borderRadius: '6px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
             />
-            <Bar dataKey="earnings" fill="#0891b2" radius={[2, 2, 0, 0]} barSize={24} />
+            <Bar dataKey="earnings" fill="#1B48A3" radius={[2, 2, 0, 0]} barSize={24} />
           </BarChart>
         </ResponsiveContainer>
       </div>

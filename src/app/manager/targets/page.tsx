@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -38,7 +39,7 @@ export default function ManagerTargetsPage() {
   const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
 
   const agentsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.id) return null;
     return query(collection(firestore, 'agents'), where('managerId', '==', user.id));
   }, [firestore, user?.id]);
   const { data: agents } = useCollection<Agent>(agentsQuery as any);
@@ -55,7 +56,7 @@ export default function ManagerTargetsPage() {
 
   // Fetch current targets for selection
   const targetQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedAgentId) return null;
+    if (!firestore || !selectedAgentId || !monthStr) return null;
     return query(
       collection(firestore, 'targets'),
       where('agentId', '==', selectedAgentId),
@@ -154,7 +155,7 @@ export default function ManagerTargetsPage() {
                <SelectTrigger className="h-9 w-[200px] text-[12px]">
                  <SelectValue placeholder="Select Agent..." />
                </SelectTrigger>
-               <SelectContent>
+               <SelectContent className="bg-white">
                  {agents?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                </SelectContent>
              </Select>
@@ -200,7 +201,7 @@ export default function ManagerTargetsPage() {
                        </div>
                      ))}
                      <div className="flex items-end">
-                        <Button className="w-full h-8 bg-cyan-600 hover:bg-cyan-700 gap-2 text-[12px]" onClick={handleSave} disabled={saving}>
+                        <Button className="w-full h-8 bg-primary hover:bg-primary/90 gap-2 text-[12px] font-bold uppercase" onClick={handleSave} disabled={saving}>
                           {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Targets
                         </Button>
                      </div>
@@ -229,7 +230,7 @@ export default function ManagerTargetsPage() {
                             <td className="px-3 font-medium">{format(parseISO(h.month + '-01'), 'MMM yyyy')}</td>
                             <td className="text-center">{h.leadsTarget}</td>
                             <td className="text-center">{h.partnersTarget || 0}</td>
-                            <td className="text-center font-bold">{h.closedTarget}</td>
+                            <td className="text-center font-bold text-emerald-600">{h.closedTarget}</td>
                             <td className="text-right">{currencySymbol}{h.revenueTarget.toLocaleString()}</td>
                             <td className="text-right px-3">{h.activityScoreTarget}</td>
                           </tr>
@@ -244,14 +245,14 @@ export default function ManagerTargetsPage() {
             </div>
 
             <div className="space-y-4">
-               <div className="bg-cyan-50 border border-cyan-100 rounded-md p-4">
+               <div className="bg-primary-50 border border-primary-100 rounded-md p-4">
                   <div className="flex items-center gap-3 mb-4">
-                     <div className="w-10 h-10 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold">
+                     <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold">
                        {agents?.find(a => a.id === selectedAgentId)?.name[0]}
                      </div>
                      <div>
                         <p className="text-[14px] font-bold">{agents?.find(a => a.id === selectedAgentId)?.name}</p>
-                        <Badge variant="outline" className="text-[9px] h-3.5 bg-white border-cyan-200">Current Progress</Badge>
+                        <Badge variant="outline" className="text-[9px] h-3.5 bg-white border-primary-200 text-primary font-bold">Current Progress</Badge>
                      </div>
                   </div>
                   <div className="space-y-4">
@@ -263,11 +264,11 @@ export default function ManagerTargetsPage() {
                        return (
                          <div key={i} className="space-y-1.5">
                             <div className="flex justify-between text-[11px] font-bold">
-                               <span className="text-slate-500">{p.label}</span>
-                               <span className="text-cyan-700">{pct}%</span>
+                               <span className="text-slate-500 uppercase tracking-tighter">{p.label}</span>
+                               <span className="text-primary">{pct}%</span>
                             </div>
                             <div className="h-1.5 w-full bg-white rounded-full overflow-hidden">
-                               <div className="h-full bg-cyan-600 transition-all duration-700" style={{ width: `${pct}%` }}></div>
+                               <div className="h-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }}></div>
                             </div>
                             <p className="text-[10px] text-slate-400 text-right">
                               {p.isCurrency ? `${currencySymbol}${p.val.toLocaleString()}` : p.val} / {p.isCurrency ? `${currencySymbol}${p.target.toLocaleString()}` : p.target}
@@ -280,7 +281,7 @@ export default function ManagerTargetsPage() {
             </div>
           </div>
         ) : (
-          <div className="py-20 border-[0.5px] border-dashed rounded-md flex flex-col items-center justify-center text-slate-400">
+          <div className="py-20 border-[0.5px] border-dashed rounded-md flex flex-col items-center justify-center text-slate-400 bg-white">
              <User size={32} className="mb-2 opacity-20" />
              <p className="text-[14px] font-medium">Select an agent to manage performance targets.</p>
           </div>
