@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -24,7 +23,7 @@ export default function AgentReportsPage() {
   const firestore = useFirestore();
   const [dateRange, setDateRange] = useState('6m');
 
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   const leadsQuery = useMemoFirebase(() => 
     (firestore && user?.id) ? query(collection(firestore, 'leads'), where('agentId', '==', user.id)) : null

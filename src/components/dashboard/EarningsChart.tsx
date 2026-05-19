@@ -1,4 +1,3 @@
-
 "use client"
 
 import React from 'react';
@@ -14,7 +13,7 @@ export function EarningsChart() {
   const { user, config } = useAuthStore();
   const firestore = useFirestore();
 
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   const commissionsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.id) return null;

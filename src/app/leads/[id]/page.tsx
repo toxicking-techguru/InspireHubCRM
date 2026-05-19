@@ -44,7 +44,7 @@ export default function LeadDetailPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   const leadRef = useMemoFirebase(() => id && firestore ? doc(firestore, 'leads', id as string) : null, [id, firestore]);
   const { data: lead, loading: leadLoading } = useDoc<Lead>(leadRef as any);

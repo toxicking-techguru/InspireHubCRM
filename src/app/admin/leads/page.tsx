@@ -64,9 +64,9 @@ export default function AdminAllLeadsPage() {
 
   // Data fetching - System wide for Admin
   const leadsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user?.id) return null;
     return query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+  }, [firestore, user?.id]);
   const { data: leads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
 
   const agentsQuery = useMemoFirebase(() => {
@@ -82,7 +82,7 @@ export default function AdminAllLeadsPage() {
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
     return leads.filter(l => {
-      const search = searchTerm.toLowerCase();
+      const search = searchTerm.toLowerCase().trim();
       const matchesSearch = 
         (l.companyName?.toLowerCase().includes(search)) ||
         (l.clientName.toLowerCase().includes(search)) || 

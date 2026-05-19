@@ -34,9 +34,9 @@ export default function LeadsPage() {
 
   // Naked query for leads to avoid composite index requirements
   const leadsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user?.id) return null;
     return collection(firestore, 'leads');
-  }, [firestore]);
+  }, [firestore, user?.id]);
 
   const { data: rawLeads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
   
@@ -51,7 +51,7 @@ export default function LeadsPage() {
     return rawLeads
       .filter(lead => {
         const matchesAgent = user.role !== 'Agent' || lead.agentId === user.id;
-        const search = searchTerm.toLowerCase();
+        const search = searchTerm.toLowerCase().trim();
         const matchesSearch = 
           (lead.companyName?.toLowerCase().includes(search)) ||
           (lead.clientName.toLowerCase().includes(search)) || 

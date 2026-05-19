@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -43,9 +42,9 @@ export default function ManagerAllLeadsPage() {
 
   // Data fetching
   const leadsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user?.id) return null;
     return query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+  }, [firestore, user?.id]);
   const { data: leads, loading: leadsLoading } = useCollection<Lead>(leadsQuery as any);
 
   const agentsQuery = useMemoFirebase(() => {
@@ -61,7 +60,7 @@ export default function ManagerAllLeadsPage() {
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
     return leads.filter(l => {
-      const search = searchTerm.toLowerCase();
+      const search = searchTerm.toLowerCase().trim();
       const matchesSearch = 
         (l.companyName?.toLowerCase().includes(search)) ||
         (l.clientName.toLowerCase().includes(search)) || 
@@ -228,7 +227,7 @@ export default function ManagerAllLeadsPage() {
                           </div>
                         </td>
                         <td className="text-[12px] truncate text-slate-600">
-                           {products?.find(p => p.id === lead.productId)?.name || 'Standard'}
+                           {products?.find(p => p.id === l.productId)?.name || 'Standard'}
                         </td>
                         <td><StatusBadge status={lead.status} /></td>
                         <td className="text-[12px] text-slate-400">

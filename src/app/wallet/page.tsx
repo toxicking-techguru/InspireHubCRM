@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -36,7 +35,7 @@ export default function WalletPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   // Form State
   const [amount, setAmount] = useState('');

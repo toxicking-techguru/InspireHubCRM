@@ -28,7 +28,7 @@ export default function AdminReportsPage() {
   const [dateRange, setDateRange] = useState('6m');
   const [selectedAgentId, setSelectedAgentId] = useState('all');
 
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   const agentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'agents') : null, [firestore]);
   const { data: agents, loading: agentsLoading } = useCollection<Agent>(agentsQuery as any);

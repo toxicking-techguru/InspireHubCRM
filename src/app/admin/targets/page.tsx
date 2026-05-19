@@ -33,7 +33,7 @@ export default function AdminTargetsPage() {
   const [saving, setSaving] = useState(false);
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   const agentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;

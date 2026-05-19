@@ -58,7 +58,7 @@ export default function NewLeadPage() {
     serviceOffering: ''
   });
 
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
   const [location, setLocation] = useState<GeoLocation | null>(null);
 
   // Fetch data for sources, products and existing leads

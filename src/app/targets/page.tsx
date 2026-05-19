@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -26,7 +25,7 @@ export default function TargetsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   // Fetch target for selected month
   const targetQuery = useMemoFirebase(() => {

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -36,7 +35,7 @@ export default function ManagerTargetsPage() {
   const [saving, setSaving] = useState(false);
 
   const monthStr = format(selectedMonth, 'yyyy-MM');
-  const currencySymbol = config?.currency === 'KES' ? 'KSh ' : config?.currency === 'GBP' ? '£' : '$';
+  const currencySymbol = config?.currency === 'KES' ? 'KES ' : config?.currency === 'GBP' ? '£' : '$';
 
   const agentsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.id) return null;
