@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Shell } from '@/components/layout/Shell';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, collection, addDoc, updateDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Lead, LeadActivity, LeadStatus, ActivityType, LeadDoc, GeoLocation } from '@/types/crm';
+import { Lead, LeadActivity, LeadStatus, ActivityType, LeadDoc, GeoLocation, Product } from '@/types/crm';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -52,6 +53,9 @@ export default function LeadDetailPage() {
   const activitiesQuery = useMemoFirebase(() => firestore && id ? query(collection(firestore, 'leads', id as string, 'activities'), orderBy('createdAt', 'desc')) : null, [firestore, id]);
   const { data: activities } = useCollection<LeadActivity>(activitiesQuery as any);
 
+  const productsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+  const { data: products } = useCollection<Product>(productsQuery as any);
+
   const [remark, setRemark] = useState('');
   const [type, setType] = useState<ActivityType>('Call made');
   const [nextActionType, setNextActionType] = useState<string>('');
@@ -66,6 +70,7 @@ export default function LeadDetailPage() {
 
   const [editData, setEditData] = useState({
     estimatedBudget: 0,
+    productId: '',
     clientBrief: '',
     painPoints: '',
     serviceOffering: ''
@@ -75,6 +80,7 @@ export default function LeadDetailPage() {
     if (lead) {
       setEditData({
         estimatedBudget: lead.estimatedBudget || 0,
+        productId: lead.productId || '',
         clientBrief: lead.clientBrief || '',
         painPoints: lead.painPoints || '',
         serviceOffering: lead.serviceOffering || ''
@@ -189,6 +195,10 @@ export default function LeadDetailPage() {
                           <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Industry</Label><p className="font-bold text-slate-800 truncate">{lead.industry || '--'}</p></div>
                           <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Territory</Label><p className="font-bold text-slate-800 truncate">{lead.businessRegion || 'Global'}</p></div>
                           <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-slate-400">Budget</Label><p className="font-bold text-primary text-lg">{currencySymbol}{lead.estimatedBudget?.toLocaleString() || '0'}</p></div>
+                       </div>
+                       <div className="space-y-1 pt-2">
+                          <Label className="text-[10px] uppercase font-bold text-slate-400">Associated Product</Label>
+                          <p className="font-bold text-slate-700">{products?.find(p => p.id === lead.productId)?.name || 'Generic Service'}</p>
                        </div>
                        <div className="space-y-6 pt-6 border-t">
                           <div className="space-y-1.5">
@@ -403,11 +413,26 @@ export default function LeadDetailPage() {
           </DialogHeader>
           
           <div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-             <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Estimated Project Budget ({currencySymbol.trim()})</Label>
-                <div className="relative">
-                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold">{currencySymbol}</span>
-                   <Input type="number" value={editData.estimatedBudget} onChange={e => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} className="pl-7 bg-white font-extrabold text-primary text-lg h-11 border-primary/20 focus:border-primary" />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Estimated Project Budget ({currencySymbol.trim()})</Label>
+                    <div className="relative">
+                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold">{currencySymbol}</span>
+                       <Input type="number" value={editData.estimatedBudget} onChange={e => setEditData({...editData, estimatedBudget: parseFloat(e.target.value) || 0})} className="pl-7 bg-white font-extrabold text-primary text-lg h-11 border-primary/20 focus:border-primary" />
+                    </div>
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Associated Product</Label>
+                    <Select value={editData.productId} onValueChange={v => setEditData({...editData, productId: v})}>
+                        <SelectTrigger className="h-11 bg-white border-primary/20 focus:border-primary font-bold">
+                            <SelectValue placeholder="Select Product" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                            {products?.map(p => (
+                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
              </div>
 

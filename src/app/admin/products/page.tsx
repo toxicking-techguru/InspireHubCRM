@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
@@ -66,6 +67,10 @@ export default function AdminProductsPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
+  // Local State for standard form fields
+  const [localName, setLocalName] = useState('');
+  const [localDescription, setLocalDescription] = useState('');
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -87,6 +92,8 @@ export default function AdminProductsPage() {
     return products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [products, searchTerm]);
 
+  const selectedProduct = products?.find(p => p.id === selectedProductId);
+
   // Auto-selection of first item on load
   useEffect(() => {
     if (!loading && filteredProducts.length > 0 && !selectedProductId && !selectionMode) {
@@ -94,14 +101,20 @@ export default function AdminProductsPage() {
     }
   }, [filteredProducts, selectedProductId, loading, selectionMode]);
 
+  // Sync local fields when selected product changes
+  useEffect(() => {
+    if (selectedProduct) {
+      setLocalName(selectedProduct.name || '');
+      setLocalDescription(selectedProduct.description || '');
+    }
+  }, [selectedProductId, selectedProduct]);
+
   // Pagination Logic
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredProducts.slice(start, start + itemsPerPage);
   }, [filteredProducts, currentPage]);
-
-  const selectedProduct = products?.find(p => p.id === selectedProductId);
 
   const handleAddProduct = async () => {
     if (!firestore || !user) return;
@@ -197,7 +210,11 @@ export default function AdminProductsPage() {
     if (!firestore || !selectedProductId || !user) return;
     setIsSaving(true);
     try {
-      await updateDoc(doc(firestore, 'products', selectedProductId), data);
+      await updateDoc(doc(firestore, 'products', selectedProductId), {
+        ...data,
+        name: localName,
+        description: localDescription
+      });
       toast({ title: "Changes Saved" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Save Failed", description: e.message });
@@ -368,16 +385,16 @@ export default function AdminProductsPage() {
                             <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Product Title</Label>
                             <Input 
                               className="text-[18px] font-bold h-10 border-none px-0 focus-visible:ring-0 shadow-none bg-transparent" 
-                              defaultValue={selectedProduct.name}
-                              onBlur={(e) => handleUpdateProduct({ name: e.target.value })}
+                              value={localName}
+                              onChange={(e) => setLocalName(e.target.value)}
                             />
                          </div>
                          <div className="space-y-1">
                             <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description & USP</Label>
                             <Textarea 
                               className="text-[13px] text-slate-600 border-none px-0 focus-visible:ring-0 shadow-none bg-transparent min-h-[60px] resize-none"
-                              defaultValue={selectedProduct.description}
-                              onBlur={(e) => handleUpdateProduct({ description: e.target.value })}
+                              value={localDescription}
+                              onChange={(e) => setLocalDescription(e.target.value)}
                             />
                          </div>
                       </div>
