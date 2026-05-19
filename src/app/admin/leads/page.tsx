@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, writeBatch, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, doc, writeBatch, deleteDoc, getDocs } from 'firebase/firestore';
 import { Lead, Agent, Product } from '@/types/crm';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,9 @@ import {
   Trash2,
   AlertCircle,
   X,
-  Building2
+  Building2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -51,6 +53,15 @@ export default function AdminAllLeadsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
+  // New Filter States
+  const [filterAgent, setFilterAgent] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterIdle, setFilterIdle] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 15;
+
   // Data fetching - System wide for Admin
   const leadsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -67,7 +78,7 @@ export default function AdminAllLeadsPage() {
   const productsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
   const { data: products } = useCollection<Product>(productsQuery as any);
 
-  // Filtered Leads
+  // Filtered Leads logic
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
     return leads.filter(l => {
@@ -78,13 +89,31 @@ export default function AdminAllLeadsPage() {
         (l.clientEmail.toLowerCase().includes(search)) ||
         (l.status.toLowerCase().includes(search)) ||
         (allAgents?.find(a => a.id === l.agentId)?.name.toLowerCase().includes(search));
-      return matchesSearch;
+      
+      const matchesAgent = filterAgent === 'all' || l.agentId === filterAgent;
+      const matchesStatus = filterStatus === 'all' || l.status === filterStatus;
+      
+      let matchesIdle = true;
+      if (filterIdle) {
+        const lastTouch = new Date(l.lastActivityAt || l.createdAt).getTime();
+        matchesIdle = (Date.now() - lastTouch) > (72 * 60 * 60 * 1000);
+      }
+
+      return matchesSearch && matchesAgent && matchesStatus && matchesIdle;
     });
-  }, [leads, searchTerm, allAgents]);
+  }, [leads, searchTerm, allAgents, filterAgent, filterStatus, filterIdle]);
+
+  // Paginated data
+  const paginatedLeads = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
+    return filteredLeads.slice(start, start + rowsPerPage);
+  }, [filteredLeads, currentPage]);
+
+  const totalPages = Math.ceil(filteredLeads.length / rowsPerPage);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(filteredLeads.map(l => l.id));
+      setSelectedLeads(paginatedLeads.map(l => l.id));
     } else {
       setSelectedLeads([]);
     }
@@ -180,7 +209,7 @@ export default function AdminAllLeadsPage() {
               placeholder="Search company, status, staff..." 
               className="pl-8 h-8 text-[13px] border-primary-100" 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -194,7 +223,7 @@ export default function AdminAllLeadsPage() {
                 </Button>
               </>
             )}
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-primary-200 text-primary-700" onClick={() => setShowFilters(!showFilters)}>
+            <Button variant="outline" size="sm" className={cn("h-8 text-[12px] gap-2 border-primary-200 text-primary-700", showFilters && "bg-primary-50")} onClick={() => setShowFilters(!showFilters)}>
               <Filter size={14} /> {showFilters ? 'Hide Filters' : 'Filters'}
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-[12px] gap-2 border-primary-200 text-primary-700" onClick={exportCSV}>
@@ -207,27 +236,51 @@ export default function AdminAllLeadsPage() {
           <div className="bg-primary-50/50 p-3 rounded-md border border-primary-100 grid md:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1">
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-slate-400">Agent</label>
-              <select className="w-full h-8 bg-white border rounded text-[12px] px-2">
-                <option>All Staff</option>
-                {allAgents?.map(a => <option key={a.id}>{a.name}</option>)}
+              <select 
+                className="w-full h-8 bg-white border rounded text-[12px] px-2 outline-none"
+                value={filterAgent}
+                onChange={(e) => { setFilterAgent(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="all">All Staff</option>
+                {allAgents?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-slate-400">Lead Status</label>
-              <select className="w-full h-8 bg-white border rounded text-[12px] px-2">
-                <option>All Statuses</option>
-                {['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost', 'dormant'].map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+              <select 
+                className="w-full h-8 bg-white border rounded text-[12px] px-2 outline-none capitalize"
+                value={filterStatus}
+                onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="all">All Statuses</option>
+                {['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost', 'dormant'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-slate-400">Idle Filter</label>
               <div className="flex items-center h-8 gap-2">
-                 <Checkbox id="idle-only" />
+                 <Checkbox 
+                  id="idle-only" 
+                  checked={filterIdle} 
+                  onCheckedChange={(checked) => { setFilterIdle(!!checked); setCurrentPage(1); }} 
+                 />
                  <label htmlFor="idle-only" className="text-[12px] cursor-pointer">Show Idle (&gt;72h) only</label>
               </div>
             </div>
-            <div className="flex items-end">
-              <Button variant="ghost" size="sm" className="h-8 w-full text-[11px] text-primary-600 hover:bg-primary-100" onClick={() => setShowFilters(false)}>Close Filters</Button>
+            <div className="flex items-end gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 flex-1 text-[11px] text-primary-600 hover:bg-primary-100" 
+                onClick={() => {
+                  setFilterAgent('all');
+                  setFilterStatus('all');
+                  setFilterIdle(false);
+                  setSearchTerm('');
+                  setCurrentPage(1);
+                }}
+              >Reset All</Button>
+              <Button variant="ghost" size="sm" className="h-8 flex-1 text-[11px] text-slate-400" onClick={() => setShowFilters(false)}>Close Filters</Button>
             </div>
           </div>
         )}
@@ -246,7 +299,7 @@ export default function AdminAllLeadsPage() {
                   <tr className="bg-slate-50 border-b h-10">
                     <th className="w-[40px] px-3">
                       <Checkbox 
-                        checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
+                        checked={selectedLeads.length === paginatedLeads.length && paginatedLeads.length > 0}
                         onCheckedChange={handleSelectAll}
                       />
                     </th>
@@ -261,7 +314,7 @@ export default function AdminAllLeadsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filteredLeads.map((lead) => {
+                  {paginatedLeads.map((lead) => {
                     const agent = allAgents?.find(a => a.id === lead.agentId);
                     const days = Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24));
                     const isIdle = (Date.now() - new Date(lead.lastActivityAt || lead.createdAt).getTime()) > (72 * 60 * 60 * 1000);
@@ -311,7 +364,7 @@ export default function AdminAllLeadsPage() {
                   {filteredLeads.length === 0 && (
                     <tr className="h-40">
                       <td colSpan={9} className="text-center text-muted-foreground italic text-[13px]">
-                        No system leads match the current search criteria.
+                        No system leads match the current search or filter criteria.
                       </td>
                     </tr>
                   )}
@@ -321,10 +374,31 @@ export default function AdminAllLeadsPage() {
           )}
           
           <div className="p-3 border-t bg-slate-50/30 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-             <span>Total Records: {filteredLeads.length}</span>
-             <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-6 px-2 text-[10px]" disabled>Previous Page</Button>
-                <Button variant="outline" size="sm" className="h-6 px-2 text-[10px]" disabled>Next Page</Button>
+             <span>Showing {paginatedLeads.length} of {filteredLeads.length} records</span>
+             <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 px-2 text-[11px] gap-1" 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                >
+                  <ChevronLeft size={14} /> Previous
+                </Button>
+                <div className="flex items-center px-2">
+                   <span className="text-primary font-bold">{currentPage}</span>
+                   <span className="mx-1">/</span>
+                   <span>{totalPages || 1}</span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 px-2 text-[11px] gap-1" 
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                >
+                  Next <ChevronRight size={14} />
+                </Button>
              </div>
           </div>
         </div>
@@ -343,7 +417,7 @@ export default function AdminAllLeadsPage() {
                  <SelectTrigger className="h-9 text-[13px] border-primary-100">
                    <SelectValue placeholder="Select new owner..." />
                  </SelectTrigger>
-                 <SelectContent>
+                 <SelectContent className="bg-white">
                    {allAgents?.map(a => (
                      <SelectItem key={a.id} value={a.id}>
                         {a.name} ({a.region})
@@ -372,7 +446,7 @@ export default function AdminAllLeadsPage() {
            <AlertDialogHeader>
               <AlertDialogTitle className="text-destructive">Permanent Removal</AlertDialogTitle>
               <AlertDialogDescription className="text-[13px]">
-                 You are about to permanently delete **{selectedLeads.length}** lead records. This action will also orphaned any associated interaction logs and cannot be undone.
+                 You are about to permanently delete **{selectedLeads.length}** lead records. This action will also orphan any associated interaction logs and cannot be undone.
               </AlertDialogDescription>
            </AlertDialogHeader>
            <AlertDialogFooter>
