@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -62,17 +63,23 @@ export default function ManagerAllLeadsPage() {
     if (!leads) return [];
     return leads.filter(lead => {
       const search = searchTerm.toLowerCase().trim();
+      
+      const agent = agents?.find(a => a.id === lead.agentId) || (lead.agentId === user?.id ? { name: 'Self' } : null);
+      const product = products?.find(p => p.id === lead.productId);
+      
       const matchesSearch = 
         (lead.companyName?.toLowerCase().includes(search)) ||
         (lead.clientName.toLowerCase().includes(search)) || 
         (lead.clientEmail.toLowerCase().includes(search)) ||
-        (lead.status.toLowerCase().includes(search));
+        (lead.status.toLowerCase().includes(search)) ||
+        (agent?.name.toLowerCase().includes(search)) ||
+        (product?.name.toLowerCase().includes(search));
       
       const agentIds = agents?.map(a => a.id) || [];
       const isOwner = lead.agentId === user?.id;
       return matchesSearch && (agentIds.includes(lead.agentId) || isOwner);
     });
-  }, [leads, searchTerm, agents, user?.id]);
+  }, [leads, searchTerm, agents, products, user?.id]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -151,7 +158,7 @@ export default function ManagerAllLeadsPage() {
             <div className="flex-1 max-w-[320px] relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
               <Input 
-                placeholder="Search company, status, staff..." 
+                placeholder="Search company, status, staff, product..." 
                 className="pl-8 h-8 text-[13px] border-primary-100" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -179,7 +186,7 @@ export default function ManagerAllLeadsPage() {
             {leadsLoading ? (
               <div className="py-20 flex flex-col items-center">
                 <Loader2 className="animate-spin text-primary mb-2" />
-                <p className="text-[13px] text-muted-foreground">Syncing team pipeline...</p>
+                <p className="text-[13px] text-muted-foreground">Syncing pipeline...</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -230,7 +237,6 @@ export default function ManagerAllLeadsPage() {
                                 </TooltipTrigger>
                                 <TooltipContent><p>{lead.companyName || 'Private Org'}</p></TooltipContent>
                               </Tooltip>
-                              {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
                             </div>
                           </td>
                           <td>
@@ -276,7 +282,7 @@ export default function ManagerAllLeadsPage() {
                           </td>
                           <td className="px-3 text-right">
                             <Link href={`/leads/${lead.id}`}>
-                              <Button variant="ghost" size="sm" className="h-6 text-primary hover:underline text-[11px] font-bold uppercase tracking-tight p-0 px-2">View</Button>
+                              <Button variant="ghost" size="sm" className="h-6 text-primary hover:underline text-[11px] font-bold uppercase p-0 px-2">View</Button>
                             </Link>
                           </td>
                         </tr>
@@ -285,7 +291,7 @@ export default function ManagerAllLeadsPage() {
                     {filteredLeads.length === 0 && (
                       <tr className="h-20">
                         <td colSpan={8} className="text-center text-muted-foreground italic text-[13px]">
-                          No pipeline records match your current criteria.
+                          No records match your search.
                         </td>
                       </tr>
                     )}
@@ -299,9 +305,7 @@ export default function ManagerAllLeadsPage() {
         {/* Bulk Reassign Modal */}
         <Dialog open={isReassignModalOpen} onOpenChange={setIsReassignModalOpen}>
           <DialogContent className="max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle className="text-primary">Reassign {selectedLeads.length} Records</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Reassign {selectedLeads.length} Records</DialogTitle></DialogHeader>
             <div className="py-4 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold uppercase text-slate-400">Target Team Member</label>
@@ -315,10 +319,6 @@ export default function ManagerAllLeadsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <p className="text-[11px] text-slate-500 flex items-start gap-2 bg-slate-50 p-3 rounded border">
-                  <AlertCircle size={14} className="shrink-0 mt-0.5 text-primary" />
-                  Transferring ownership will reset the idle timers for these leads and log the event in the system audit trail.
-              </p>
             </div>
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => setIsReassignModalOpen(false)}>Cancel</Button>

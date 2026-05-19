@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -33,7 +34,7 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Naked query for leads to avoid composite index requirements
+  // Naked query for leads
   const leadsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.id) return null;
     return collection(firestore, 'leads');
@@ -53,15 +54,20 @@ export default function LeadsPage() {
       .filter(lead => {
         const matchesAgent = user.role !== 'Agent' || lead.agentId === user.id;
         const search = searchTerm.toLowerCase().trim();
+        
+        const product = products?.find(p => p.id === lead.productId);
+        
         const matchesSearch = 
           (lead.companyName?.toLowerCase().includes(search)) ||
           (lead.clientName.toLowerCase().includes(search)) || 
           (lead.clientEmail.toLowerCase().includes(search)) ||
-          (lead.status.toLowerCase().includes(search));
+          (lead.status.toLowerCase().includes(search)) ||
+          (product?.name.toLowerCase().includes(search));
+          
         return matchesAgent && matchesSearch;
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [rawLeads, user, searchTerm]);
+  }, [rawLeads, user, searchTerm, products]);
 
   const truncate = (str: string, len: number = 8) => {
     if (!str) return '--';
@@ -73,13 +79,13 @@ export default function LeadsPage() {
     <Shell>
       <TooltipProvider>
         <div className="space-y-3">
-          {/* Toolbar Row 44px */}
+          {/* Toolbar */}
           <div className="h-11 flex items-center justify-between gap-4">
             <h1 className="text-[16px] font-bold shrink-0">My leads</h1>
             <div className="flex-1 max-w-[320px] relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
               <Input 
-                placeholder="Search company, status, person..." 
+                placeholder="Search company, status, product, name..." 
                 className="pl-8 h-8 text-[13px] bg-white" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -102,47 +108,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          {/* Collapsible Filter Panel */}
-          {showFilters && (
-            <div className="bg-card border rounded-md p-3 shadow-sm grid md:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <select className="bg-white border rounded h-8 px-2 text-[12px]">
-                    <option>All Statuses</option>
-                  </select>
-                  <select className="bg-white border rounded h-8 px-2 text-[12px]">
-                    <option>All Products</option>
-                    {products?.map(p => <option key={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <select className="w-full bg-white border rounded h-8 px-2 text-[12px]">
-                  <option>All Channels</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                    <Input type="date" className="h-8 text-[12px] p-1 px-2" />
-                    <Input type="date" className="h-8 text-[12px] p-1 px-2" />
-                </div>
-                <div className="flex items-center gap-2 px-1">
-                  <input type="checkbox" id="idle" className="rounded" />
-                  <label htmlFor="idle" className="text-[12px]">Show Idle only (&gt;72h)</label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Filter Chips */}
-          {searchTerm && (
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="h-5 text-[10px] gap-1 px-1.5 font-normal">
-                Search: {searchTerm}
-                <X size={10} className="cursor-pointer" onClick={() => setSearchTerm('')} />
-              </Badge>
-            </div>
-          )}
-
-          {/* Leads Table */}
+          {/* Table */}
           <div className="bg-card border rounded-md shadow-sm overflow-hidden">
             {leadsLoading ? (
               <div className="py-20 flex flex-col items-center justify-center">
@@ -153,7 +119,7 @@ export default function LeadsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900 border-b h-9">
+                    <tr className="bg-slate-50 border-b h-9">
                       <th className="w-[180px] px-3 text-[12px] font-semibold text-left">Company name</th>
                       <th className="w-[140px] text-[12px] font-semibold text-left">Primary contact</th>
                       <th className="w-[120px] text-[12px] font-semibold text-left">Phone</th>
@@ -175,21 +141,16 @@ export default function LeadsPage() {
                         <tr key={lead.id} className="h-11 hover:bg-slate-50/50 transition-colors group">
                           <td className="px-3">
                             <div className="flex items-center gap-2">
-                              <div className="p-1.5 bg-primary/5 rounded border border-primary/10">
-                                <Building2 size={14} className="text-primary" />
-                              </div>
+                              <Building2 size={14} className="text-primary/30" />
                               <div className="flex flex-col min-w-0">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="text-[13px] font-bold truncate text-slate-800 cursor-help">
-                                      {truncate(lead.companyName || 'Private Organization')}
+                                      {truncate(lead.companyName || 'Private Org')}
                                     </span>
                                   </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="font-bold">{lead.companyName || 'Private Organization'}</p>
-                                  </TooltipContent>
+                                  <TooltipContent><p>{lead.companyName || 'Private Org'}</p></TooltipContent>
                                 </Tooltip>
-                                {isIdle && <span className="text-[8px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase w-max">Idle</span>}
                               </div>
                             </div>
                           </td>
@@ -219,10 +180,7 @@ export default function LeadsPage() {
                             </div>
                           </td>
                           <td className="px-3 text-right">
-                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Link href={`/leads/${lead.id}`} className="text-[12px] text-primary hover:underline font-bold uppercase tracking-tight">View</Link>
-                              <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical size={12} /></Button>
-                            </div>
+                             <Link href={`/leads/${lead.id}`} className="text-[12px] text-primary hover:underline font-bold uppercase tracking-tight">View</Link>
                           </td>
                         </tr>
                       );
@@ -233,22 +191,11 @@ export default function LeadsPage() {
             )}
             
             {!leadsLoading && filteredLeads.length === 0 && (
-              <div className="py-10 flex flex-col items-center justify-center text-center px-4">
-                <AlertCircle size={32} className="text-slate-200 mb-2" />
-                <p className="text-[13px] font-medium">No leads match your search</p>
-                <Button size="sm" variant="outline" className="mt-3 h-8 text-[12px]" onClick={() => setSearchTerm('')}>Clear Search</Button>
+              <div className="py-10 text-center">
+                <AlertCircle size={32} className="text-slate-200 mx-auto mb-2" />
+                <p className="text-[13px] font-medium">No results found.</p>
               </div>
             )}
-
-            <div className="p-3 border-t bg-slate-50/30 flex items-center justify-between text-[12px] text-muted-foreground">
-               <span>Showing {filteredLeads.length} of {rawLeads?.length || 0} records</span>
-               <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                     <Button variant="outline" size="sm" className="h-6 px-2 text-[11px]" disabled>Prev</Button>
-                     <Button variant="outline" size="sm" className="h-6 px-2 text-[11px]" disabled>Next</Button>
-                  </div>
-               </div>
-            </div>
           </div>
         </div>
       </TooltipProvider>

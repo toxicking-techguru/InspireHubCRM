@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react';
@@ -54,7 +55,7 @@ export default function AdminAllLeadsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  // New Filter States
+  // Filter States
   const [filterAgent, setFilterAgent] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterIdle, setFilterIdle] = useState(false);
@@ -63,7 +64,7 @@ export default function AdminAllLeadsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
 
-  // Data fetching - System wide for Admin
+  // Data fetching
   const leadsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.id) return null;
     return query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'));
@@ -84,12 +85,18 @@ export default function AdminAllLeadsPage() {
     if (!leads) return [];
     return leads.filter(l => {
       const search = searchTerm.toLowerCase().trim();
+      
+      // Lookups for search
+      const agent = allAgents?.find(a => a.id === l.agentId);
+      const product = products?.find(p => p.id === l.productId);
+      
       const matchesSearch = 
         (l.companyName?.toLowerCase().includes(search)) ||
         (l.clientName.toLowerCase().includes(search)) || 
         (l.clientEmail.toLowerCase().includes(search)) ||
         (l.status.toLowerCase().includes(search)) ||
-        (allAgents?.find(a => a.id === l.agentId)?.name.toLowerCase().includes(search));
+        (agent?.name.toLowerCase().includes(search)) ||
+        (product?.name.toLowerCase().includes(search));
       
       const matchesAgent = filterAgent === 'all' || l.agentId === filterAgent;
       const matchesStatus = filterStatus === 'all' || l.status === filterStatus;
@@ -102,7 +109,7 @@ export default function AdminAllLeadsPage() {
 
       return matchesSearch && matchesAgent && matchesStatus && matchesIdle;
     });
-  }, [leads, searchTerm, allAgents, filterAgent, filterStatus, filterIdle]);
+  }, [leads, searchTerm, allAgents, products, filterAgent, filterStatus, filterIdle]);
 
   // Paginated data
   const paginatedLeads = useMemo(() => {
@@ -177,10 +184,9 @@ export default function AdminAllLeadsPage() {
 
   const exportCSV = () => {
     if (filteredLeads.length === 0) return;
-    const headers = ['Company', 'Contact Person', 'Email', 'Phone', 'Status', 'Agent', 'Manager', 'Created At'];
+    const headers = ['Company', 'Contact Person', 'Email', 'Phone', 'Status', 'Agent', 'Created At'];
     const rows = filteredLeads.map(l => {
       const agent = allAgents?.find(a => a.id === l.agentId);
-      const manager = allAgents?.find(a => a.id === agent?.managerId);
       return [
         l.companyName || 'Private',
         l.clientName,
@@ -188,7 +194,6 @@ export default function AdminAllLeadsPage() {
         l.clientPhone,
         l.status,
         agent?.name || 'Unknown',
-        manager?.name || 'None',
         l.createdAt
       ];
     });
@@ -210,11 +215,11 @@ export default function AdminAllLeadsPage() {
         <div className="space-y-4">
           {/* Toolbar */}
           <div className="h-11 flex items-center justify-between gap-4">
-            <h1 className="text-[16px] font-bold text-primary-900">System-Wide Leads</h1>
+            <h1 className="text-[16px] font-bold text-primary-900">System Leads</h1>
             <div className="flex-1 max-w-[320px] relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
               <Input 
-                placeholder="Search company, status, staff..." 
+                placeholder="Search company, status, staff, product..." 
                 className="pl-8 h-8 text-[13px] border-primary-100" 
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
@@ -288,7 +293,7 @@ export default function AdminAllLeadsPage() {
                     setCurrentPage(1);
                   }}
                 >Reset All</Button>
-                <Button variant="ghost" size="sm" className="h-8 flex-1 text-[11px] text-slate-400" onClick={() => setShowFilters(false)}>Close Filters</Button>
+                <Button variant="ghost" size="sm" className="h-8 flex-1 text-[11px] text-slate-400" onClick={() => setShowFilters(false)}>Close</Button>
               </div>
             </div>
           )}
@@ -298,7 +303,7 @@ export default function AdminAllLeadsPage() {
             {leadsLoading ? (
               <div className="py-20 flex flex-col items-center">
                 <Loader2 className="animate-spin text-primary-600 mb-2" />
-                <p className="text-[13px] text-muted-foreground">Loading system lead database...</p>
+                <p className="text-[13px] text-muted-foreground">Loading records...</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -312,7 +317,6 @@ export default function AdminAllLeadsPage() {
                         />
                       </th>
                       <th className="w-[180px] text-left">Company name</th>
-                      <th className="w-[140px] text-left">Contact person</th>
                       <th className="w-[140px] text-left">Agent</th>
                       <th className="w-[120px] text-left">Product</th>
                       <th className="w-[90px] text-left">Status</th>
@@ -349,26 +353,15 @@ export default function AdminAllLeadsPage() {
                                 </TooltipTrigger>
                                 <TooltipContent><p>{lead.companyName || 'Private Org'}</p></TooltipContent>
                               </Tooltip>
-                              {isIdle && <span className="text-[9px] bg-red-100 text-red-600 px-1 rounded-full font-bold uppercase">Idle</span>}
                             </div>
-                          </td>
-                          <td className="text-slate-600 font-medium">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help">{truncate(lead.clientName, 10)}</span>
-                              </TooltipTrigger>
-                              <TooltipContent><p>{lead.clientName}</p></TooltipContent>
-                            </Tooltip>
                           </td>
                           <td>
-                            <div className="flex items-center gap-2">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="text-slate-600 truncate cursor-help">{truncate(agentName, 10)}</span>
-                                </TooltipTrigger>
-                                <TooltipContent><p>{agentName}</p></TooltipContent>
-                              </Tooltip>
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-slate-600 truncate cursor-help text-[12px]">{truncate(agentName, 10)}</span>
+                              </TooltipTrigger>
+                              <TooltipContent><p>{agentName}</p></TooltipContent>
+                            </Tooltip>
                           </td>
                           <td className="text-[12px] text-slate-600 truncate">
                              <Tooltip>
@@ -395,7 +388,7 @@ export default function AdminAllLeadsPage() {
                           </td>
                           <td className="px-3 text-right">
                             <Link href={`/leads/${lead.id}`}>
-                              <Button variant="ghost" size="sm" className="h-7 text-primary-600 hover:text-primary-700 hover:bg-primary-50 text-[11px] font-bold uppercase tracking-tight">View</Button>
+                              <Button variant="ghost" size="sm" className="h-7 text-primary-600 hover:text-primary-700 hover:bg-primary-50 text-[11px] font-bold uppercase">View</Button>
                             </Link>
                           </td>
                         </tr>
@@ -403,8 +396,8 @@ export default function AdminAllLeadsPage() {
                     })}
                     {filteredLeads.length === 0 && (
                       <tr className="h-40">
-                        <td colSpan={9} className="text-center text-muted-foreground italic text-[13px]">
-                          No system leads match the current search or filter criteria.
+                        <td colSpan={8} className="text-center text-muted-foreground italic text-[13px]">
+                          No records match your search.
                         </td>
                       </tr>
                     )}
@@ -425,11 +418,6 @@ export default function AdminAllLeadsPage() {
                   >
                     <ChevronLeft size={14} /> Previous
                   </Button>
-                  <div className="flex items-center px-2">
-                    <span className="text-primary font-bold">{currentPage}</span>
-                    <span className="mx-1">/</span>
-                    <span>{totalPages || 1}</span>
-                  </div>
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -447,34 +435,22 @@ export default function AdminAllLeadsPage() {
         {/* Bulk Reassign Modal */}
         <Dialog open={isReassignModalOpen} onOpenChange={setIsReassignModalOpen}>
           <DialogContent className="max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle className="text-primary-950">Reassign {selectedLeads.length} Leads</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Reassign {selectedLeads.length} Leads</DialogTitle></DialogHeader>
             <div className="py-4 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[12px] font-bold text-slate-500 uppercase">Target System User</label>
+                <label className="text-[12px] font-bold text-slate-500 uppercase">Target Staff</label>
                 <Select value={targetAgentId} onValueChange={setTargetAgentId}>
-                  <SelectTrigger className="h-9 text-[13px] border-primary-100">
-                    <SelectValue placeholder="Select new owner..." />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select new owner..." /></SelectTrigger>
                   <SelectContent className="bg-white">
-                    {allAgents?.map(a => (
-                      <SelectItem key={a.id} value={a.id}>
-                          {a.name} ({a.region})
-                      </SelectItem>
-                    ))}
+                    {allAgents?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="text-[12px] text-primary-700 flex items-start gap-2 bg-primary-50 p-3 rounded border border-primary-100">
-                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                  <span>Administrative reassignment will update ownership for all selected records. This event will be logged in the system audit trail.</span>
               </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => setIsReassignModalOpen(false)}>Cancel</Button>
               <Button size="sm" className="bg-primary-600 hover:bg-primary-700" onClick={handleBulkReassign} disabled={!targetAgentId || isProcessing}>
-                {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Transfer Ownership'}
+                {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Transfer'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -486,17 +462,12 @@ export default function AdminAllLeadsPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle className="text-destructive">Permanent Removal</AlertDialogTitle>
                 <AlertDialogDescription className="text-[13px]">
-                  You are about to permanently delete **{selectedLeads.length}** lead records. This action will also orphan any associated interaction logs and cannot be undone.
+                  Delete **{selectedLeads.length}** records permanently?
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel className="h-8 text-[11px] font-bold uppercase">Cancel</AlertDialogCancel>
-                <Button 
-                  variant="destructive" 
-                  className="h-8 text-[11px] font-bold uppercase px-6" 
-                  onClick={handleBulkDelete}
-                  disabled={isProcessing}
-                >
+                <Button variant="destructive" className="h-8 text-[11px] font-bold uppercase px-6" onClick={handleBulkDelete} disabled={isProcessing}>
                   {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Delete Permanently'}
                 </Button>
             </AlertDialogFooter>
